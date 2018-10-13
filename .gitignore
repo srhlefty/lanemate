@@ -74,3 +74,19 @@ ipch/
 
 # Visual Studio 6 workspace options file
 *.opt
+
+
+
+
+# ISE ignore list
+_xmsgs
+iseconfig
+templates
+*.gise
+*.debug
+*.html
+*.tcl
+*.ncd
+*.xwbt
+/firmware/*.prm
+*.cfi
