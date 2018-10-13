@@ -71,6 +71,12 @@
 // From module: Part identification macros
 #include <parts.h>
 
+// From module: SERCOM Polled API
+#include <sercom.h>
+
+// From module: SERCOM USART - Serial Communications (Polled APIs)
+#include <usart.h>
+
 // From module: SYSTEM - Clock Management for SAMD09/D10
 #include <clock.h>
 #include <gclk.h>

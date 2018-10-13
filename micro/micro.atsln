@@ -7,6 +7,8 @@ Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "toggle_test", "toggle_test\
 EndProject
 Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "LED_TOGGLE1", "..\..\..\Atmel Studio\7.0\LED_TOGGLE1\LED_TOGGLE1\LED_TOGGLE1.cproj", "{4774A3A6-F7D8-4A50-B5B7-6C9F6CEA9770}"
 EndProject
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "USART_QUICK_START1", "..\..\..\Atmel Studio\7.0\USART_QUICK_START1\USART_QUICK_START1\USART_QUICK_START1.cproj", "{6C22522D-8D64-4703-B1E7-25CC16118441}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -21,6 +23,10 @@ Global
 		{4774A3A6-F7D8-4A50-B5B7-6C9F6CEA9770}.Debug|ARM.Build.0 = Debug|ARM
 		{4774A3A6-F7D8-4A50-B5B7-6C9F6CEA9770}.Release|ARM.ActiveCfg = Release|ARM
 		{4774A3A6-F7D8-4A50-B5B7-6C9F6CEA9770}.Release|ARM.Build.0 = Release|ARM
+		{6C22522D-8D64-4703-B1E7-25CC16118441}.Debug|ARM.ActiveCfg = Debug|ARM
+		{6C22522D-8D64-4703-B1E7-25CC16118441}.Debug|ARM.Build.0 = Debug|ARM
+		{6C22522D-8D64-4703-B1E7-25CC16118441}.Release|ARM.ActiveCfg = Release|ARM
+		{6C22522D-8D64-4703-B1E7-25CC16118441}.Release|ARM.Build.0 = Release|ARM
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
