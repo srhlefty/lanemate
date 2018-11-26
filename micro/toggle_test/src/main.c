@@ -143,11 +143,12 @@ int main (void)
 
 			uint16_t hdmi_rx_address = 0x98 >> 1;
 			uint16_t hdmi_tx_address = 0x72 >> 1;
+			uint16_t sd_rx_address = 0x40 >> 1;
 			uint8_t reg[1] = {0x00};
 			uint8_t reply[1] = {0x00};
 
 			struct i2c_master_packet packet = {
-				.address     = hdmi_tx_address,
+				.address     = sd_rx_address,
 				.data_length = 1,
 				.data        = reg,
 				.ten_bit_address = false,
