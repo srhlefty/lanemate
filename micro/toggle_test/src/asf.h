@@ -71,6 +71,10 @@
 // From module: Part identification macros
 #include <parts.h>
 
+// From module: SERCOM I2C - Master Mode I2C (Polled APIs)
+#include <i2c_common.h>
+#include <i2c_master.h>
+
 // From module: SERCOM Polled API
 #include <sercom.h>
 
