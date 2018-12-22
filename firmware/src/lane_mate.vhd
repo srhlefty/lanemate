@@ -33,66 +33,131 @@ entity lane_mate is
 port (
    SYSCLK : in std_logic;
 	
-	GPIO0 : out std_logic;
-	GPIO1 : out std_logic;
-	GPIO2 : out std_logic;
-	GPIO3 : out std_logic;
-	GPIO4 : out std_logic;
-	GPIO5 : out std_logic;
-	GPIO6 : out std_logic;
-	GPIO7 : out std_logic;
-	GPIO8 : out std_logic;
-	GPIO9 : out std_logic;
-	GPIO10 : out std_logic;
-	GPIO11 : out std_logic;
-	GPIO12 : out std_logic;
-	GPIO13 : out std_logic;
-	GPIO14 : out std_logic;
-	GPIO15 : out std_logic;
-	GPIO24 : out std_logic;
-	GPIO25 : out std_logic
+	HDI_PCLK : in std_logic;
+	HDI_VS : in std_logic;
+	HDI_HS : in std_logic;
+	HDI_DE : in std_logic;
+	HDI_INT : in std_logic;
+	RGB_IN : in std_logic_vector(23 downto 0);
+	
+	HDO_PCLK : out std_logic;
+	HDO_VS : out std_logic;
+	HDO_HS : out std_logic;
+	HDO_DE : out std_logic;
+	HDO_INT : in std_logic;
+	RGB_OUT : out std_logic_vector(23 downto 0);
+	
+	B0_GPIO0 : out std_logic;
+	B1_GPIO1 : out std_logic;
+	B1_GPIO2 : out std_logic;
+	B1_GPIO3 : out std_logic;
+	B1_GPIO4 : out std_logic;
+	B1_GPIO5 : out std_logic;
+	B1_GPIO6 : out std_logic;
+	B1_GPIO7 : out std_logic;
+	B1_GPIO8 : out std_logic;
+	B1_GPIO9 : out std_logic;
+	B1_GPIO10 : out std_logic;
+	B1_GPIO11 : out std_logic;
+	B1_GPIO12 : out std_logic;
+	B1_GPIO13 : out std_logic;
+	B1_GPIO14 : out std_logic;
+	B1_GPIO15 : out std_logic;
+	B1_GPIO24 : out std_logic;
+	B1_GPIO25 : out std_logic
 );
 end lane_mate;
 
 architecture Behavioral of lane_mate is
 
-	signal val : std_logic_vector(15 downto 0) := x"0001";
-	signal count : natural := 0;
+	component clock_forwarding is
+    Port ( CLK : in  STD_LOGIC;
+           CLKO : out  STD_LOGIC);
+	end component;
 	
 begin
 
-	process(SYSCLK) is
+	hd_shunt : block is
+		signal idata : std_logic_vector(23 downto 0) := (others => '0');
+		signal ivs : std_logic := '0';
+		signal ihs : std_logic := '0';
+		signal ide : std_logic := '0';
+		signal odata : std_logic_vector(23 downto 0);
+		signal ovs : std_logic := '0';
+		signal ohs : std_logic := '0';
+		signal ode : std_logic := '0';
 	begin
-	if(rising_edge(SYSCLK)) then
-		if(count = 100000000 / 16) then
-			count <= 0;
-			val(15 downto 1) <= val(14 downto 0);
-			val(0) <= val(15);
-		else
-			count <= count + 1;
+		process(HDI_PCLK) is
+		begin
+		if(rising_edge(HDI_PCLK)) then
+			idata <= RGB_IN;
+			ivs <= HDI_VS;
+			ihs <= HDI_HS;
+			ide <= HDI_DE;
+			
+			odata <= idata;
+			ovs <= ivs;
+			ohs <= ihs;
+			ode <= ide;
+			
+			RGB_OUT <= odata;
+			HDO_VS <= ovs;
+			HDO_HS <= ohs;
+			HDO_DE <= ode;
 		end if;
-	end if;
-	end process;
+		end process;
+		
+		-- TODO: adjust phase of output clock
+		Inst_clock_forwarding: clock_forwarding PORT MAP(
+			CLK => HDI_PCLK,
+			CLKO => HDO_PCLK
+		);
 	
-	GPIO0 <= val(0);
-	GPIO1 <= val(1);
-	GPIO2 <= val(2);
-	GPIO3 <= val(3);
-	GPIO4 <= val(4);
-	GPIO5 <= val(5);
-	GPIO6 <= val(6);
-	GPIO7 <= val(7);
-	GPIO8 <= val(8);
-	GPIO9 <= val(9);
-	GPIO10 <= val(10);
-	GPIO11 <= val(11);
-	GPIO12 <= val(12);
-	GPIO13 <= val(13);
-	GPIO14 <= val(14);
-	GPIO15 <= val(15);
+	end block;
 
-	GPIO24 <= '0';
-	GPIO25 <= '0';
+
+
+
+
+	blinker : block is
+		signal val : std_logic_vector(15 downto 0) := x"0001";
+		signal count : natural := 0;
+	begin
+	
+		process(SYSCLK) is
+		begin
+		if(rising_edge(SYSCLK)) then
+			if(count = 100000000 / 16) then
+				count <= 0;
+				val(15 downto 1) <= val(14 downto 0);
+				val(0) <= val(15);
+			else
+				count <= count + 1;
+			end if;
+		end if;
+		end process;
+		
+		B0_GPIO0 <= val(0);
+		B1_GPIO1 <= val(1);
+		B1_GPIO2 <= val(2);
+		B1_GPIO3 <= val(3);
+		B1_GPIO4 <= val(4);
+		B1_GPIO5 <= val(5);
+		B1_GPIO6 <= val(6);
+		B1_GPIO7 <= val(7);
+		B1_GPIO8 <= val(8);
+		B1_GPIO9 <= val(9);
+		B1_GPIO10 <= val(10);
+		B1_GPIO11 <= val(11);
+		B1_GPIO12 <= val(12);
+		B1_GPIO13 <= val(13);
+		B1_GPIO14 <= val(14);
+		B1_GPIO15 <= val(15);
+
+		B1_GPIO24 <= '0';
+		B1_GPIO25 <= '0';
+	
+	end block;
 
 end Behavioral;
 
