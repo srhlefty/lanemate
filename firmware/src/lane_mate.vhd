@@ -26,12 +26,15 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+library UNISIM;
+use UNISIM.VComponents.all;
 
 entity lane_mate is
 port (
    SYSCLK : in std_logic;
+	
+	I2C_SDA : inout std_logic;
+	I2C_SCL : inout std_logic;
 	
 	HDI_PCLK : in std_logic;
 	HDI_VS : in std_logic;
@@ -116,6 +119,29 @@ begin
 	end block;
 
 
+   iobuf1 : IOBUF
+   generic map (
+      DRIVE => 12,
+      IOSTANDARD => "I2C",
+      SLEW => "SLOW")
+   port map (
+      O => open,     -- Buffer output
+      IO => I2C_SDA,   -- Buffer inout port (connect directly to top-level port)
+      I => '1',     -- Buffer input
+      T => '1'      -- 3-state enable input, high=input, low=output 
+   );
+
+   iobuf2 : IOBUF
+   generic map (
+      DRIVE => 12,
+      IOSTANDARD => "I2C",
+      SLEW => "SLOW")
+   port map (
+      O => open,     -- Buffer output
+      IO => I2C_SCL,   -- Buffer inout port (connect directly to top-level port)
+      I => '1',     -- Buffer input
+      T => '1'      -- 3-state enable input, high=input, low=output 
+   );
 
 
 
