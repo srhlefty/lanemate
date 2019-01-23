@@ -74,6 +74,7 @@ end lane_mate;
 architecture Behavioral of lane_mate is
 
 	component clock_forwarding is
+	 Generic( INVERT : boolean);
     Port ( CLK : in  STD_LOGIC;
            CLKO : out  STD_LOGIC);
 	end component;
@@ -110,8 +111,13 @@ begin
 		end if;
 		end process;
 		
-		-- TODO: adjust phase of output clock
-		Inst_clock_forwarding: clock_forwarding PORT MAP(
+		-- By inverting the clock here I'm putting the rising
+		-- edge in the middle of the data eye
+		Inst_clock_forwarding: clock_forwarding 
+		GENERIC MAP(
+			INVERT => true
+		)
+		PORT MAP(
 			CLK => HDI_PCLK,
 			CLKO => HDO_PCLK
 		);

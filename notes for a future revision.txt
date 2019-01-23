@@ -1,0 +1,7 @@
+- Fix DONE wiring
+- Move interrupt pin on HDMI RX to the micro
+- Move reset pin on HDMI RX to the micro
+- That reset pin needs a soft pullup instead of a hard pullup
+- Change micro's power supply to 3.3V
+- SD rx chip also supports S-video and component; add connectors for those
+

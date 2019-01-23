@@ -464,11 +464,11 @@ void servicer()
 			{
 				print("\r\n");
 				// message complete, process
-				if(buffer[0] == 'r' && buffer[1] == 'e' && buffer[2] == 'a' && buffer[3] == 'd')
+				if(buffer[0] == 'R')
 				{
-					// read [slave address] [register]
-					uint8_t slave = string_to_byte(buffer+5);
-					uint8_t reg = string_to_byte(buffer+8);
+					// R [slave address] [register]
+					uint8_t slave = string_to_byte(buffer+2);
+					uint8_t reg = string_to_byte(buffer+5);
 					uint8_t value;
 					int code = i2c_read_reg(slave, reg, &value);
 					if(code == SLAVE_OK)
@@ -484,11 +484,26 @@ void servicer()
 						print("Slave: no response\r\n");
 					}
 					
-				}else if(buffer[0] == 'w' && buffer[1] == 'r' && buffer[2] == 'i' && buffer[3] == 't' && buffer[4] == 'e')
+				}else if(buffer[0] == 'W')
 				{
-
+					// W [slave address] [register] [value]
+					uint8_t slave = string_to_byte(buffer+2);
+					uint8_t reg = string_to_byte(buffer+5);
+					uint8_t value = string_to_byte(buffer+8);
+					int code = i2c_write_reg(slave, reg, value);
+					if(code == SLAVE_OK)
+					{
+						print("OK\r\n");
+					}else if(code == SLAVE_NAK)
+					{
+						print("NAK\r\n");
+					}else if(code == SLAVE_NO_ACK)
+					{
+						print("No response\r\n");
+					}
 				}else if(buffer[0] == 'd' && buffer[1] == 'u' && buffer[2] == 'm' && buffer[3] == 'p')
 				{
+					// dump [slave address] [starting register] [count]
 					uint8_t slave = string_to_byte(buffer+5);
 					uint8_t reg = string_to_byte(buffer+8);
 					unsigned int count = string_to_byte(buffer+11);
@@ -513,14 +528,10 @@ void servicer()
 						delay_cycles_ms(1);
 					}
 					print("\r\n");
-				}else if(buffer[0] == 'r' && buffer[1] == 's' && buffer[2] == 't')
-				{
-					i2c_master_reset(&i2c_master_instance);
-					configure_i2c_master();
 				}
 				else
 				{
-					print("Usage:\r\n  read <slave> <register>\r\n  write <slave> <register> <value>\r\n  dump <slave> <start register> <count>\r\n(all values are in hex)\r\n");
+					print("Usage:\r\n  R <slave> <register>\r\n  W <slave> <register> <value>\r\n  dump <slave> <start register> <count>\r\n(all values are in hex)\r\n");
 				}
 				print("> ");
 				ptr = 0;
