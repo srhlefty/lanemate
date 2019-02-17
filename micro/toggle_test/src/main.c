@@ -591,10 +591,10 @@ int main (void)
 	print("HDMI TX, Main:      "); byte_to_string(str, hdmi_tx_address); print(str);
 	print("HDMI TX, EDID:      "); byte_to_string(str, 0x7E >> 1); print(str);
 
-	print("Entering event loop\r\n");
+	//print("Entering event loop\r\n");
 
 
-	servicer();
+	//servicer();
 
 	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
 	uint32_t ticks_between_interrupts = ticks_per_second / 1;
@@ -605,6 +605,18 @@ int main (void)
 		if(handle_event)
 		{
 			handle_event = false;
+
+
+			uint8_t status1, status2, status3;
+			i2c_read_reg(sd_rx_address, 0x10, &status1);
+			i2c_read_reg(sd_rx_address, 0x12, &status2);
+			i2c_read_reg(sd_rx_address, 0x13, &status3);
+			print("status 1,2,3: ");
+			uint8_t str[18] = "XX, XX, XX\r\n";
+			byte_to_string(str, status1);
+			byte_to_string(str+4, status2);
+			byte_to_string(str+8, status3);
+			print(str);
 
 			/*
 			// measure the input video stream, if it exists

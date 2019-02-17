@@ -43,6 +43,12 @@ port (
 	HDI_INT : in std_logic;
 	RGB_IN : in std_logic_vector(23 downto 0);
 	
+	SDI_PCLK : in std_logic;
+	SDI_HS : in std_logic;
+	SDI_VS : in std_logic;
+	SDI_INT : in std_logic;
+	SDV : in std_logic_vector(7 downto 0);
+	
 	HDO_PCLK : out std_logic;
 	HDO_VS : out std_logic;
 	HDO_HS : out std_logic;
@@ -79,9 +85,13 @@ architecture Behavioral of lane_mate is
            CLKO : out  STD_LOGIC);
 	end component;
 	
+	
+	type video_in_t is (HDMI, COMPOSITE);
+	signal video_input_source : video_in_t := COMPOSITE;
+	
 begin
 
-	hd_shunt : block is
+	sd_shunt : block is
 		signal idata : std_logic_vector(23 downto 0) := (others => '0');
 		signal ivs : std_logic := '0';
 		signal ihs : std_logic := '0';
@@ -91,13 +101,13 @@ begin
 		signal ohs : std_logic := '0';
 		signal ode : std_logic := '0';
 	begin
-		process(HDI_PCLK) is
+		process(SDI_PCLK) is
 		begin
-		if(rising_edge(HDI_PCLK)) then
-			idata <= RGB_IN;
-			ivs <= HDI_VS;
-			ihs <= HDI_HS;
-			ide <= HDI_DE;
+		if(rising_edge(SDI_PCLK)) then
+			idata(7 downto 0) <= SDV;
+			ivs <= SDI_VS;
+			ihs <= SDI_HS;
+			ide <= '0';
 			
 			odata <= idata;
 			ovs <= ivs;
@@ -111,18 +121,58 @@ begin
 		end if;
 		end process;
 		
-		-- By inverting the clock here I'm putting the rising
-		-- edge in the middle of the data eye
 		Inst_clock_forwarding: clock_forwarding 
 		GENERIC MAP(
 			INVERT => true
 		)
 		PORT MAP(
-			CLK => HDI_PCLK,
+			CLK => SDI_PCLK,
 			CLKO => HDO_PCLK
 		);
-	
 	end block;
+
+--	hd_shunt : block is
+--		signal idata : std_logic_vector(23 downto 0) := (others => '0');
+--		signal ivs : std_logic := '0';
+--		signal ihs : std_logic := '0';
+--		signal ide : std_logic := '0';
+--		signal odata : std_logic_vector(23 downto 0);
+--		signal ovs : std_logic := '0';
+--		signal ohs : std_logic := '0';
+--		signal ode : std_logic := '0';
+--	begin
+--		process(HDI_PCLK) is
+--		begin
+--		if(rising_edge(HDI_PCLK)) then
+--			idata <= RGB_IN;
+--			ivs <= HDI_VS;
+--			ihs <= HDI_HS;
+--			ide <= HDI_DE;
+--			
+--			odata <= idata;
+--			ovs <= ivs;
+--			ohs <= ihs;
+--			ode <= ide;
+--			
+--			RGB_OUT <= odata;
+--			HDO_VS <= ovs;
+--			HDO_HS <= ohs;
+--			HDO_DE <= ode;
+--		end if;
+--		end process;
+--		
+--		-- By inverting the clock here I'm putting the rising
+--		-- edge in the middle of the data eye
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			CLK => HDI_PCLK,
+--			CLKO => HDO_PCLK
+--		);
+--	
+--	end block;
 
 
    iobuf1 : IOBUF
