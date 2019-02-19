@@ -210,6 +210,7 @@
   <armgcc.common.outputfiles.eep>True</armgcc.common.outputfiles.eep>
   <armgcc.common.outputfiles.bin>True</armgcc.common.outputfiles.bin>
   <armgcc.common.outputfiles.srec>True</armgcc.common.outputfiles.srec>
+  <armgcc.compiler.general.ChangeDefaultCharTypeUnsigned>True</armgcc.compiler.general.ChangeDefaultCharTypeUnsigned>
   <armgcc.compiler.symbols.DefSymbols>
     <ListValues>
       <Value>NDEBUG</Value>
@@ -271,6 +272,7 @@
     </ListValues>
   </armgcc.linker.libraries.LibrarySearchPaths>
   <armgcc.linker.optimization.GarbageCollectUnusedSections>True</armgcc.linker.optimization.GarbageCollectUnusedSections>
+  <armgcc.linker.memorysettings.ExternalRAM />
   <armgcc.linker.miscellaneous.LinkerFlags>-Wl,--entry=Reset_Handler -Wl,--cref -mthumb -T../src/ASF/sam0/utils/linker_scripts/samd10/gcc/samd10d14as_flash.ld</armgcc.linker.miscellaneous.LinkerFlags>
   <armgcc.assembler.general.IncludePaths>
     <ListValues>
@@ -546,6 +548,30 @@
     <Folder Include="src\config\" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="src\hdmi_rx.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\hdmi_rx.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\i2c.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\i2c.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\uart.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\uart.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\utils.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\utils.h">
+      <SubType>compile</SubType>
+    </Compile>
     <None Include="src\ASF\common2\services\delay\delay.h">
       <SubType>compile</SubType>
     </None>

@@ -1,0 +1,100 @@
+SD digital format:
+
+YCbCr is transmitted over an 8-bit bus like this:
+Cb[1] Y[1] Cr[1] Y[2] Cb[3] Y[3] Cr[3] Y[4]
+So we have a full 24-bit sample every other pixel.
+The LLC coming out of the ADV7180 is 27MHz so technically I get a full pixel at 9MHz.
+
+The active frame is 720 pixels wide. There are 720 Y samples, 360 Cb samples, and 360 Cr samples. Therefore the line has 1440 LLC's of active data.
+
+The spec says the line frequency is 15.734kHz. That means there are 27MHz/15.734kHz = 1716 LLC's per line.
+Looking at the output of the Owl camera on my scope, the dead time is at the start of the line.
+So the back porch is 1716-1440 = 276 LLC's.
+
+There are 480 visible lines, which implies after the FIELD edge there should be 525-480 = 45 blank lines.
+
+
+
+Input to the ADV7513:
+
+720x480i is a standard format. Note that 720x480 is not a square pixel format, the intended aspect is 4:3. The 7513 says it can detect and receive it. According to an application note that describes a video generator in an fpga, only VSYNC is delivered to the ADV7513. This implies the chip detects the field transition, presumably based on measuring the line length and total number of lines and recognizing the standard. 
+
+Look at the CEA861D document, it confirms the timing parameters I derived above.
+
+I think I should start by configuring the 7513 for YCbCr 4:2:2 input and have the 7180 output VSYNC. I can use the CEA861D to generate DE inside the fpga, based on detecting VSYNC. Then I can look to see whether the 7513 detects the video, and if so which VIC (register 0x3E).
+
+See "Input ID=3" on page 29. 27MHz is the correct clock already, since each rising edge gives either Y, Cb, or Cr on the bus.
+
+
+
+2/16/2019
+
+Setting register 0x58 to 0x05 switches the VS/FIELD pin to outputting VSYNC (0x04 is the default). VSYNC goes high at the start of every *field* not every frame.
+
+The 7180 outputs VSYNC as active-high; the 7513 expects active-low, so I had to invert the line in the fpga.
+
+The 7513 detects VIC=6 (480i-60, 2x clk, 4:3) when I use the following register settings:
+0x15 = 0x03 
+0x16 = 0b10110101
+Note that format 6, according to CEA861D, is 720(1440)x480i @59.94Hz.
+1716 total horizontal clocks per line
+114 clocks between the rising edge of HSYNC (active low) and the rising edge of DE
+1440 clocks of active video (720 pixels)
+38 clocks between the falling edge of DE and the falling edge of HSYNC
+124 clocks wide HSYNC
+22 vertical blanking lines before field 1
+240 active lines per field
+23 vertical blanking lines before field 2
+3 lines wide VSYNC
+
+Register 0x15 means "8, 10, 12 bit YCbCr 4:2:2 (2x pixel clock, separate syncs)"
+Register 0x16 means:
+- output format 4:2:2
+- 8-bit color depth input
+- "style 2" input pins, which means video data on (7 downto 0)
+- I set output colorspace for black to be YCbCr but I don't know if that matters
+
+In the 7513 terminology, I am giving it a 2x pixel clock. It takes 3 samples to make one pixel, but we drop the color info every other pixel, and so there are 4 samples per 2 pixels. The clock rate is the sample rate, and thus there are 4 clocks per 2 pixels, i.e. a 2x clock.
+
+The 7513 will detect the VIC for you even without anything on the DE input. It must only use VS/HS/PCLK then.
+
+So now without seemingly changing anything, I no longer get VIC=6. Now VIC=0, with the aux VIC indicating "480i active", which is not explained anywhere. Also, the monitor says "no signal".
+
+
+2/17/2019
+
+Put timing generator in the fpga and got 1080p, 1080i, and 720p to display. Clue: CEA861D says 480i uses doubled pixels, suggesting the actual pixel clock freq is lower. So maybe I need to configure the 7513 to expect doubling instead of 2x clock? There is a minimum clock speed on the interface, which is why the higer frequency is used. 
+
+Also got 720x480p (27MHz pclk) to display. So this is 4:4:4.
+
+
+2/18/2019
+
+It's possible that the monitor I'm using doesn't have the ability to accept a 4:2:2 interlaced format. How can I test that one piece at a time?
+
+I can set the 7513 to output 4:2:2 and the monitor displays something, but it's not what I expected. If I give it (255,0,0) or (0,0,255) for every pixel, what the monitor displays is alternating red and black pixels. If I give it (0,255,0) the monitor displays solid green. DVI/HDMI mode doesn't affect it. Colorspace converter slightly modifies the display color but doesn't really change the stripe pattern.
+
+*** At this point I've concluded I need to keep the 7513 in 4:4:4 output mode.
+
+To reliably get the monitor to display: don't wait too long after a power cycle to update the firmware and reprogram the micro. 
+- Power cycle the board
+- Wait until blinking lights
+- reprogram firmware
+- reprogram micro
+
+Next test: generate 4:4:4 YCbCr in the fpga, convert to RGB in the 7513. The data bus into the 7513 goes Cr,Y,Cb in 4:4:4 mode, so I gave it 0x15,0x95,0x2B which should be pure green. If interpreted as RGB, it looks like a pleasant dark green. I enabled the CSC and copied the register values from table 35, and then it once again appeared as pure green on the monitor.
+
+The output color format bit in register 16 doesn't affect the way my green is displayed. This implies that the monitor only accepts RGB.
+
+Together with the above conclusion, I must conclude that the monitor can only display RGB 4:4:4.
+
+Ok so I'm back to the issue of how 4:2:2 is transmitted over the bus and what the 7513 does with it. First I'll go back to 480p 4:4:4 (VIC 2/3), because progressive feels simpler and there is a VIC for a 2X clock variant (VIC 14/15). With 4:4:4 mode, 4 pixels' worth of data takes 4 clocks. With 4:2:2 over an 8-bit bus, 4 clocks only gets us 2 pixels' worth of data, and so we double the clock frequency to compensate.
+
+So the first thing to do is modify the frame generator to spit out the 4:2:2 pattern, given a 2X clock.
+
+
+2/19/2019
+
+So it looks like the issue is something to do with either the timing signals generated by the 7180 or the DE that I tried generating on top. I replaced that code with the synthetic frame generator set to produce 720(1440)x480i 4:4:4 and the 7513 picked it up right away as VIC #6 and the monitor successfully displayed it. I then modified the output to produce a 4:2:2 stream instead, and again the 7513 handled it and the monitor displayed it. But this time the 7513 did not classify it as VIC #6: instead it appeared under the aux VIC register as "480i active". So that value does not mean something is wrong or that the 7513 won't display it.
+
+My plan now is to trigger the synthetic frame generator from the FIELD signal given to me by the 7180 and align its output to the incoming data stream.

@@ -22,7 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
@@ -79,6 +79,61 @@ end lane_mate;
 
 architecture Behavioral of lane_mate is
 
+	COMPONENT clk_hd
+	PORT(
+		CLK100 : IN std_logic;
+		RST : IN std_logic;          
+		CLK74p25 : OUT std_logic;
+		CLK148p5 : OUT std_logic;
+		LOCKED : OUT std_logic
+		);
+	END COMPONENT;
+	
+	COMPONENT clk_sd
+	PORT(
+		CLK100 : IN std_logic;
+		RST : IN std_logic;          
+		CLK27 : OUT std_logic;
+		CLK54 : OUT std_logic;
+		LOCKED : OUT std_logic
+		);
+	END COMPONENT;
+	
+	COMPONENT timing_gen
+	PORT(
+		CLK : IN std_logic;
+		RST : IN std_logic;
+		VIC : IN std_logic_vector(7 downto 0);          
+		VS : OUT std_logic;
+		HS : OUT std_logic;
+		DE : OUT std_logic;
+		D : OUT std_logic_vector(23 downto 0)
+		);
+	END COMPONENT;
+	
+	COMPONENT timing_inspect
+	PORT(
+		PCLK : IN std_logic;
+		VS : IN std_logic;
+		HS : IN std_logic;          
+		HCOUNT : OUT natural;
+		HSYNC_WIDTH : OUT natural;
+		VCOUNT : OUT natural;
+		VSYNC_WIDTH : OUT natural
+		);
+	END COMPONENT;
+	
+	COMPONENT generate_sd_de
+	PORT(
+		PCLK : IN std_logic;
+		FIELD : IN std_logic;
+		HSIN : IN std_logic;          
+		HS : OUT std_logic;          
+		VS : OUT std_logic;
+		DE : OUT std_logic
+		);
+	END COMPONENT;
+
 	component clock_forwarding is
 	 Generic( INVERT : boolean);
     Port ( CLK : in  STD_LOGIC;
@@ -91,45 +146,156 @@ architecture Behavioral of lane_mate is
 	
 begin
 
-	sd_shunt : block is
-		signal idata : std_logic_vector(23 downto 0) := (others => '0');
-		signal ivs : std_logic := '0';
-		signal ihs : std_logic := '0';
-		signal ide : std_logic := '0';
-		signal odata : std_logic_vector(23 downto 0);
-		signal ovs : std_logic := '0';
-		signal ohs : std_logic := '0';
-		signal ode : std_logic := '0';
+	synth : block is
+		signal clk148 : std_logic;
+		signal clk74 : std_logic;
+		signal clk27 : std_logic;
+		signal clk54 : std_logic;
+		signal rst : std_logic := '1';
+		signal once : std_logic := '0';
 	begin
-		process(SDI_PCLK) is
-		begin
-		if(rising_edge(SDI_PCLK)) then
-			idata(7 downto 0) <= SDV;
-			ivs <= SDI_VS;
-			ihs <= SDI_HS;
-			ide <= '0';
-			
-			odata <= idata;
-			ovs <= ivs;
-			ohs <= ihs;
-			ode <= ide;
-			
-			RGB_OUT <= odata;
-			HDO_VS <= ovs;
-			HDO_HS <= ohs;
-			HDO_DE <= ode;
-		end if;
-		end process;
-		
+
+		Inst_clk_hd: clk_hd PORT MAP(
+			CLK100 => SYSCLK,
+			CLK74p25 => clk74,
+			CLK148p5 => clk148,
+			RST => '0',
+			LOCKED => open
+		);
+		Inst_clk_sd: clk_sd PORT MAP(
+			CLK100 => SYSCLK,
+			CLK27 => clk27,
+			CLK54 => clk54,
+			RST => '0',
+			LOCKED => open
+		);
+	
 		Inst_clock_forwarding: clock_forwarding 
 		GENERIC MAP(
 			INVERT => true
 		)
 		PORT MAP(
-			CLK => SDI_PCLK,
+			CLK => clk27,
 			CLKO => HDO_PCLK
 		);
+		
+		Inst_timing_gen: timing_gen PORT MAP(
+			CLK => clk27,
+			RST => rst,
+			VIC => x"00",
+			VS => HDO_VS,
+			HS => HDO_HS,
+			DE => HDO_DE,
+			D => RGB_OUT
+		);
+		
+		process(clk27) is
+		begin
+		if(rising_edge(clk27)) then
+			if(once = '0') then
+				rst <= '0';
+				once <= '1';
+			end if;
+		end if;
+		end process;
+		
+		
 	end block;
+
+
+
+
+
+
+--	sd_shunt : block is
+--		signal idata : std_logic_vector(23 downto 0) := (others => '0');
+--		signal ifield : std_logic := '0';
+--		signal ihs : std_logic := '0';
+--		signal ide : std_logic := '0';
+--		signal odata : std_logic_vector(23 downto 0);
+--		signal ovs : std_logic := '0';
+--		signal ohs : std_logic := '0';
+--		signal ode : std_logic := '0';
+--		signal hcount : natural range 0 to 65535;
+--		signal vcount : natural range 0 to 65535;
+--	begin
+--		process(SDI_PCLK) is
+--		begin
+--		if(rising_edge(SDI_PCLK)) then
+--			idata(7 downto 0) <= SDV;
+--			ifield <= SDI_VS; -- 7180 sends me FIELD by default
+--			ihs <= SDI_HS;
+--			ide <= '0';
+--			
+--			odata <= idata;
+--			--ovs <= ivs;
+--			--ohs <= ihs;
+--			--ode <= ide;
+--			
+--			RGB_OUT <= odata;
+--			HDO_VS <= ovs;
+--			HDO_HS <= ohs;
+--			HDO_DE <= ode;
+--		end if;
+--		end process;
+--		
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			CLK => SDI_PCLK,
+--			CLKO => HDO_PCLK
+--		);
+--		
+--		Inst_generate_sd_de: generate_sd_de PORT MAP(
+--			PCLK => SDI_PCLK,
+--			FIELD => ifield,
+--			HSIN => ihs,
+--			HS => ohs,
+--			VS => ovs,
+--			DE => ode
+--		);
+--		
+--		Inst_timing_inspect: timing_inspect PORT MAP(
+--			PCLK => SDI_PCLK,
+--			VS => ovs,
+--			HS => ohs,
+--			HCOUNT => hcount,
+--			HSYNC_WIDTH => open,
+--			VCOUNT => vcount,
+--			VSYNC_WIDTH => open
+--		);
+--		
+--		process(SDI_PCLK) is
+--			variable count : std_logic_vector(15 downto 0);
+--		begin
+--		if(rising_edge(SDI_PCLK)) then
+--			count := std_logic_vector(to_unsigned(vcount, count'length));
+--			B0_GPIO0 <= count(0);
+--			B1_GPIO1 <= count(1);
+--			B1_GPIO2 <= count(2);
+--			B1_GPIO3 <= count(3);
+--			B1_GPIO4 <= count(4);
+--			B1_GPIO5 <= count(5);
+--			B1_GPIO6 <= count(6);
+--			B1_GPIO7 <= count(7);
+--			B1_GPIO8 <= count(8);
+--			B1_GPIO9 <= count(9);
+--			B1_GPIO10 <= count(10);
+--			B1_GPIO11 <= count(11);
+--			B1_GPIO12 <= count(12);
+--			B1_GPIO13 <= count(13);
+--			B1_GPIO14 <= count(14);
+--			B1_GPIO15 <= count(15);
+--		end if;
+--		end process;
+--		
+--	end block;
+
+
+
+
 
 --	hd_shunt : block is
 --		signal idata : std_logic_vector(23 downto 0) := (others => '0');

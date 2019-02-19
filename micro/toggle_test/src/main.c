@@ -1,164 +1,14 @@
 #include <asf.h>
 #include <samd10d14as.h> // this is redundant and just here to remind myself of the part #
 #include <string.h>
+#include "utils.h"
+#include "i2c.h"
+#include "uart.h"
+#include "hdmi_rx.h"
 
 #define TEST_PIN PIN_PA24
-
-struct usart_module usart_instance;
-struct i2c_master_module i2c_master_instance;
-
-void configure_usart(void);
-void configure_i2c_master(void);
-
-void configure_usart(void)
-{
-	struct usart_config config_usart;
-	usart_get_config_defaults(&config_usart);
-
-	config_usart.use_external_clock = false;
-	config_usart.baudrate    = 9600;
-	config_usart.transfer_mode = USART_TRANSFER_ASYNCHRONOUSLY;
-	config_usart.receiver_enable = true;
-	config_usart.transmitter_enable = true;
-	config_usart.stopbits = USART_STOPBITS_1;
-	config_usart.mux_setting = USART_RX_1_TX_0_XCK_1; // TX on PAD0, RX on PAD1, PAD2 unused, PAD3 unused
-	// pin 1 = PA05 -> SERCOM0[3]
-	// pin 2 = PA06 -> SERCOM0[0]
-	// pin 3 = PA07 -> SERCOM0[1]
-	// pin 4 = PA08 -> SERCOM0[2]
-	config_usart.pinmux_pad0 = PINMUX_PA06C_SERCOM0_PAD0;
-	config_usart.pinmux_pad1 = PINMUX_PA07C_SERCOM0_PAD1;
-	config_usart.pinmux_pad2 = PINMUX_PA08D_SERCOM0_PAD2;
-	config_usart.pinmux_pad3 = PINMUX_PA05C_SERCOM0_PAD3;
-
-	while (usart_init(&usart_instance, SERCOM0, &config_usart) != STATUS_OK) {
-	}
-
-	usart_enable(&usart_instance);
-}
-
-void configure_i2c_master(void)
-{
-	struct i2c_master_config config_i2c_master;
-	i2c_master_get_config_defaults(&config_i2c_master);
-
-	config_i2c_master.buffer_timeout = 10000;
-	config_i2c_master.run_in_standby = false;
-	// The board connects the I2C bus to pins 6 (PA14) and 7 (PA15) on the SAM10D.
-	// Those pins can mux between SERCOM0 and SERCOM2, but I'm already using SERCOM0
-	// on pins 1-4 for the UART, thus I2C is being run on SERCOM2.
-	// Pin 6 becomes SERCOM2, PAD0 (SDA)
-	// Pin 7 becomes SERCOM2, PAD1 (SCL)
-	config_i2c_master.pinmux_pad0 = PINMUX_PA14D_SERCOM2_PAD0;
-	config_i2c_master.pinmux_pad1 = PINMUX_PA15D_SERCOM2_PAD1;
-
-	i2c_master_init(&i2c_master_instance, SERCOM2, &config_i2c_master);
-
-	i2c_master_enable(&i2c_master_instance);
-}
-uint8_t nibble_to_char(uint8_t value)
-{
-	switch(value & 0x0F)
-	{
-		case 0x0:
-			return '0';
-		case 0x1:
-			return '1';
-		case 0x2:
-			return '2';
-		case 0x3:
-			return '3';
-		case 0x4:
-			return '4';
-		case 0x5:
-			return '5';
-		case 0x6:
-			return '6';
-		case 0x7:
-			return '7';
-		case 0x8:
-			return '8';
-		case 0x9:
-			return '9';
-		case 0xA:
-			return 'A';
-		case 0xB:
-			return 'B';
-		case 0xC:
-			return 'C';
-		case 0xD:
-			return 'D';
-		case 0xE:
-			return 'E';
-		case 0xF:
-			return 'F';
-	}
-	return '?';
-}
-void byte_to_string(uint8_t *dst, uint8_t value)
-{
-	dst[0] = nibble_to_char(value >> 4);
-	dst[1] = nibble_to_char(value);
-}
-void int_to_string(uint8_t *dst, unsigned int value)
-{
-	byte_to_string(dst, value >> 8);
-	byte_to_string(dst+2, value);
-}
-uint8_t string_to_nibble(uint8_t src)
-{
-	switch(src)
-	{
-	case '0':
-		return 0;
-	case '1':
-		return 1;
-	case '2':
-		return 2;
-	case '3':
-		return 3;
-	case '4':
-		return 4;
-	case '5':
-		return 5;
-	case '6':
-		return 6;
-	case '7':
-		return 7;
-	case '8':
-		return 8;
-	case '9':
-		return 9;
-	case 'a':
-	case 'A':
-		return 10;
-	case 'b':
-	case 'B':
-		return 11;
-	case 'c':
-	case 'C':
-		return 12;
-	case 'd':
-	case 'D':
-		return 13;
-	case 'e':
-	case 'E':
-		return 14;
-	case 'f':
-	case 'F':
-		return 15;
-	default:
-		return 0;
-	}
-}
-uint8_t string_to_byte(uint8_t *src)
-{
-	uint8_t high, low;
-	high = string_to_nibble(src[0]);
-	low = string_to_nibble(src[1]);
-	return (high << 4) | low;
-}
-static void config_test_pin(void)
+void config_test_pin(void);
+void config_test_pin(void)
 {
 	struct port_config pin_conf;
 	port_get_config_defaults(&pin_conf);
@@ -169,221 +19,37 @@ static void config_test_pin(void)
 }
 
 
-
-
-
-
-
-const int SLAVE_OK = 0;
-const int SLAVE_NO_ACK = -1;
-const int SLAVE_NAK = -2;
-
-const uint16_t hdmi_rx_address = 0x98 >> 1; // this is the 7-bit address. In the docs it's 0x98, which is the 8-bit address. Atmel API wants the 7-bit address.
-const uint16_t hdmi_rx_cp_address = 0x08; // 7-bit addresses must be greater than 0x07 and less than 0x78
-const uint16_t hdmi_rx_hdmi_address = 0x0A;
-const uint16_t hdmi_rx_repeater_address = 0x0C;
-const uint16_t hdmi_rx_edid_address = 0x0E;
-const uint16_t hdmi_rx_infoframe_address = 0x10;
-const uint16_t hdmi_rx_cec_address = 0x12;
-const uint16_t hdmi_rx_dpll_address = 0x14;
-
 const uint16_t hdmi_tx_address = 0x72 >> 1;
 const uint16_t sd_rx_address = 0x40 >> 1;
 
-const uint8_t rx_edid[256] = 
+
+
+
+
+void configure_sd_rx(void);
+void configure_sd_rx(void)
 {
-	0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00,0x04,0x72,0x12,0x03,0x46,0x99,0x20,0x71,
-	0x0C,0x1B,0x01,0x03,0x80,0x35,0x1E,0x78,0xCA,0x92,0x65,0xA6,0x55,0x55,0x9F,0x28,
-	0x0D,0x50,0x54,0xBF,0xEF,0x80,0x71,0x4F,0x81,0x40,0x81,0x80,0x81,0xC0,0x81,0x00,
-	0x95,0x00,0xB3,0x00,0xD1,0xC0,0x02,0x3A,0x80,0x18,0x71,0x38,0x2D,0x40,0x58,0x2C,
-	0x45,0x00,0x13,0x2B,0x21,0x00,0x00,0x1E,0x00,0x00,0x00,0xFD,0x00,0x37,0x4C,0x1E,
-	0x50,0x11,0x00,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFC,0x00,0x53,
-	0x32,0x34,0x31,0x48,0x4C,0x0A,0x20,0x20,0x20,0x20,0x20,0x20,0x00,0x00,0x00,0xFF,
-	0x00,0x4C,0x57,0x56,0x41,0x41,0x30,0x30,0x31,0x38,0x35,0x35,0x43,0x0A,0x01,0x89,
-	0x02,0x03,0x22,0xF1,0x4F,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x90,0x11,0x12,0x13,
-	0x14,0x15,0x16,0x1F,0x23,0x09,0x07,0x07,0x83,0x01,0x00,0x00,0x65,0x03,0x0C,0x00,
-	0x10,0x00,0x02,0x3A,0x80,0x18,0x71,0x38,0x2D,0x40,0x58,0x2C,0x45,0x00,0x13,0x2B,
-	0x21,0x00,0x00,0x1F,0x01,0x1D,0x80,0x18,0x71,0x1C,0x16,0x20,0x58,0x2C,0x25,0x00,
-	0x13,0x2B,0x21,0x00,0x00,0x9F,0x01,0x1D,0x00,0x72,0x51,0xD0,0x1E,0x20,0x6E,0x28,
-	0x55,0x00,0x13,0x2B,0x21,0x00,0x00,0x1E,0x8C,0x0A,0xD0,0x8A,0x20,0xE0,0x2D,0x10,
-	0x10,0x3E,0x96,0x00,0x13,0x2B,0x21,0x00,0x00,0x18,0x00,0x00,0x00,0x00,0x00,0x00,
-	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xE7
-};
-
-
-int i2c_read_reg(uint16_t slave_addr, uint8_t slave_reg, uint8_t *value)
-{
-	uint8_t buf[1] = {0x00};
-
-	struct i2c_master_packet packet = {
-		.address     = slave_addr,
-		.data_length = 1,
-		.data        = buf,
-		.ten_bit_address = false,
-		.high_speed      = false,
-		.hs_master_code  = 0x0,
-	};
-
-	// stage 1: tell slave what register to read
-	buf[0] = slave_reg;
-	if(i2c_master_write_packet_wait_no_stop(&i2c_master_instance, &packet) != STATUS_OK)
-	{
-		i2c_master_send_stop(&i2c_master_instance);
-		return SLAVE_NO_ACK;
-	}
-
-	// stage 2: get reply from slave
-	buf[0] = 0x00;
-	if(i2c_master_read_packet_wait(&i2c_master_instance, &packet) != STATUS_OK)
-		return SLAVE_NAK;
-
-	if(value)
-		*value = buf[0];
-
-	return SLAVE_OK;
-}
-
-int i2c_write_reg(uint16_t slave_addr, uint8_t slave_reg, uint8_t value)
-{
-	uint8_t buf[2] = {0x00, 0x00};
-
-	struct i2c_master_packet packet = {
-		.address     = slave_addr,
-		.data_length = 2,
-		.data        = buf,
-		.ten_bit_address = false,
-		.high_speed      = false,
-		.hs_master_code  = 0x0,
-	};
-
-	buf[0] = slave_reg;
-	buf[1] = value;
-
-	if(i2c_master_write_packet_wait(&i2c_master_instance, &packet) != STATUS_OK)
-		return SLAVE_NO_ACK;
-
-	return SLAVE_OK;
-}
-
-void register_dump(uint16_t slave_addr)
-{
-	for(unsigned int i=0;i<256;++i)
-	{
-		uint8_t value = 0;
-		uint8_t buf[4] = "    ";
-		int code = i2c_read_reg(slave_addr, i, &value);
-
-		if(code == SLAVE_OK)
-		{
-			// ok
-			byte_to_string(buf, value);
-		}else if(code == SLAVE_NO_ACK)
-		{
-			uint8_t string[] = "[Write] Error: slave did not ACK\r\n";
-			usart_write_buffer_wait(&usart_instance, string, sizeof(string));
-			break;
-		}else
-		{
-			buf[0] = 'N'; buf[1] = 'A'; buf[2] = 'K';
-		}
-
-		usart_write_buffer_wait(&usart_instance, buf, 4);
-		if((i+1)%16 == 0)
-		usart_write_buffer_wait(&usart_instance, "\r\n", 2);
-	}
-
+	print("Setting up SD RX\r\n");
+	i2c_write_reg(sd_rx_address, 0x58, 0x05); // 0x5 = output VS; 0x4 = output FIELD
 }
 
 
 
-void print(const uint8_t *str)
+void configure_hdmi_tx(void);
+void configure_hdmi_tx(void)
 {
-	usart_write_buffer_wait(&usart_instance, str, strlen(str));
-}
+	enum input_type {IN_HD=2, IN_SD};
+	const int video_in = IN_SD;
 
-
-void configure_hdmi_rx()
-{
-	print("Setting up HDMI RX\r\n");
-
-	i2c_write_reg(hdmi_rx_address, 0xFF, 0b10000000);
-	delay_cycles_ms(5);
-
-	//print("Dumping IO slave\r\n");
-	//register_dump(hdmi_rx_address);
-
-	// The slave addresses occupy [7:1] so I must shift them to get the correct value in there
-	i2c_write_reg(hdmi_rx_address, 0xF4, hdmi_rx_cec_address << 1);
-	i2c_write_reg(hdmi_rx_address, 0xF5, hdmi_rx_infoframe_address << 1);
-	i2c_write_reg(hdmi_rx_address, 0xF8, hdmi_rx_dpll_address << 1);
-	i2c_write_reg(hdmi_rx_address, 0xF9, hdmi_rx_repeater_address << 1);
-	i2c_write_reg(hdmi_rx_address, 0xFA, hdmi_rx_edid_address << 1);
-	i2c_write_reg(hdmi_rx_address, 0xFB, hdmi_rx_hdmi_address << 1);
-	i2c_write_reg(hdmi_rx_address, 0xFD, hdmi_rx_cp_address << 1);
-
-	/*
-	print("Dumping CP slave\r\n");
-	register_dump(hdmi_rx_cp_address);
-	print("Dumping HDMI slave\r\n");
-	register_dump(hdmi_rx_hdmi_address);
-	print("Dumping Repeater slave\r\n");
-	register_dump(hdmi_rx_repeater_address);
-	print("Dumping EDID slave\r\n");
-	register_dump(hdmi_rx_edid_address);
-	print("Dumping InfoFrame slave\r\n");
-	register_dump(hdmi_rx_infoframe_address);
-	print("Dumping CEC slave\r\n");
-	register_dump(hdmi_rx_cec_address);
-	print("Dumping DPLL slave\r\n");
-	register_dump(hdmi_rx_dpll_address);
-	*/
-
-	i2c_write_reg(hdmi_rx_address, 0x0C, 0x00); // set POWER_DOWN to 0 (on)
-	i2c_write_reg(hdmi_rx_address, 0x15, 0x11); // un-tristate the pixel data, pixel clock, and sync pins
-	i2c_write_reg(hdmi_rx_address, 0x03, 0x40); // OP_FORMAT_SEL, 24-bit RGB with SDR clock
-	i2c_write_reg(hdmi_rx_address, 0x01, 0x05); // PRIM_MODE = component, V_FREQ = 60Hz
-	i2c_write_reg(hdmi_rx_address, 0x00, 0x13); // VID_STD = 1280x720
-	i2c_write_reg(hdmi_rx_address, 0x02, 0xF2); // automatic input colorspace, RGB output space
-	i2c_write_reg(hdmi_rx_cp_address, 0xC9, 0x01); // DIS_AUTO_PARAM_BUF (use above settings for free run)
-	i2c_write_reg(hdmi_rx_cp_address, 0xC0, 0xFF); // free run color, R
-	i2c_write_reg(hdmi_rx_cp_address, 0xC1, 0x00); // free run color, G
-	i2c_write_reg(hdmi_rx_cp_address, 0xC2, 0xFF); // free run color, B
-	i2c_write_reg(hdmi_rx_cp_address, 0xBF, 0x07); // force free run and specify manual color choice
-	i2c_write_reg(hdmi_rx_hdmi_address, 0x01, 0x01); // enable automatic TMDS clock termination
-
-	// Default polarity: HS and VS are negative; DE is positive.
-	// If I want them all to be positive polarity this command will do it
-	//i2c_write_reg(hdmi_rx_address, 0x06, 0x86); // make HS/VS positive
-
-	// write edid ram
-	for(int i=0;i<256;++i)
-	{
-		i2c_write_reg(hdmi_rx_edid_address, (uint8_t)i, rx_edid[i]);
-	}
-	// enable edid
-	i2c_write_reg(hdmi_rx_repeater_address, 0x74, 0x01);
-	delay_cycles_ms(1);
-	// check whether edid was actually enabled
-	uint8_t value;
-	i2c_read_reg(hdmi_rx_repeater_address, 0x76, &value);
-	if(value & 0b00000001)
-		print("  EDID successfully enabled\r\n");
-	else
-		print("  EDID did not enable\r\n");
-
-	print("  Finished.\r\n");
-}
-
-void configure_hdmi_tx()
-{
 	print("Setting up HDMI TX\r\n");
 	uint8_t value;
 
 
-	// power up: set bit 6 of 0x41 to 0
-	i2c_read_reg(hdmi_tx_address, 0x41, &value);
-	value = value & 0b10111111;
-	i2c_write_reg(hdmi_tx_address, 0x41, value);
+	i2c_write_reg(hdmi_tx_address, 0x41, 0b01010000); // power down
+	delay_cycles_ms(100);
+	i2c_write_reg(hdmi_tx_address, 0x41, 0b00010000); // power up
+	//delay_cycles_ms(1000);
+
 
 	// fixed registers to be set upon power up
 	i2c_write_reg(hdmi_tx_address, 0x98, 0x03);
@@ -399,44 +65,142 @@ void configure_hdmi_tx()
 		i2c_read_reg(hdmi_tx_address, 0x9D, &value);
 		value = value & 0b11111101;
 		value = value | 0b00000001;
+		i2c_write_reg(hdmi_tx_address, 0x9D, value);
 	}
 	i2c_write_reg(hdmi_tx_address, 0xA2, 0xA4);
 	i2c_write_reg(hdmi_tx_address, 0xA3, 0xA4);
 	i2c_write_reg(hdmi_tx_address, 0xE0, 0xD0);
 	i2c_write_reg(hdmi_tx_address, 0xF9, 0x00);
 
-	i2c_read_reg(hdmi_tx_address, 0x15, &value);
-	value = value & 0b11110000; // 4:4:4 input
-	i2c_write_reg(hdmi_tx_address, 0x15, value);
-
-	i2c_read_reg(hdmi_tx_address, 0x16, &value);
-	value = value | 0b00110000; // 8 bits per channel
-	value = value & 0b01111111; // 4:4:4 output
-	i2c_write_reg(hdmi_tx_address, 0x16, value);
-
-	i2c_read_reg(hdmi_tx_address, 0x17, &value);
-	value = value | 0b00000010; // 16:9 aspect input
-	i2c_write_reg(hdmi_tx_address, 0x17, value);
-
-	i2c_read_reg(hdmi_tx_address, 0xAF, &value);
-	value = value & 0b11111101; // DVI mode
-	i2c_write_reg(hdmi_tx_address, 0xAF, value);
-
 	i2c_read_reg(hdmi_tx_address, 0xBA, &value);
 	value = value & 0b01111111; // [7:5] = 0b011 for no clock input delay
 	value = value | 0b01100000;
 	i2c_write_reg(hdmi_tx_address, 0xBA, value);
-
+	
 	i2c_read_reg(hdmi_tx_address, 0x94, &value);
 	value = value | 0b00000100; // turn on EDID Ready interrupt
 	i2c_write_reg(hdmi_tx_address, 0x94, value);
-
-
 
 	i2c_read_reg(hdmi_tx_address, 0xD6, &value);
 	value = value | 0b11000000; // force HPD high always
 	i2c_write_reg(hdmi_tx_address, 0xD6, value);
 
+
+	//delay_cycles_ms(1000);
+
+	if(video_in == IN_HD)
+	{
+		// HDMI input
+
+		value = 0b00000000; // 24-bit 4:4:4 input with separate syncs
+		i2c_write_reg(hdmi_tx_address, 0x15, value);
+
+		i2c_read_reg(hdmi_tx_address, 0x16, &value);
+		value = value | 0b00110000; // 8 bits per channel
+		value = value & 0b01111111; // 4:4:4 output
+		i2c_write_reg(hdmi_tx_address, 0x16, value);
+
+		i2c_read_reg(hdmi_tx_address, 0x17, &value);
+		value = value | 0b00000010; // 16:9 aspect input
+		i2c_write_reg(hdmi_tx_address, 0x17, value);
+
+		i2c_read_reg(hdmi_tx_address, 0xAF, &value);
+		value = value & 0b11111101; // DVI mode
+		i2c_write_reg(hdmi_tx_address, 0xAF, value);
+	}else
+	{
+		//i2c_write_reg(hdmi_tx_address, 0x15, 0b00000000); // input format. 00=24-bit 4:4:4 (RGB or YCbCr)
+		i2c_write_reg(hdmi_tx_address, 0x15, 0b00000011); // input format. 11=8-bit 4:2:2 YCbCr
+		i2c_write_reg(hdmi_tx_address, 0x16, 0b00110100); // 4:4:4 output format, 8-bit color depth, input style 2
+		//i2c_write_reg(hdmi_tx_address, 0x16, 0b10110000); // 4:2:2 output format, 8-bit color depth, input style not set
+		//i2c_write_reg(hdmi_tx_address, 0x16, 0b10110001); // 4:2:2 output format, 8-bit color depth, input style not set, YCbCr output color
+		
+		// YCbCr to RGB (Table 35)
+		//i2c_write_reg(hdmi_tx_address, 0x18, 0x00);
+		
+		i2c_write_reg(hdmi_tx_address, 0x18, 0xE6);
+		i2c_write_reg(hdmi_tx_address, 0x19, 0x69);
+		i2c_write_reg(hdmi_tx_address, 0x1A, 0x04);
+		i2c_write_reg(hdmi_tx_address, 0x1B, 0xAC);
+		i2c_write_reg(hdmi_tx_address, 0x1C, 0x00);
+		i2c_write_reg(hdmi_tx_address, 0x1D, 0x00);
+		i2c_write_reg(hdmi_tx_address, 0x1E, 0x1C);
+		i2c_write_reg(hdmi_tx_address, 0x1F, 0x81);
+		i2c_write_reg(hdmi_tx_address, 0x20, 0x1C);
+		i2c_write_reg(hdmi_tx_address, 0x21, 0xBC);
+		i2c_write_reg(hdmi_tx_address, 0x22, 0x04);
+		i2c_write_reg(hdmi_tx_address, 0x23, 0xAD);
+		i2c_write_reg(hdmi_tx_address, 0x24, 0x1E);
+		i2c_write_reg(hdmi_tx_address, 0x25, 0x6E);
+		i2c_write_reg(hdmi_tx_address, 0x26, 0x02);
+		i2c_write_reg(hdmi_tx_address, 0x27, 0x20);
+		i2c_write_reg(hdmi_tx_address, 0x28, 0x1F);
+		i2c_write_reg(hdmi_tx_address, 0x29, 0xFE);
+		i2c_write_reg(hdmi_tx_address, 0x2A, 0x04);
+		i2c_write_reg(hdmi_tx_address, 0x2B, 0xAD);
+		i2c_write_reg(hdmi_tx_address, 0x2C, 0x08);
+		i2c_write_reg(hdmi_tx_address, 0x2D, 0x1A);
+		i2c_write_reg(hdmi_tx_address, 0x2E, 0x1B);
+		i2c_write_reg(hdmi_tx_address, 0x2F, 0xA9);
+		
+		i2c_write_reg(hdmi_tx_address, 0x17, 0b00000000);
+		i2c_write_reg(hdmi_tx_address, 0xAF, 0b00000110); // hdmi mode
+		//i2c_write_reg(hdmi_tx_address, 0xAF, 0b00000100); // dvi mode
+		// SD input
+		/*
+		i2c_write_reg(hdmi_tx_address, 0xAF, 0b00000100);
+		// pclk divide
+		i2c_write_reg(hdmi_tx_address, 0x9D, 0b01100101);
+		// sync pulse select
+		i2c_write_reg(hdmi_tx_address, 0xD0, 0b00110100);
+
+
+		value = 0x03; // 8, 10, 12 bit YCbCr 4:2:2 (2x pixel clock, separate syncs)
+		i2c_write_reg(hdmi_tx_address, 0x15, value);
+
+		value = 0b00110101;
+		i2c_write_reg(hdmi_tx_address, 0x16, value);
+
+
+		print("Enabling DE generation\r\n");
+		value = 0b00000001; // 4:3 input aspect, DE generator on
+		i2c_write_reg(hdmi_tx_address, 0x17, value);
+		
+		// DE settings
+		// HSYNC delay: the number of pixels from the Hsync leading edge to the DE leading edge minus 1
+		// Here "pixels" means "clocks" even though in 4:2:2 it takes multiple clocks to get one full pixel.
+		// I assume the leading edge of HSYNC, being active low, means the falling edge.
+		// Thus the value is 124+114 = 238
+		uint16_t hs_delay = 238 - 1;
+		// VSYNC delay: the number of Hsyncs between leading edge of VS and DE
+		// based on the diagram on page 22 of CEA861D, I suppose this is around 22-4
+		uint16_t vs_delay = 22-4;
+		// Interlace offset: the difference of Hsync counts during Vsync blanking for the two fields in interlaced video
+		// Here I think the value is 1, since the spec says field 1 is 22 lines and field 2 is 23 lines
+		uint16_t interlace_offset = 1;
+		// Active width: since it's counting clocks, the value needs to be 1440 even though there are 720 pixels
+		uint16_t active_width = 1440;
+		// Active height: it doesn't say if this is total or per field, so I'm going to guess per field: 240
+		uint16_t active_height = 240;
+
+		
+		//i2c_write_reg(hdmi_tx_address, 0x35, (hs_delay >> 2) & 0xFF); // upper 8 bits
+		//i2c_write_reg(hdmi_tx_address, 0x36, ((hs_delay & 0x03) << 6) | (vs_delay & 0x3F)); // bottom 2 bits of hs_delay, all of vs_delay
+		//i2c_write_reg(hdmi_tx_address, 0x37, ((interlace_offset & 0x07) << 5) | ((active_width >> 7) & 0xFF)); // bottom 3 bits of interlace_offset, top 5 bits of active_width
+		//i2c_write_reg(hdmi_tx_address, 0x38, (active_width & 0x7F) << 1); // bottom 7 bits of active_width
+		//i2c_write_reg(hdmi_tx_address, 0x39, (active_height >> 4) & 0xFF); // upper 8 bits of active_height
+		//i2c_write_reg(hdmi_tx_address, 0x3A, (active_height & 0x0F) << 4); // bottom 4 bits of active_height
+		
+		i2c_write_reg(hdmi_tx_address, 0x35, 0x1D);
+		i2c_write_reg(hdmi_tx_address, 0x36, 0x92);
+		i2c_write_reg(hdmi_tx_address, 0x37, 0x05);
+		i2c_write_reg(hdmi_tx_address, 0x38, 0xA0);
+		i2c_write_reg(hdmi_tx_address, 0x39, 0x0F);
+		i2c_write_reg(hdmi_tx_address, 0x3A, 0x00);
+		*/
+	}
+
+	
 
 	print("  Finished.\r\n");
 }
@@ -448,111 +212,6 @@ void SysTick_Handler(void)
 	handle_event = true;
 }
 
-void servicer()
-{
-	uint8_t buffer[64];
-	uint8_t ptr = 0;
-	print("> ");
-	while(1)
-	{
-		uint8_t *tail = buffer + ptr;
-		int code = usart_read_buffer_wait(&usart_instance, tail, 1);
-		if(code == STATUS_OK)
-		{
-			usart_write_buffer_wait(&usart_instance, tail, 1);
-			if(*tail == '\r' || *tail == '\n')
-			{
-				print("\r\n");
-				// message complete, process
-				if(buffer[0] == 'R')
-				{
-					// R [slave address] [register]
-					uint8_t slave = string_to_byte(buffer+2);
-					uint8_t reg = string_to_byte(buffer+5);
-					uint8_t value;
-					int code = i2c_read_reg(slave, reg, &value);
-					if(code == SLAVE_OK)
-					{
-						uint8_t str[5] = "XX\r\n";
-						byte_to_string(str, value);
-						print(str);
-					}else if(code == SLAVE_NAK)
-					{
-						print("Slave: NAK\r\n");
-					}else if(code == SLAVE_NO_ACK)
-					{
-						print("Slave: no response\r\n");
-					}
-					
-				}else if(buffer[0] == 'W')
-				{
-					// W [slave address] [register] [value]
-					uint8_t slave = string_to_byte(buffer+2);
-					uint8_t reg = string_to_byte(buffer+5);
-					uint8_t value = string_to_byte(buffer+8);
-					int code = i2c_write_reg(slave, reg, value);
-					if(code == SLAVE_OK)
-					{
-						print("OK\r\n");
-					}else if(code == SLAVE_NAK)
-					{
-						print("NAK\r\n");
-					}else if(code == SLAVE_NO_ACK)
-					{
-						print("No response\r\n");
-					}
-				}else if(buffer[0] == 'd' && buffer[1] == 'u' && buffer[2] == 'm' && buffer[3] == 'p')
-				{
-					// dump [slave address] [starting register] [count]
-					uint8_t slave = string_to_byte(buffer+5);
-					uint8_t reg = string_to_byte(buffer+8);
-					unsigned int count = string_to_byte(buffer+11);
-					for(int i=0;i<count;++i)
-					{
-						uint8_t value;
-						int code = i2c_read_reg(slave, reg+i, &value);
-						if(code == SLAVE_OK)
-						{
-							uint8_t str[5] = "XX ";
-							byte_to_string(str, value);
-							print(str);
-						}else if(code == SLAVE_NAK)
-						{
-							print("NAK");
-							break;
-						}else if(code == SLAVE_NO_ACK)
-						{
-							print("?? ");
-						}
-						if((i+1) % 16 == 0) print("\r\n");
-						delay_cycles_ms(1);
-					}
-					print("\r\n");
-				}
-				else
-				{
-					print("Usage:\r\n  R <slave> <register>\r\n  W <slave> <register> <value>\r\n  dump <slave> <start register> <count>\r\n(all values are in hex)\r\n");
-				}
-				print("> ");
-				ptr = 0;
-				continue;
-			}else
-			{
-				if(ptr < 62)
-				{
-					++ptr;
-					continue;
-				}else
-				{
-					print("Input overflow, resetting\r\n");
-					print("> ");
-					ptr = 0;
-					continue;
-				}
-			}
-		}
-	}
-}
 int main (void)
 {
 	system_init();
@@ -562,12 +221,13 @@ int main (void)
 	delay_init();
 
 
-	print("Waiting for FPGA to boot...\r\n");
-	delay_cycles_ms(7000);
+	//print("Waiting for FPGA to boot...\r\n");
+	delay_cycles_ms(1000);
 
 
 	configure_i2c_master();
-	configure_hdmi_rx();
+	//configure_hdmi_rx();
+	//configure_sd_rx();
 	configure_hdmi_tx();
 
 
@@ -576,7 +236,7 @@ int main (void)
 
 
 
-
+	/*
 	uint8_t str[5] = "XX\r\n";
 	print("Slave addresses:\r\n");
 	print("HDMI RX, IO:        "); byte_to_string(str, hdmi_rx_address); print(str);
@@ -591,10 +251,9 @@ int main (void)
 	print("HDMI TX, Main:      "); byte_to_string(str, hdmi_tx_address); print(str);
 	print("HDMI TX, EDID:      "); byte_to_string(str, 0x7E >> 1); print(str);
 
-	//print("Entering event loop\r\n");
-
-
-	//servicer();
+	print("Entering event loop\r\n");
+	servicer();
+	*/
 
 	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
 	uint32_t ticks_between_interrupts = ticks_per_second / 1;
@@ -606,17 +265,67 @@ int main (void)
 		{
 			handle_event = false;
 
+			uint8_t vic, auxvic;
+			int ok = i2c_read_reg(hdmi_tx_address, 0x3E, &vic);
+			int ok2 = i2c_read_reg(hdmi_tx_address, 0x3F, &auxvic);
+			uint8_t str[29] = "HDMI TX: input VIC = XX, XX\r\n";
+			byte_to_string(str+21, vic >> 2);
+			byte_to_string(str+25, auxvic);
+			if(ok == SLAVE_OK && ok2 == SLAVE_OK)
+				print(str);
+			else
+				print("No response\r\n");
 
+			/*
 			uint8_t status1, status2, status3;
 			i2c_read_reg(sd_rx_address, 0x10, &status1);
 			i2c_read_reg(sd_rx_address, 0x12, &status2);
 			i2c_read_reg(sd_rx_address, 0x13, &status3);
-			print("status 1,2,3: ");
-			uint8_t str[18] = "XX, XX, XX\r\n";
-			byte_to_string(str, status1);
-			byte_to_string(str+4, status2);
-			byte_to_string(str+8, status3);
-			print(str);
+			bool in_lock = status1 & 0x01;
+			uint8_t ad_result = (status1 & 0x70) >> 4;
+			if(in_lock)
+			{
+				print("SD RX: ");
+				switch(ad_result)
+				{
+				case 0:
+					print("NTSC M/J");
+					break;
+				case 1:
+					print("NTSC 4.43");
+					break;
+				case 2:
+					print("PAL M");
+					break;
+				case 3:
+					print("PAL 60");
+					break;
+				case 4:
+					print("PAL B/G/H/I/D");
+					break;
+				case 5:
+					print("SECAM");
+					break;
+				case 6:
+					print("PAL Combination M");
+					break;
+				case 7:
+					print("SECAM 525");
+					break;
+				}
+				print("\r\n");
+
+				uint8_t vic, auxvic;
+				i2c_read_reg(hdmi_tx_address, 0x3E, &vic);
+				i2c_read_reg(hdmi_tx_address, 0x3F, &auxvic);
+				uint8_t str[29] = "HDMI TX: input VIC = XX, XX\r\n";
+				byte_to_string(str+21, vic >> 2);
+				byte_to_string(str+25, auxvic);
+				print(str);
+			}
+			*/
+
+
 
 			/*
 			// measure the input video stream, if it exists
