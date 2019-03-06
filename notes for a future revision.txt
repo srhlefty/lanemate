@@ -4,4 +4,4 @@
 - That reset pin needs a soft pullup instead of a hard pullup
 - Change micro's power supply to 3.3V
 - SD rx chip also supports S-video and component; add connectors for those
-
+- For the SD input, a differential amp is not needed. Instead use the simple termination input described in the data sheet.

@@ -30,7 +30,7 @@ USE ieee.std_logic_1164.ALL;
  
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
+USE ieee.numeric_std.ALL;
  
 ENTITY timing_gen_tb IS
 END timing_gen_tb;
@@ -54,7 +54,7 @@ ARCHITECTURE behavior OF timing_gen_tb IS
 
    --Inputs
    signal CLK : std_logic := '0';
-   signal RST : std_logic := '1';
+   signal RST : std_logic := '0';
    signal VIC : std_logic_vector(7 downto 0) := (others => '0');
 
  	--Outputs
@@ -64,7 +64,7 @@ ARCHITECTURE behavior OF timing_gen_tb IS
    signal D : std_logic_vector(23 downto 0);
 
 
-	signal count : natural := 0;
+	signal count : std_logic_vector(31 downto 0) := (others => '0');
  
 BEGIN
  
@@ -79,16 +79,21 @@ BEGIN
           D => D
         );
 
-	CLK <= not CLK after 6.734 ns; -- 74.25MHz
+	--CLK <= not CLK after 6.734 ns; -- 74.25MHz
+	CLK <= not CLK after 18.519 ns; -- 27MHz
 
 	process(CLK) is
 	begin
 	if(rising_edge(CLK)) then
 		
-		if(count = 5) then
+		if(count = std_logic_vector(to_unsigned(5, count'length)) or 
+		   count = std_logic_vector(to_unsigned(7424, count'length)) or 
+			count = std_logic_vector(to_unsigned(900901+7424, count'length))) then
+			RST <= '1';
+		else
 			RST <= '0';
 		end if;
-		count <= count + 1;
+		count <= std_logic_vector(to_unsigned(to_integer(unsigned(count)) + 1, count'length));
 		
 	end if;
 	end process;

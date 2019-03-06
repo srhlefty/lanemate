@@ -140,67 +140,128 @@ architecture Behavioral of lane_mate is
            CLKO : out  STD_LOGIC);
 	end component;
 	
+	COMPONENT bt656_decode
+	PORT(
+		D : IN std_logic_vector(7 downto 0);
+		CLK : IN std_logic;          
+		VS : OUT std_logic;
+		HS : OUT std_logic;
+		DE : OUT std_logic;
+		DOUT : OUT std_logic_vector(7 downto 0)
+		);
+	END COMPONENT;
 	
 	type video_in_t is (HDMI, COMPOSITE);
 	signal video_input_source : video_in_t := COMPOSITE;
 	
 begin
 
-	synth : block is
-		signal clk148 : std_logic;
-		signal clk74 : std_logic;
-		signal clk27 : std_logic;
-		signal clk54 : std_logic;
-		signal rst : std_logic := '1';
-		signal once : std_logic := '0';
+	bt656 : block is
+		signal data : std_logic_vector(7 downto 0);
 	begin
-
-		Inst_clk_hd: clk_hd PORT MAP(
-			CLK100 => SYSCLK,
-			CLK74p25 => clk74,
-			CLK148p5 => clk148,
-			RST => '0',
-			LOCKED => open
-		);
-		Inst_clk_sd: clk_sd PORT MAP(
-			CLK100 => SYSCLK,
-			CLK27 => clk27,
-			CLK54 => clk54,
-			RST => '0',
-			LOCKED => open
-		);
 	
+		Inst_bt656_decode: bt656_decode PORT MAP(
+			D => SDV,
+			CLK => SDI_PCLK,
+			VS => HDO_VS,
+			HS => HDO_HS,
+			DE => HDO_DE,
+			DOUT => data
+		);
+		
+		RGB_OUT(23 downto 8) <= (others => '0');
+		RGB_OUT(7 downto 0) <= data;
+
 		Inst_clock_forwarding: clock_forwarding 
 		GENERIC MAP(
 			INVERT => true
 		)
 		PORT MAP(
-			CLK => clk27,
+			CLK => SDI_PCLK,
 			CLKO => HDO_PCLK
 		);
-		
-		Inst_timing_gen: timing_gen PORT MAP(
-			CLK => clk27,
-			RST => rst,
-			VIC => x"00",
-			VS => HDO_VS,
-			HS => HDO_HS,
-			DE => HDO_DE,
-			D => RGB_OUT
-		);
-		
-		process(clk27) is
-		begin
-		if(rising_edge(clk27)) then
-			if(once = '0') then
-				rst <= '0';
-				once <= '1';
-			end if;
-		end if;
-		end process;
-		
-		
 	end block;
+
+
+
+
+
+
+
+--	synth : block is
+--		signal clk148 : std_logic;
+--		signal clk74 : std_logic;
+--		signal clk27 : std_logic;
+--		signal clk54 : std_logic;
+--		signal rst : std_logic := '1';
+--		signal once : std_logic := '0';
+--		signal field_old : std_logic := '0';
+--		signal d1 : std_logic_vector(7 downto 0);
+--		signal d2 : std_logic_vector(7 downto 0);
+--		signal d3 : std_logic_vector(7 downto 0);
+--	begin
+--
+--		Inst_clk_hd: clk_hd PORT MAP(
+--			CLK100 => SYSCLK,
+--			CLK74p25 => clk74,
+--			CLK148p5 => clk148,
+--			RST => '0',
+--			LOCKED => open
+--		);
+--		Inst_clk_sd: clk_sd PORT MAP(
+--			CLK100 => SYSCLK,
+--			CLK27 => clk27,
+--			CLK54 => clk54,
+--			RST => '0',
+--			LOCKED => open
+--		);
+--	
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			--CLK => clk27,
+--			CLK => SDI_PCLK,
+--			CLKO => HDO_PCLK
+--		);
+--		
+--		Inst_timing_gen: timing_gen PORT MAP(
+--			--CLK => clk27,
+--			CLK => SDI_PCLK,
+--			RST => rst,
+--			VIC => x"00",
+--			VS => HDO_VS,
+--			HS => HDO_HS,
+--			DE => HDO_DE,
+--			D => open
+--		);
+--		
+--		process(SDI_PCLK) is
+--		begin
+--		if(rising_edge(SDI_PCLK)) then
+--			field_old <= SDI_VS; -- 7180 sends me FIELD by default but this still works if it's configured to send VS instead
+--			if(SDI_VS = '1' and field_old = '0') then
+--				-- on rising edge of FIELD, trigger the timing generator (which begins with VSYNC)
+--				rst <= '1';
+--			else
+--				rst <= '0';
+--			end if;
+--			
+--			-- shift data by 4 to account for the time it takes for an incoming VSYNC to trigger the replaced VSYNC
+--			d1 <= SDV;
+--			d2 <= d1;
+--			d3 <= d2;
+--		end if;
+--		end process;
+--			RGB_OUT(23 downto 8) <= (others => '0');
+--			RGB_OUT(7 downto 0) <= SDV;
+--		
+--		
+--	end block;
+
+
+
 
 
 
@@ -233,9 +294,12 @@ begin
 --			--ode <= ide;
 --			
 --			RGB_OUT <= odata;
---			HDO_VS <= ovs;
+--			--HDO_VS <= ovs;
 --			HDO_HS <= ohs;
---			HDO_DE <= ode;
+--			--HDO_DE <= ode;
+--			HDO_VS <= '0';
+--			--HDO_HS <= '0';
+--			HDO_DE <= '0';
 --		end if;
 --		end process;
 --		

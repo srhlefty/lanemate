@@ -47,7 +47,7 @@ void configure_hdmi_tx(void)
 
 	i2c_write_reg(hdmi_tx_address, 0x41, 0b01010000); // power down
 	delay_cycles_ms(100);
-	i2c_write_reg(hdmi_tx_address, 0x41, 0b00010000); // power up
+	i2c_write_reg(hdmi_tx_address, 0x41, 0b00010010); // power up
 	//delay_cycles_ms(1000);
 
 
@@ -110,11 +110,21 @@ void configure_hdmi_tx(void)
 	}else
 	{
 		//i2c_write_reg(hdmi_tx_address, 0x15, 0b00000000); // input format. 00=24-bit 4:4:4 (RGB or YCbCr)
-		i2c_write_reg(hdmi_tx_address, 0x15, 0b00000011); // input format. 11=8-bit 4:2:2 YCbCr
+		i2c_write_reg(hdmi_tx_address, 0x15, 0b00000011); // input format. 11=8-bit 4:2:2 YCbCr with separate syncs
+		//i2c_write_reg(hdmi_tx_address, 0x15, 0b00000100); // input format. 11=8-bit 4:2:2 YCbCr with embedded syncs aka 8-bit ITU-R BT.656
 		i2c_write_reg(hdmi_tx_address, 0x16, 0b00110100); // 4:4:4 output format, 8-bit color depth, input style 2
-		//i2c_write_reg(hdmi_tx_address, 0x16, 0b10110000); // 4:2:2 output format, 8-bit color depth, input style not set
-		//i2c_write_reg(hdmi_tx_address, 0x16, 0b10110001); // 4:2:2 output format, 8-bit color depth, input style not set, YCbCr output color
-		
+
+		i2c_write_reg(hdmi_tx_address, 0x17, 0b00000100);
+		i2c_write_reg(hdmi_tx_address, 0x35, 0x1D);
+		i2c_write_reg(hdmi_tx_address, 0x36, 0x92);
+		i2c_write_reg(hdmi_tx_address, 0x37, 0x05);
+		i2c_write_reg(hdmi_tx_address, 0x38, 0xA0);
+		i2c_write_reg(hdmi_tx_address, 0x39, 0x0F);
+		i2c_write_reg(hdmi_tx_address, 0x3A, 0x00);
+
+		i2c_write_reg(hdmi_tx_address, 0xD5, 0);
+
+
 		// YCbCr to RGB (Table 35)
 		//i2c_write_reg(hdmi_tx_address, 0x18, 0x00);
 		
@@ -143,61 +153,8 @@ void configure_hdmi_tx(void)
 		i2c_write_reg(hdmi_tx_address, 0x2E, 0x1B);
 		i2c_write_reg(hdmi_tx_address, 0x2F, 0xA9);
 		
-		i2c_write_reg(hdmi_tx_address, 0x17, 0b00000000);
 		i2c_write_reg(hdmi_tx_address, 0xAF, 0b00000110); // hdmi mode
 		//i2c_write_reg(hdmi_tx_address, 0xAF, 0b00000100); // dvi mode
-		// SD input
-		/*
-		i2c_write_reg(hdmi_tx_address, 0xAF, 0b00000100);
-		// pclk divide
-		i2c_write_reg(hdmi_tx_address, 0x9D, 0b01100101);
-		// sync pulse select
-		i2c_write_reg(hdmi_tx_address, 0xD0, 0b00110100);
-
-
-		value = 0x03; // 8, 10, 12 bit YCbCr 4:2:2 (2x pixel clock, separate syncs)
-		i2c_write_reg(hdmi_tx_address, 0x15, value);
-
-		value = 0b00110101;
-		i2c_write_reg(hdmi_tx_address, 0x16, value);
-
-
-		print("Enabling DE generation\r\n");
-		value = 0b00000001; // 4:3 input aspect, DE generator on
-		i2c_write_reg(hdmi_tx_address, 0x17, value);
-		
-		// DE settings
-		// HSYNC delay: the number of pixels from the Hsync leading edge to the DE leading edge minus 1
-		// Here "pixels" means "clocks" even though in 4:2:2 it takes multiple clocks to get one full pixel.
-		// I assume the leading edge of HSYNC, being active low, means the falling edge.
-		// Thus the value is 124+114 = 238
-		uint16_t hs_delay = 238 - 1;
-		// VSYNC delay: the number of Hsyncs between leading edge of VS and DE
-		// based on the diagram on page 22 of CEA861D, I suppose this is around 22-4
-		uint16_t vs_delay = 22-4;
-		// Interlace offset: the difference of Hsync counts during Vsync blanking for the two fields in interlaced video
-		// Here I think the value is 1, since the spec says field 1 is 22 lines and field 2 is 23 lines
-		uint16_t interlace_offset = 1;
-		// Active width: since it's counting clocks, the value needs to be 1440 even though there are 720 pixels
-		uint16_t active_width = 1440;
-		// Active height: it doesn't say if this is total or per field, so I'm going to guess per field: 240
-		uint16_t active_height = 240;
-
-		
-		//i2c_write_reg(hdmi_tx_address, 0x35, (hs_delay >> 2) & 0xFF); // upper 8 bits
-		//i2c_write_reg(hdmi_tx_address, 0x36, ((hs_delay & 0x03) << 6) | (vs_delay & 0x3F)); // bottom 2 bits of hs_delay, all of vs_delay
-		//i2c_write_reg(hdmi_tx_address, 0x37, ((interlace_offset & 0x07) << 5) | ((active_width >> 7) & 0xFF)); // bottom 3 bits of interlace_offset, top 5 bits of active_width
-		//i2c_write_reg(hdmi_tx_address, 0x38, (active_width & 0x7F) << 1); // bottom 7 bits of active_width
-		//i2c_write_reg(hdmi_tx_address, 0x39, (active_height >> 4) & 0xFF); // upper 8 bits of active_height
-		//i2c_write_reg(hdmi_tx_address, 0x3A, (active_height & 0x0F) << 4); // bottom 4 bits of active_height
-		
-		i2c_write_reg(hdmi_tx_address, 0x35, 0x1D);
-		i2c_write_reg(hdmi_tx_address, 0x36, 0x92);
-		i2c_write_reg(hdmi_tx_address, 0x37, 0x05);
-		i2c_write_reg(hdmi_tx_address, 0x38, 0xA0);
-		i2c_write_reg(hdmi_tx_address, 0x39, 0x0F);
-		i2c_write_reg(hdmi_tx_address, 0x3A, 0x00);
-		*/
 	}
 
 	
