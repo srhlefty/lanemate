@@ -16,6 +16,8 @@
 -- Revision 0.01 - File Created
 -- Additional Comments: 
 --
+-- This module is designed to pass a 1-clock pulse in the fast domain to a 
+-- 1-clock pulse in the slow domain. (It still works if you go from slow to fast)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;

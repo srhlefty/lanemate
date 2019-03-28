@@ -34,16 +34,11 @@
 -- it takes before MREADY is triggered.
 
 -- Notice that 24 does not go evenly into 256: it takes 3 ram elements to hold an
--- integer number of pixels. Fortunately the number of elements in a line (180, 120, 45) 
--- is divisible by 3 for all of the video modes I'm interested in. To pack the bits
--- into ram, I start by normally placing the first 10 samples. For the 11th sample,
--- the last 8 bits spill over; I save those in a separate 16-bit register. Then
--- again the next 10 are normal, with the last 8 bits of the 11th saved to the
--- overflow register, and finally a third set of 10 normal followed by the 16 overflow
--- bits. Thus 32 samples are stored across 3 elements.
-
--- TODO: gearbox
--- TODO: pulse cross code, does it actually work? Seems like it would fail if fast clock > 2x slow clock
+-- integer number of samples. Fortunately the number of elements in a line (180, 120, 45) 
+-- is divisible by 3 for all of the video modes I'm interested in. Data is packed
+-- by shifting 24-bit words into a 32-element shift register, which is enough data
+-- for 3 ram elements. Those 3 elements are then clocked out simultaneously and then
+-- sequentially pushed into the output FIFO.
 
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -51,7 +46,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
@@ -129,7 +124,6 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	signal ram_rdata2 : std_logic_vector(ram_data_width-1 downto 0);
 	signal ram_we : std_logic;
 	
-	signal gearbox_in : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
 	signal gearbox_out : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
 	
 	signal fifo_push : std_logic := '0';
@@ -137,17 +131,94 @@ architecture Behavioral of pixel_to_ddr_fifo is
 
 begin
 
+
+
+	gearbox : block is
+		type shift_t is array(integer range <>) of std_logic_vector(23 downto 0);
+		signal shifter : shift_t(0 to 31) := (others => (others => '0'));
+		signal word1 : std_logic_vector(255 downto 0) := (others => '0');
+		signal word2 : std_logic_vector(255 downto 0) := (others => '0');
+		signal word3 : std_logic_vector(255 downto 0) := (others => '0');
+		signal count : natural range 0 to 32 := 0;
+		type pusher_state_t is (IDLE, P1, P2, P3);
+		signal pusher_state : pusher_state_t := IDLE;
+	begin
+		process(PCLK) is
+		begin
+		if(rising_edge(PCLK)) then
+			if(PPUSH = '1') then
+				shifter(31) <= PDATA;
+				for i in 0 to 30 loop
+					shifter(i) <= shifter(i+1);
+				end loop;
+				
+				if(count = 32) then
+					-- we've just done a shift so there's already 1
+					count <= 1;
+				else
+					count <= count + 1;
+				end if;
+			else
+				if(count = 32) then
+					count <= 0;
+				end if;
+			end if;
+			
+			if(count = 32) then
+				-- this should happen once by design
+				word1 <= shifter(10)(15 downto 0) & shifter(9) & shifter(8) & shifter(7) & shifter(6) & shifter(5) & shifter(4) & shifter(3) & shifter(2) & shifter(1) & shifter(0);
+				word2 <= shifter(21)(7 downto 0) & shifter(20) & shifter(19) & shifter(18) & shifter(17) & shifter(16) & shifter(15) & shifter(14) & shifter(13) & shifter(12) & shifter(11) & shifter(10)(23 downto 16);
+				word3 <= shifter(31) & shifter(30) & shifter(29) & shifter(28) & shifter(27) & shifter(26) & shifter(25) & shifter(24) & shifter(23) & shifter(22) & shifter(21)(23 downto 8);
+				pusher_state <= P1;
+			else
+				case pusher_state is
+					when IDLE =>
+						fifo_push <= '0';
+						pusher_state <= IDLE;
+					when P1 =>
+						fifo_push <= '1';
+						gearbox_out <= word1;
+						pusher_state <= P2;
+					when P2 =>
+						fifo_push <= '1';
+						gearbox_out <= word2;
+						pusher_state <= P3;
+					when P3 =>
+						fifo_push <= '1';
+						gearbox_out <= word3;
+						pusher_state <= IDLE;
+				end case;
+			end if;
+			
+			
+		end if;
+		end process;
+	
+	end block;
+
+
+	process(MCLK) is
+	begin
+	if(rising_edge(MCLK)) then
+		if(to_integer(unsigned(fifo_used)) >= to_integer(unsigned(MLIMIT)) and to_integer(unsigned(MLIMIT)) > 0) then
+			MREADY <= '1';
+		else
+			MREADY <= '0';
+		end if;
+	end if;
+	end process;
+
 	Inst_bram_simple_dual_port: bram_simple_dual_port 
 	generic map(
 		ADDR_WIDTH => ram_addr_width,
 		DATA_WIDTH => ram_data_width
 	)
 	PORT MAP(
-		CLK1 => CLK,
+		CLK1 => PCLK,
 		WADDR1 => ram_waddr1,
 		WDATA1 => ram_wdata1,
 		WE1 => ram_we,
-		CLK2 => CLK,
+		CLK2 => MCLK,
 		RADDR2 => ram_raddr2,
 		RDATA2 => ram_rdata2
 	);

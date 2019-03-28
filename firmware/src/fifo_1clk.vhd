@@ -53,6 +53,7 @@ entity fifo_1clk is
 		RESET : in std_logic;
 		
 		EMPTY : out std_logic;
+		FULL : out std_logic;
 		OVERFLOW : out std_logic;
 		
 		-- dual port ram interface
@@ -87,6 +88,8 @@ begin
 	
 	process(CLK) is
 		variable next_push_addr : std_logic_vector(ADDR_WIDTH-1 downto 0);
+		variable next2_push_addr : std_logic_vector(ADDR_WIDTH-1 downto 0);
+		variable next3_push_addr : std_logic_vector(ADDR_WIDTH-1 downto 0);
 		variable next_pop_addr : std_logic_vector(ADDR_WIDTH-1 downto 0);
 		variable is_empty : boolean;
 		variable is_full : boolean;
@@ -102,6 +105,8 @@ begin
 			EMPTY <= '1';
 		else
 			next_push_addr := std_logic_vector(to_unsigned(to_integer(unsigned(push_addr)) + 1, push_addr'length));
+			next2_push_addr := std_logic_vector(to_unsigned(to_integer(unsigned(push_addr)) + 2, push_addr'length));
+			next3_push_addr := std_logic_vector(to_unsigned(to_integer(unsigned(push_addr)) + 3, push_addr'length));
 			next_pop_addr := std_logic_vector(to_unsigned(to_integer(unsigned(pop_addr)) + 1, pop_addr'length));
 			
 			-- Define push_addr = pop_addr to be the empty state.
@@ -153,6 +158,12 @@ begin
 				EMPTY <= '1';
 			else
 				EMPTY <= '0';
+			end if;
+			
+			if((next_push_addr = pop_addr) or (next2_push_addr = pop_addr) or (next3_push_addr = pop_addr)) then
+				FULL <= '1';
+			else
+				FULL <= '0';
 			end if;
 			
 			-- Data loss occurs when a push is rejected

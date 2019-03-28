@@ -32,7 +32,8 @@ use IEEE.NUMERIC_STD.ALL;
 entity synchronizer_2ff is
 	Generic ( 
 		DATA_WIDTH : natural;
-		EXTRA_INPUT_REGISTER : boolean := false
+		EXTRA_INPUT_REGISTER : boolean := false;
+		USE_GRAY_CODE : boolean := true
 	);
 	Port ( 
 		CLKA   : in std_logic;
@@ -45,9 +46,27 @@ end synchronizer_2ff;
 
 architecture Behavioral of synchronizer_2ff is
 
+	component binary_to_gray
+	generic ( DATA_WIDTH : natural );
+	Port ( 
+		DIN : in std_logic_vector(DATA_WIDTH-1 downto 0);
+		DOUT : out std_logic_vector(DATA_WIDTH-1 downto 0)
+	);
+	end component;
+	
+	component gray_to_binary is
+	generic ( DATA_WIDTH : natural);
+	Port ( 
+		DIN : in std_logic_vector(DATA_WIDTH-1 downto 0);
+		DOUT : out std_logic_vector(DATA_WIDTH-1 downto 0)
+	);
+	end component;
+
 	signal regbufA : std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+	signal regbufA_code : std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
 	signal sync1 : std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
 	signal sync2 : std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+	signal sync2_out : std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
 
 	attribute ASYNC_REG : string;
 	attribute ASYNC_REG of sync1 : signal is "TRUE";
@@ -80,6 +99,32 @@ begin
 	end generate noextra;
 	
 	
+	usegray : if(USE_GRAY_CODE = true) generate
+	
+		b2g: binary_to_gray 
+		generic map ( DATA_WIDTH => DATA_WIDTH )
+		PORT MAP (
+				 DIN => regbufA,
+				 DOUT => regbufA_code
+		);
+		
+		back: gray_to_binary 
+		generic map ( DATA_WIDTH => DATA_WIDTH )
+		PORT MAP (
+				 DIN => sync2,
+				 DOUT => sync2_out
+		);
+	
+	end generate usegray;
+	
+	nogray : if(USE_GRAY_CODE = false) generate
+	
+		regbufA_code <= regbufA;
+		sync2_out <= sync2;
+	
+	end generate nogray;
+	
+	
 	
 	
 	process(CLKB) is
@@ -89,13 +134,13 @@ begin
 			sync1 <= (others => '0');
 			sync2 <= (others => '0');
 		else
-			sync1 <= regbufA;
+			sync1 <= regbufA_code;
 			sync2 <= sync1;
 		end if;
 	end if;
 	end process;
 
-	DB <= sync2;
+	DB <= sync2_out;
 
 end Behavioral;
 

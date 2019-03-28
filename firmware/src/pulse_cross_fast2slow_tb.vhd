@@ -76,7 +76,7 @@ BEGIN
 	begin
 	if(rising_edge(CLKFAST)) then
 		count <= count + 1;
-		if(count = 10) then
+		if(count = 10 or count = 20) then
 			TRIGIN <= '1';
 		else
 			TRIGIN <= '0';

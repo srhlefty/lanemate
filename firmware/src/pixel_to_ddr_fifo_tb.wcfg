@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="C:/Users/Steven/Documents/Repositories/lanemate/firmware/pixel_to_ddr_fifo_tb_isim_beh.wdb" id="1" type="auto">
+         <top_modules>
+            <top_module name="numeric_std" />
+            <top_module name="pixel_to_ddr_fifo_tb" />
+            <top_module name="std_logic_1164" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <WVObjectSize size="32" />
+   <wvobject fp_name="divider15" type="divider">
+      <obj_property name="label">stimulus</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/pclk" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">pclk</obj_property>
+      <obj_property name="ObjectShortName">pclk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/pdata" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">pdata[23:0]</obj_property>
+      <obj_property name="ObjectShortName">pdata[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/ppush" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ppush</obj_property>
+      <obj_property name="ObjectShortName">ppush</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider46" type="divider">
+      <obj_property name="label">gearbox</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/gearbox/count" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">count</obj_property>
+      <obj_property name="ObjectShortName">count</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/gearbox/pusher_state" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">pusher_state</obj_property>
+      <obj_property name="ObjectShortName">pusher_state</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/fifo_push" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">fifo_push</obj_property>
+      <obj_property name="ObjectShortName">fifo_push</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider20" type="divider">
+      <obj_property name="label">to mcb</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/mpop" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mpop</obj_property>
+      <obj_property name="ObjectShortName">mpop</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/mdata" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">mdata[255:0]</obj_property>
+      <obj_property name="ObjectShortName">mdata[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/mdvalid" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mdvalid</obj_property>
+      <obj_property name="ObjectShortName">mdvalid</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/mready" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mready</obj_property>
+      <obj_property name="ObjectShortName">mready</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider24" type="divider">
+      <obj_property name="label">from mcb</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/mclk" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mclk</obj_property>
+      <obj_property name="ObjectShortName">mclk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/mdata" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">mdata[255:0]</obj_property>
+      <obj_property name="ObjectShortName">mdata[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/mpush" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mpush</obj_property>
+      <obj_property name="ObjectShortName">mpush</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider30" type="divider">
+      <obj_property name="label">wide fifo</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/wide_fifo/read_clk" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">read_clk</obj_property>
+      <obj_property name="ObjectShortName">read_clk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/wide_fifo/pop" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">pop</obj_property>
+      <obj_property name="ObjectShortName">pop</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/wide_fifo/dvalid" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">dvalid</obj_property>
+      <obj_property name="ObjectShortName">dvalid</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/wide_fifo/dout" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">dout[255:0]</obj_property>
+      <obj_property name="ObjectShortName">dout[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider34" type="divider">
+      <obj_property name="label">width translator</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/width_translator/state" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">state</obj_property>
+      <obj_property name="ObjectShortName">state</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/width_translator/count" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">count</obj_property>
+      <obj_property name="ObjectShortName">count</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider37" type="divider">
+      <obj_property name="label">narrow fifo</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/narrow_fifo/din" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">din[23:0]</obj_property>
+      <obj_property name="ObjectShortName">din[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/narrow_fifo/push" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">push</obj_property>
+      <obj_property name="ObjectShortName">push</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/narrow_fifo/full" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">full</obj_property>
+      <obj_property name="ObjectShortName">full</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/narrow_fifo/pop" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">pop</obj_property>
+      <obj_property name="ObjectShortName">pop</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/narrow_fifo/dout" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">dout[23:0]</obj_property>
+      <obj_property name="ObjectShortName">dout[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_ddr_to_pixel_fifo/narrow_fifo/dvalid" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">dvalid</obj_property>
+      <obj_property name="ObjectShortName">dvalid</obj_property>
+   </wvobject>
+</wave_config>
