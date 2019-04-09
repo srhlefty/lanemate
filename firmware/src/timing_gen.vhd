@@ -186,7 +186,7 @@ architecture Behavioral of timing_gen is
 	alias VIC480p : vic_settings is vic2;
 	alias VIC480i : vic_settings is vic6;
 	
-	signal output_vic : vic_settings := VIC480i;
+	signal output_vic : vic_settings := VIC720p;
 	signal debug_field : std_logic;
 
 begin
@@ -242,44 +242,44 @@ begin
 	);
 
 	-- 4:2:2 output: serialize the pixel data
-	Inst_serializeYCbCr: serializeYCbCr PORT MAP(
-		DE => de_tmp,
-		YCbCr1 => x"952B15",
-		Y2 => x"95",
-		D => d_tmp,
-		DEout => DE,
-		CLK => CLK
-	);
-	D(7 downto 0) <= d_tmp;
-	D(23 downto 8) <= (others => '0');
-	-- and delay HS and VS, because the serializer needs to delay DE by 1
-	process(CLK) is
-	begin
-	if(rising_edge(CLK)) then
-		VS <= not vs_tmp;
-		HS <= not hs_tmp;
-	end if;
-	end process;
+--	Inst_serializeYCbCr: serializeYCbCr PORT MAP(
+--		DE => de_tmp,
+--		YCbCr1 => x"952B15",
+--		Y2 => x"95",
+--		D => d_tmp,
+--		DEout => DE,
+--		CLK => CLK
+--	);
+--	D(7 downto 0) <= d_tmp;
+--	D(23 downto 8) <= (others => '0');
+--	-- and delay HS and VS, because the serializer needs to delay DE by 1
+--	process(CLK) is
+--	begin
+--	if(rising_edge(CLK)) then
+--		VS <= not vs_tmp;
+--		HS <= not hs_tmp;
+--	end if;
+--	end process;
 	
 	
 	
 	
 	-- 4:4:4 output
---	VS <= not vs_tmp;
---	HS <= not hs_tmp;
---	DE <= de_tmp;
---	
---	process(CLK) is
---	begin
---	if(rising_edge(CLK)) then
---		--D <= x"00" & yout(7 downto 0) & xout(7 downto 0);
---		-- the bus for RGB goes RGB
---		-- the bus for YCbCr goes CrYCb
---		-- pure green: Y,Cb,Cr = 149,43,21
---		-- if interpreted incorrectly as rgb, looks like a darker green
---		D <= x"15952B";
---	end if;
---	end process;
+	VS <= not vs_tmp;
+	HS <= not hs_tmp;
+	DE <= de_tmp;
+	
+	process(CLK) is
+	begin
+	if(rising_edge(CLK)) then
+		D <= x"00" & yout(7 downto 0) & xout(7 downto 0);
+		-- the bus for RGB goes RGB
+		-- the bus for YCbCr goes CrYCb
+		-- pure green: Y,Cb,Cr = 149,43,21
+		-- if interpreted incorrectly as rgb, looks like a darker green
+		--D <= x"15952B";
+	end if;
+	end process;
 	
 	end block;
 
