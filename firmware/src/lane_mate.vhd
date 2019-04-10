@@ -501,6 +501,7 @@ begin
 			CLK : in  STD_LOGIC;
 			SDA : inout  STD_LOGIC;
 			SCL : inout  STD_LOGIC;
+			DEBUG_STATE : out std_logic_vector(15 downto 0);
 			
 			-- Interface to the register map, e.g. dual-port bram
 			RAM_ADDR : out std_logic_vector(7 downto 0);
@@ -518,152 +519,155 @@ begin
 		
 	begin
 	
-		Inst_i2c_master: i2c_master PORT MAP(
-			CLK => SYSCLK,
-			SLAVE_ADDR => "1101000",
-			SLAVE_REG => reg,
-			CMD_WRITE => cmd_write,
-			WRITE_DATA => write_data,
-			CMD_READ => cmd_read,
-			REPLY_ACK => reply_ack,
-			REPLY_NACK => reply_nack,
-			REPLY_DATA => reply_data,
-			REPLY_VALID => reply_valid,
-			SDA => I2C_SDA,
-			SCL => I2C_SCL
+--		Inst_i2c_master: i2c_master PORT MAP(
+--			CLK => SYSCLK,
+--			SLAVE_ADDR => "1101000",
+--			SLAVE_REG => reg,
+--			CMD_WRITE => cmd_write,
+--			WRITE_DATA => write_data,
+--			CMD_READ => cmd_read,
+--			REPLY_ACK => reply_ack,
+--			REPLY_NACK => reply_nack,
+--			REPLY_DATA => reply_data,
+--			REPLY_VALID => reply_valid,
+--			SDA => I2C_SDA,
+--			SCL => I2C_SCL
 --			SDA => i2c_debug_sda,
 --			SCL => i2c_debug_scl
-		);
-		
-		
-		
-		
-		-- Simulation only!
---		ram : block is
---		
---			type ram_t is array(0 to 10) of std_logic_vector(7 downto 0);
---			signal ram_data : ram_t := 
---			(
---				0 => x"12",
---				1 => x"34",
---				2 => x"56",
---				3 => x"78",
---				4 => x"33",
---				5 => x"FF",
---				6 => x"FF",
---				7 => x"FF",
---				others => x"00"
---			);
---		
---		begin
---			process(SYSCLK) is
---			begin
---			if(rising_edge(SYSCLK)) then
---				if(RAM_WE = '1') then
---					ram_data(to_integer(unsigned(RAM_ADDR))) <= RAM_WDATA;
---				end if;
---				RAM_RDATA <= ram_data(to_integer(unsigned(RAM_ADDR)));
---			end if;
---			end process;
---		end block;
---		
---		Inst_i2c_slave: i2c_slave 
---		generic map (
---			SLAVE_ADDRESS => "1101001"
---		)
---		PORT MAP(
---			CLK => SYSCLK,
---			SDA => i2c_debug_sda,
---			SCL => i2c_debug_scl,
---			RAM_ADDR => RAM_ADDR,
---			RAM_WDATA => RAM_WDATA,
---			RAM_WE => RAM_WE,
---			RAM_RDATA => RAM_RDATA
 --		);
 		
 		
 		
 		
+		-- Simulation only!
+		ram : block is
 		
+			type ram_t is array(0 to 10) of std_logic_vector(7 downto 0);
+			signal ram_data : ram_t := 
+			(
+				0 => x"12",
+				1 => x"34",
+				2 => x"56",
+				3 => x"78",
+				4 => x"AA",
+				5 => x"BB",
+				6 => x"CC",
+				7 => x"DD",
+				others => x"00"
+			);
 		
-		
-		
-		
-		process(SYSCLK) is
 		begin
-		if(rising_edge(SYSCLK)) then
-		case state is
-			when STARTUP =>
-				-- wait 1 second before continuing
-				count <= 100000000;
-				--count <= 10;
-				state <= DELAY;
-				ret <= SEND;
-				
-			when SEND =>
-				reg <= startup_reg(startup_index);
-				write_data <= startup_data(startup_index);
-				cmd_write <= '1';
-				state <= WAIT_FOR_REPLY;
-				--state <= HALT;
-			
-			when HALT =>
-				cmd_write <= '0';
-				
-			when WAIT_FOR_REPLY =>
-				cmd_write <= '0';
-				if(reply_valid = '1') then
-					if(reply_ack = '1') then
-						if(startup_index = startup_reg'high) then
-							-- finished
-							state <= NORMAL;
-						else
-							startup_index <= startup_index + 1;
-							state <= SEND;
-						end if;
-					else
-						-- Notice that I'm not incrementing on NACK.
-						-- This will cause the same message to be attempted
-						-- forever, which is useful for debugging on the scope
-						count <= 100000000;
-						state <= DELAY;
-						ret <= SEND;
-					end if;
+			process(SYSCLK) is
+			begin
+			if(rising_edge(SYSCLK)) then
+				if(RAM_WE = '1') then
+					ram_data(to_integer(unsigned(RAM_ADDR))) <= RAM_WDATA;
 				end if;
-				
-			when NORMAL =>
-				-- read register 00, which is the seconds
-				reg <= x"00";
-				cmd_read <= '1';
-				state <= WAIT_FOR_REPLY_N;
-			
-			when WAIT_FOR_REPLY_N =>
-				cmd_read <= '0';
-				if(reply_valid = '1') then
-					if(reply_ack = '1') then
-						lights(7 downto 0) <= x"0" & reply_data(3 downto 0);
-						lights(15 downto 8) <= x"0" & reply_data(7 downto 4);
-					else
-						lights <= (others => '1');
-					end if;
-					
-					-- wait for 1 ms so I don't go too crazy
-					count <= 100000;
-					state <= DELAY;
-					ret <= NORMAL;
-				end if;
-				
-					
-				
-			when DELAY =>
-				if(count = 0) then
-					state <= ret;
-				else
-					count <= count - 1;
-				end if;
-		end case;
-		end if;
-		end process;
+				RAM_RDATA <= ram_data(to_integer(unsigned(RAM_ADDR)));
+			end if;
+			end process;
+		end block;
+		
+		Inst_i2c_slave: i2c_slave 
+		generic map (
+			SLAVE_ADDRESS => "0101100"
+		)
+		PORT MAP(
+			CLK => SYSCLK,
+--			SDA => i2c_debug_sda,
+--			SCL => i2c_debug_scl,
+			SDA => I2C_SDA,
+			SCL => I2C_SCL,
+			DEBUG_STATE => lights,
+			RAM_ADDR => RAM_ADDR,
+			RAM_WDATA => RAM_WDATA,
+			RAM_WE => RAM_WE,
+			RAM_RDATA => RAM_RDATA
+		);
+		
+		
+		
+		
+		
+		
+		
+		
+		
+--		process(SYSCLK) is
+--		begin
+--		if(rising_edge(SYSCLK)) then
+--		case state is
+--			when STARTUP =>
+--				-- wait 1 second before continuing
+--				count <= 100000000;
+--				--count <= 10;
+--				state <= DELAY;
+--				ret <= SEND;
+--				
+--			when SEND =>
+--				reg <= startup_reg(startup_index);
+--				write_data <= startup_data(startup_index);
+--				cmd_write <= '1';
+--				state <= WAIT_FOR_REPLY;
+--				--state <= HALT;
+--			
+--			when HALT =>
+--				cmd_write <= '0';
+--				
+--			when WAIT_FOR_REPLY =>
+--				cmd_write <= '0';
+--				if(reply_valid = '1') then
+--					if(reply_ack = '1') then
+--						if(startup_index = startup_reg'high) then
+--							-- finished
+--							state <= NORMAL;
+--						else
+--							startup_index <= startup_index + 1;
+--							state <= SEND;
+--						end if;
+--					else
+--						-- Notice that I'm not incrementing on NACK.
+--						-- This will cause the same message to be attempted
+--						-- forever, which is useful for debugging on the scope
+--						count <= 100000000;
+--						state <= DELAY;
+--						ret <= SEND;
+--					end if;
+--				end if;
+--				
+--			when NORMAL =>
+--				-- read register 00, which is the seconds
+--				reg <= x"00";
+--				cmd_read <= '1';
+--				state <= WAIT_FOR_REPLY_N;
+--			
+--			when WAIT_FOR_REPLY_N =>
+--				cmd_read <= '0';
+--				if(reply_valid = '1') then
+--					if(reply_ack = '1') then
+--						lights(7 downto 0) <= x"0" & reply_data(3 downto 0);
+--						lights(15 downto 8) <= x"0" & reply_data(7 downto 4);
+--					else
+--						lights <= (others => '1');
+--					end if;
+--					
+--					-- wait for 1 ms so I don't go too crazy
+--					count <= 100000;
+--					state <= DELAY;
+--					ret <= NORMAL;
+--				end if;
+--				
+--					
+--				
+--			when DELAY =>
+--				if(count = 0) then
+--					state <= ret;
+--				else
+--					count <= count - 1;
+--				end if;
+--		end case;
+--		end if;
+--		end process;
 		
 		
 		B0_GPIO0 <= lights(0);

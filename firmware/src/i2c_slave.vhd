@@ -38,6 +38,8 @@ entity i2c_slave is
 		SDA : inout  STD_LOGIC;
 		SCL : inout  STD_LOGIC;
 		
+		DEBUG_STATE : out std_logic_vector(15 downto 0);
+		
 		-- Interface to the register map, e.g. dual-port bram
 		RAM_ADDR : out std_logic_vector(7 downto 0);
 		RAM_WDATA : out std_logic_vector(7 downto 0);
@@ -47,6 +49,16 @@ entity i2c_slave is
 end i2c_slave;
 
 architecture Behavioral of i2c_slave is
+
+	component simple_debounce is
+	Generic (
+		DEPTH : natural
+	);
+	Port ( 
+		CLK : in  STD_LOGIC;
+		DIN : in  STD_LOGIC;
+		DOUT : out  STD_LOGIC);
+	end component;
 
 	signal reg_ptr : std_logic_vector(7 downto 0) := x"00";
 	signal reg_addr : std_logic_vector(7 downto 0) := x"00";
@@ -72,18 +84,23 @@ architecture Behavioral of i2c_slave is
 	signal shift_load : std_logic := '0';
 	signal wdata : std_logic_vector(8 downto 0) := (others => '0');
 	
-	signal operation : std_logic := '0';
 	
 	signal sda_old : std_logic := '1';
 	signal scl_old : std_logic := '1';
 	signal sda_state : std_logic := '1';
 	signal sda_read : std_logic;
+	signal sda_pin : std_logic;
 	signal scl_read : std_logic;
+	signal scl_pin : std_logic;
+	
+	signal debug : std_logic_vector(15 downto 0) := x"0000";
 begin
 
 	RAM_ADDR <= reg_addr;
 	RAM_WE <= reg_we;
 	RAM_WDATA <= reg_wdata;
+	
+	DEBUG_STATE <= debug;
 
 
    sdabuf : IOBUF
@@ -92,7 +109,7 @@ begin
       IOSTANDARD => "I2C",
       SLEW => "SLOW")
    port map (
-      O => sda_read,  -- data received from pin
+      O => sda_pin,  -- data received from pin
       IO => SDA,      -- pin
       I => '0',       -- data to send to pin
       T => sda_state  -- High = Z (receive data from pin; pin floats high)
@@ -108,7 +125,7 @@ begin
       IOSTANDARD => "I2C",
       SLEW => "SLOW")
    port map (
-      O => scl_read,
+      O => scl_pin,
       IO => SCL,
       I => '0',
       T => '1' -- my slave doesn't need to drive SCL
@@ -118,6 +135,20 @@ begin
       O => SCL     -- Pullup output (connect directly to top-level port)
    );
 
+	scl_debounce: simple_debounce
+	generic map ( DEPTH => 5)
+	PORT MAP(
+		CLK => CLK,
+		DIN => scl_pin,
+		DOUT => scl_read
+	);
+	sda_debounce: simple_debounce
+	generic map ( DEPTH => 5)
+	PORT MAP(
+		CLK => CLK,
+		DIN => sda_pin,
+		DOUT => sda_read
+	);
 
 	edge_detect : process(CLK) is
 	begin
@@ -136,10 +167,12 @@ begin
 		begin
 		if(rising_edge(CLK)) then
 			if(shift_reset = '1') then
+				debug(7 downto 0) <= x"FF";
 				state <= IDLE;
 			else
 				case state is
 					when IDLE =>
+						debug(7 downto 0) <= x"01";
 						read_bit <= '0';
 						-- wait for rising edge
 						if(scl_old = '0' and scl_read = '1') then
@@ -148,6 +181,7 @@ begin
 						end if;
 						
 					when DELAY =>
+						debug(7 downto 0) <= x"02";
 						if(count = 0) then
 							read_buffer(0) <= sda_read;
 							read_bit <= '1';
@@ -174,14 +208,17 @@ begin
 		begin
 		if(rising_edge(CLK)) then
 			if(shift_reset = '1') then
+				debug(15 downto 8) <= x"FF";
 				state <= IDLE;
 				sda_state <= '1';
 				shift_data <= (others => '1');
 			elsif(shift_load = '1') then
+				debug(15 downto 8) <= x"AA";
 				shift_data <= wdata;
 			else
 				case state is
 					when IDLE =>
+						debug(15 downto 8) <= x"01";
 						write_bit <= '0';
 						-- wait for falling edge
 						if(scl_old = '1' and scl_read = '0') then
@@ -190,6 +227,7 @@ begin
 						end if;
 						
 					when DELAY =>
+						debug(15 downto 8) <= x"02";
 						if(count = 0) then
 							write_bit <= '1';
 							if(write_enable = '1') then
@@ -248,7 +286,6 @@ begin
 								-- read_count lags by 1, so if it's 7 that means I just shifted in
 								-- the 8th bit, and so can look at the address and R/W bit
 								if(read_buffer(7 downto 1) = SLAVE_ADDRESS) then
-									operation <= read_buffer(0);
 									state <= ACK;
 									if(read_buffer(0) = '0') then
 										-- Master is writing my register pointer optionally followed by data
