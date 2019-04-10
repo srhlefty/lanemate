@@ -623,9 +623,42 @@ int mainRTCTest()
 	
 }
 
+int main_slavetest()
+{
+	system_init();
+	configure_usart();
+	configure_i2c_master();
+	delay_init();
+
+	delay_cycles_ms(1000);
+	print("Main application start\r\n");
+
+	const uint16_t lanemate_address = 0b0101100;
+	const uint16_t regs[8] = {0,1,2,3,4,5,6,7};
+	for(int i=0;i<8;++i)
+	{
+		uint8_t b;
+		int ok = i2c_read_reg(lanemate_address, regs[i], &b);
+		if(ok == SLAVE_OK)
+		{
+			uint8_t buf[3];
+			byte_to_string(buf, b);
+			buf[2] = '\0';
+			print(buf);
+		}else if(ok == SLAVE_NAK)
+		print("NAK");
+		else if(ok == SLAVE_NO_ACK)
+		print("NO ACK");
+		print("\r\n");
+
+		delay_cycles_ms(100);
+	}
+}
+
 int main()
 {
 	//main_lanemate();
 	//mainRTCTest();
+	main_slavetest();
 	while(1);
 }
