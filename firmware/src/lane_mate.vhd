@@ -49,12 +49,14 @@ port (
 	SDI_INT : in std_logic;
 	SDV : in std_logic_vector(7 downto 0);
 	
-	HDO_PCLK : out std_logic;
-	HDO_VS : out std_logic;
-	HDO_HS : out std_logic;
-	HDO_DE : out std_logic;
-	HDO_INT : in std_logic;
-	RGB_OUT : out std_logic_vector(23 downto 0);
+	TMDS_CLK_P : out std_logic;
+	TMDS_CLK_N : out std_logic;
+	TMDS_R_P : out std_logic;
+	TMDS_R_N : out std_logic;
+	TMDS_G_P : out std_logic;
+	TMDS_G_N : out std_logic;
+	TMDS_B_P : out std_logic;
+	TMDS_B_N : out std_logic;
 	
 	B0_GPIO0 : out std_logic;
 	B1_GPIO1 : out std_logic;
@@ -151,36 +153,158 @@ architecture Behavioral of lane_mate is
 		);
 	END COMPONENT;
 	
+	
+	
+	
+	
+	component gen_dvi_clks is
+	port
+		(-- Clock in ports
+		PCLKIN           : in     std_logic;
+		-- Clock out ports
+		PCLK10X          : out    std_logic;
+		PCLK2X           : out    std_logic;
+		PCLK             : out    std_logic;
+		SERDESSTROBE     : out    std_logic;
+		-- Status and control signals
+		RST             : in     std_logic;
+		PLLLOCKED          : out    std_logic;
+		BUFLOCKED          : out    std_logic
+	);
+	end component;
+	
+	COMPONENT dvi_encoder_top
+	PORT(
+		pclk : IN std_logic;
+		pclkx2 : IN std_logic;
+		pclkx10 : IN std_logic;
+		serdesstrobe : IN std_logic;
+		rstin : IN std_logic;
+		blue_din : IN std_logic_vector(7 downto 0);
+		green_din : IN std_logic_vector(7 downto 0);
+		red_din : IN std_logic_vector(7 downto 0);
+		hsync : IN std_logic;
+		vsync : IN std_logic;
+		de : IN std_logic;          
+		TMDS : OUT std_logic_vector(3 downto 0);
+		TMDSB : OUT std_logic_vector(3 downto 0)
+		);
+	END COMPONENT;
+	
+	
 	type video_in_t is (HDMI, COMPOSITE);
 	signal video_input_source : video_in_t := COMPOSITE;
 	
 begin
 
-	bt656 : block is
-		signal data : std_logic_vector(7 downto 0);
+
+	gen_dvi : block is
+		signal pclk : std_logic;
+		signal pclk2x : std_logic;
+		signal pclk10x : std_logic;
+		signal strobe : std_logic;
+		signal idata : std_logic_vector(23 downto 0) := (others => '0');
+		signal ivs : std_logic := '0';
+		signal ihs : std_logic := '0';
+		signal ide : std_logic := '0';
+		signal tmds : std_logic_vector(3 downto 0);
+		signal tmdsb : std_logic_vector(3 downto 0);
 	begin
 	
-		Inst_bt656_decode: bt656_decode PORT MAP(
-			D => SDV,
-			CLK => SDI_PCLK,
-			VS => HDO_VS,
-			HS => HDO_HS,
-			DE => HDO_DE,
-			DOUT => data
+		Inst_gen_dvi_clks: gen_dvi_clks PORT MAP(
+			PCLKIN => HDI_PCLK,
+			PCLK10X => pclk10x,
+			PCLK2X => pclk2x,
+			PCLK => pclk,
+			SERDESSTROBE => strobe,
+			RST => '0',
+			PLLLOCKED => open,
+			BUFLOCKED => open
 		);
 		
-		RGB_OUT(23 downto 8) <= (others => '0');
-		RGB_OUT(7 downto 0) <= data;
-
-		Inst_clock_forwarding: clock_forwarding 
-		GENERIC MAP(
-			INVERT => true
-		)
-		PORT MAP(
-			CLK => SDI_PCLK,
-			CLKO => HDO_PCLK
+		process(pclk) is
+		begin
+		if(rising_edge(pclk)) then
+			idata <= RGB_IN;
+			ivs <= HDI_VS;
+			ihs <= HDI_HS;
+			ide <= HDI_DE;
+		end if;
+		end process;
+		
+		Inst_dvi_encoder_top: dvi_encoder_top PORT MAP(
+			pclk => pclk,
+			pclkx2 => pclk2x,
+			pclkx10 => pclk10x,
+			serdesstrobe => strobe,
+			rstin => '0',
+			blue_din =>  idata(23 downto 16),
+			green_din => idata(15 downto  8),
+			red_din =>   idata( 7 downto  0),
+			hsync => ihs,
+			vsync => ivs,
+			de => ide,
+			TMDS => tmds,
+			TMDSB => tmdsb
 		);
+		
+		TMDS_CLK_P <= tmds(0);
+		TMDS_CLK_N <= tmdsb(0);
+		TMDS_R_P <= tmds(1);
+		TMDS_R_N <= tmdsb(1);
+		TMDS_G_P <= tmds(2);
+		TMDS_G_N <= tmdsb(2);
+		TMDS_B_P <= tmds(3);
+		TMDS_B_N <= tmdsb(3);
+		
+		
+	
+	
 	end block;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--	bt656 : block is
+--		signal data : std_logic_vector(7 downto 0);
+--	begin
+--	
+--		Inst_bt656_decode: bt656_decode PORT MAP(
+--			D => SDV,
+--			CLK => SDI_PCLK,
+--			VS => HDO_VS,
+--			HS => HDO_HS,
+--			DE => HDO_DE,
+--			DOUT => data
+--		);
+--		
+--		RGB_OUT(23 downto 8) <= (others => '0');
+--		RGB_OUT(7 downto 0) <= data;
+--
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			CLK => SDI_PCLK,
+--			CLKO => HDO_PCLK
+--		);
+--	end block;
 
 
 
