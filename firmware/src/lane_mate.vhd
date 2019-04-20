@@ -58,6 +58,10 @@ port (
 	TMDS_B_P : out std_logic;
 	TMDS_B_N : out std_logic;
 	
+	HDO_PCLK : out std_logic;
+	HDO_VS : inout std_logic;
+	HDO_DE : inout std_logic;
+	
 	B0_GPIO0 : out std_logic;
 	B1_GPIO1 : out std_logic;
 	B1_GPIO2 : out std_logic;
@@ -218,8 +222,8 @@ begin
 			PCLK => pclk,
 			SERDESSTROBE => strobe,
 			RST => '0',
-			PLLLOCKED => open,
-			BUFLOCKED => open
+			PLLLOCKED => B1_GPIO14,
+			BUFLOCKED => B1_GPIO15
 		);
 		
 		process(pclk) is
@@ -257,6 +261,14 @@ begin
 		TMDS_B_P <= tmds(3);
 		TMDS_B_N <= tmdsb(3);
 		
+		Inst_clock_forwarding: clock_forwarding 
+		GENERIC MAP(
+			INVERT => false
+		)
+		PORT MAP(
+			CLK => pclk,
+			CLKO => HDO_PCLK
+		);
 		
 	
 	
@@ -554,6 +566,31 @@ begin
    );
 
 
+   iobuf3 : IOBUF
+   generic map (
+      DRIVE => 12,
+      IOSTANDARD => "I2C",
+      SLEW => "SLOW")
+   port map (
+      O => open,     -- Buffer output
+      IO => HDO_VS,   -- Buffer inout port (connect directly to top-level port)
+      I => '1',     -- Buffer input
+      T => '1'      -- 3-state enable input, high=input, low=output 
+   );
+
+   iobuf4 : IOBUF
+   generic map (
+      DRIVE => 12,
+      IOSTANDARD => "I2C",
+      SLEW => "SLOW")
+   port map (
+      O => open,     -- Buffer output
+      IO => HDO_DE,   -- Buffer inout port (connect directly to top-level port)
+      I => '1',     -- Buffer input
+      T => '1'      -- 3-state enable input, high=input, low=output 
+   );
+
+
 
 	blinker : block is
 		signal val : std_logic_vector(15 downto 0) := x"0001";
@@ -587,8 +624,8 @@ begin
 		B1_GPIO11 <= val(11);
 		B1_GPIO12 <= val(12);
 		B1_GPIO13 <= val(13);
-		B1_GPIO14 <= val(14);
-		B1_GPIO15 <= val(15);
+		--B1_GPIO14 <= val(14);
+		--B1_GPIO15 <= val(15);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';

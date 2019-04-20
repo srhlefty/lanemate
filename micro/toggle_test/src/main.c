@@ -39,7 +39,7 @@ void configure_hdmi_tx(void);
 void configure_hdmi_tx(void)
 {
 	enum input_type {IN_HD=2, IN_SD};
-	const int video_in = IN_SD;
+	const int video_in = IN_HD;
 
 	print("Setting up HDMI TX\r\n");
 	uint8_t value;
@@ -178,12 +178,10 @@ int main (void)
 	delay_init();
 
 
-	//print("Waiting for FPGA to boot...\r\n");
-	delay_cycles_ms(1000);
 
 
 	configure_i2c_master();
-	//configure_hdmi_rx();
+	configure_hdmi_rx();
 	//configure_sd_rx();
 	configure_hdmi_tx();
 
@@ -192,6 +190,8 @@ int main (void)
 	port_pin_toggle_output_level(TEST_PIN);
 
 
+	//print("Waiting for FPGA to boot...\r\n");
+	//delay_cycles_ms(1000);
 
 	/*
 	uint8_t str[5] = "XX\r\n";
@@ -222,6 +222,7 @@ int main (void)
 		{
 			handle_event = false;
 
+			/*
 			uint8_t vic, auxvic;
 			int ok = i2c_read_reg(hdmi_tx_address, 0x3E, &vic);
 			int ok2 = i2c_read_reg(hdmi_tx_address, 0x3F, &auxvic);
@@ -232,6 +233,7 @@ int main (void)
 				print(str);
 			else
 				print("No response\r\n");
+			*/
 
 			/*
 			uint8_t status1, status2, status3;
