@@ -107,6 +107,7 @@ architecture xilinx of gen_dvi_clks is
 
 	signal pll_locked : std_logic;
 	signal bufpll_locked : std_logic;
+	signal pclk2x_buf : std_logic;
 begin
 
 
@@ -172,7 +173,7 @@ begin
       IOCLK => PCLK10X,               -- 1-bit output: Output I/O clock
       LOCK => bufpll_locked,                 -- 1-bit output: Synchronized LOCK output
       SERDESSTROBE => SERDESSTROBE, -- 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
-      GCLK => clkout1,                 -- 1-bit input: BUFG clock input
+      GCLK => pclk2x_buf,                 -- 1-bit input: BUFG clock input
       LOCKED => pll_locked,             -- 1-bit input: LOCKED input from PLL
       PLLIN => clkout0                -- 1-bit input: Clock input from PLL
    );
@@ -180,8 +181,10 @@ begin
 
   clkout2_buf : BUFG
   port map
-   (O   => PCLK2X,
+   (O   => pclk2x_buf,
     I   => clkout1);
+
+	PCLK2X <= pclk2x_buf;
 
   clkout3_buf : BUFG
   port map
