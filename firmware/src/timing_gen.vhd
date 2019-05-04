@@ -186,8 +186,11 @@ architecture Behavioral of timing_gen is
 	alias VIC480p : vic_settings is vic2;
 	alias VIC480i : vic_settings is vic6;
 	
-	signal output_vic : vic_settings := VIC480i;
+	signal output_vic : vic_settings := VIC720p;
 	signal debug_field : std_logic;
+
+	signal timing_reset : std_logic := '0';
+	signal rst_boot : std_logic := '0';
 
 begin
 
@@ -211,10 +214,28 @@ begin
 		END COMPONENT;
 		
 	begin
+
+	oneshot : block is
+		signal once : std_logic := '0';
+	begin
+		process(CLK) is
+		begin
+		if(rising_edge(CLK)) then
+			if(once = '0') then
+				rst_boot <= '1';
+				once <= '1';
+			else
+				rst_boot <= '0';
+			end if;
+		end if;
+		end process;
+	end block;
+
+	timing_reset <= RST or rst_boot;
 	
 	Inst_sync_vg: sync_vg PORT MAP(
 		clk => CLK,
-		reset => RST,
+		reset => timing_reset,
 		interlaced => output_vic.interlaced,
 		v_total_0 => output_vic.total_number_of_vertical_lines_in_field_0,
 		v_fp_0 => output_vic.vertical_front_porch_field_0,
@@ -242,44 +263,44 @@ begin
 	);
 
 	-- 4:2:2 output: serialize the pixel data
-	Inst_serializeYCbCr: serializeYCbCr PORT MAP(
-		DE => de_tmp,
-		YCbCr1 => x"952B15",
-		Y2 => x"95",
-		D => d_tmp,
-		DEout => DE,
-		CLK => CLK
-	);
-	D(7 downto 0) <= d_tmp;
-	D(23 downto 8) <= (others => '0');
-	-- and delay HS and VS, because the serializer needs to delay DE by 1
-	process(CLK) is
-	begin
-	if(rising_edge(CLK)) then
-		VS <= not vs_tmp;
-		HS <= not hs_tmp;
-	end if;
-	end process;
+--	Inst_serializeYCbCr: serializeYCbCr PORT MAP(
+--		DE => de_tmp,
+--		YCbCr1 => x"952B15",
+--		Y2 => x"95",
+--		D => d_tmp,
+--		DEout => DE,
+--		CLK => CLK
+--	);
+--	D(7 downto 0) <= d_tmp;
+--	D(23 downto 8) <= (others => '0');
+--	-- and delay HS and VS, because the serializer needs to delay DE by 1
+--	process(CLK) is
+--	begin
+--	if(rising_edge(CLK)) then
+--		VS <= not vs_tmp;
+--		HS <= not hs_tmp;
+--	end if;
+--	end process;
 	
 	
 	
 	
 	-- 4:4:4 output
---	VS <= not vs_tmp;
---	HS <= not hs_tmp;
---	DE <= de_tmp;
---	
---	process(CLK) is
---	begin
---	if(rising_edge(CLK)) then
---		--D <= x"00" & yout(7 downto 0) & xout(7 downto 0);
---		-- the bus for RGB goes RGB
---		-- the bus for YCbCr goes CrYCb
---		-- pure green: Y,Cb,Cr = 149,43,21
---		-- if interpreted incorrectly as rgb, looks like a darker green
---		D <= x"15952B";
---	end if;
---	end process;
+	VS <= not vs_tmp;
+	HS <= not hs_tmp;
+	DE <= de_tmp;
+	
+	process(CLK) is
+	begin
+	if(rising_edge(CLK)) then
+		D <= x"00" & yout(7 downto 0) & xout(7 downto 0);
+		-- the bus for RGB goes RGB
+		-- the bus for YCbCr goes CrYCb
+		-- pure green: Y,Cb,Cr = 149,43,21
+		-- if interpreted incorrectly as rgb, looks like a darker green
+		--D <= x"15952B";
+	end if;
+	end process;
 	
 	end block;
 

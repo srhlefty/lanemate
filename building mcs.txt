@@ -1,0 +1,11 @@
+Prepare PROM File
+SPI Flash -> Configure Single FPGA
+16M bit
+
+
+Programming flash:
+Initialize chain
+Add SPI/BPI flash
+Specify MCS
+Use device W25Q16V, data width 1
+Right click flash -> Program

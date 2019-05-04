@@ -156,87 +156,90 @@ architecture Behavioral of lane_mate is
 	
 begin
 
-	bt656 : block is
-		signal data : std_logic_vector(7 downto 0);
-	begin
-	
-		Inst_bt656_decode: bt656_decode PORT MAP(
-			D => SDV,
-			CLK => SDI_PCLK,
-			VS => HDO_VS,
-			HS => HDO_HS,
-			DE => HDO_DE,
-			DOUT => data
-		);
-		
-		RGB_OUT(23 downto 8) <= (others => '0');
-		RGB_OUT(7 downto 0) <= data;
-
-		Inst_clock_forwarding: clock_forwarding 
-		GENERIC MAP(
-			INVERT => true
-		)
-		PORT MAP(
-			CLK => SDI_PCLK,
-			CLKO => HDO_PCLK
-		);
-	end block;
-
-
-
-
-
-
-
---	synth : block is
---		signal clk148 : std_logic;
---		signal clk74 : std_logic;
---		signal clk27 : std_logic;
---		signal clk54 : std_logic;
---		signal rst : std_logic := '1';
---		signal once : std_logic := '0';
---		signal field_old : std_logic := '0';
---		signal d1 : std_logic_vector(7 downto 0);
---		signal d2 : std_logic_vector(7 downto 0);
---		signal d3 : std_logic_vector(7 downto 0);
+--	bt656 : block is
+--		signal data : std_logic_vector(7 downto 0);
 --	begin
---
---		Inst_clk_hd: clk_hd PORT MAP(
---			CLK100 => SYSCLK,
---			CLK74p25 => clk74,
---			CLK148p5 => clk148,
---			RST => '0',
---			LOCKED => open
---		);
---		Inst_clk_sd: clk_sd PORT MAP(
---			CLK100 => SYSCLK,
---			CLK27 => clk27,
---			CLK54 => clk54,
---			RST => '0',
---			LOCKED => open
---		);
 --	
+--		Inst_bt656_decode: bt656_decode PORT MAP(
+--			D => SDV,
+--			CLK => SDI_PCLK,
+--			VS => HDO_VS,
+--			HS => HDO_HS,
+--			DE => HDO_DE,
+--			DOUT => data
+--		);
+--		
+--		RGB_OUT(23 downto 8) <= (others => '0');
+--		RGB_OUT(7 downto 0) <= data;
+--
 --		Inst_clock_forwarding: clock_forwarding 
 --		GENERIC MAP(
 --			INVERT => true
 --		)
 --		PORT MAP(
---			--CLK => clk27,
 --			CLK => SDI_PCLK,
 --			CLKO => HDO_PCLK
 --		);
---		
---		Inst_timing_gen: timing_gen PORT MAP(
---			--CLK => clk27,
---			CLK => SDI_PCLK,
---			RST => rst,
---			VIC => x"00",
---			VS => HDO_VS,
---			HS => HDO_HS,
---			DE => HDO_DE,
---			D => open
---		);
---		
+--	end block;
+
+
+
+
+
+
+
+	synth : block is
+		signal clk148 : std_logic;
+		signal clk74 : std_logic;
+		signal clk27 : std_logic;
+		signal clk54 : std_logic;
+		signal rst : std_logic := '1';
+		signal once : std_logic := '0';
+		signal field_old : std_logic := '0';
+		signal d1 : std_logic_vector(7 downto 0);
+		signal d2 : std_logic_vector(7 downto 0);
+		signal d3 : std_logic_vector(7 downto 0);
+	begin
+
+		Inst_clk_hd: clk_hd PORT MAP(
+			CLK100 => SYSCLK,
+			CLK74p25 => clk74,
+			CLK148p5 => clk148,
+			RST => '0',
+			LOCKED => open
+		);
+		Inst_clk_sd: clk_sd PORT MAP(
+			CLK100 => SYSCLK,
+			CLK27 => clk27,
+			CLK54 => clk54,
+			RST => '0',
+			LOCKED => open
+		);
+	
+		Inst_clock_forwarding: clock_forwarding 
+		GENERIC MAP(
+			INVERT => true
+		)
+		PORT MAP(
+			--CLK => clk27,
+			--CLK => SDI_PCLK,
+			CLK => clk74,
+			CLKO => HDO_PCLK
+		);
+		
+		Inst_timing_gen: timing_gen PORT MAP(
+			--CLK => clk27,
+			--CLK => SDI_PCLK,
+			CLK => clk74,
+			RST => '0',
+			VIC => x"00",
+			VS => HDO_VS,
+			HS => HDO_HS,
+			DE => HDO_DE,
+			D => RGB_OUT
+		);
+		
+		
 --		process(SDI_PCLK) is
 --		begin
 --		if(rising_edge(SDI_PCLK)) then
@@ -256,9 +259,9 @@ begin
 --		end process;
 --			RGB_OUT(23 downto 8) <= (others => '0');
 --			RGB_OUT(7 downto 0) <= SDV;
---		
---		
---	end block;
+		
+		
+	end block;
 
 
 

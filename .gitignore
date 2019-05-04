@@ -90,3 +90,6 @@ templates
 *.xwbt
 /firmware/*.prm
 *.cfi
+*.cmd_log
+*.bat
+*.cmd
