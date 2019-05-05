@@ -5,3 +5,4 @@
 - Change micro's power supply to 3.3V
 - SD rx chip also supports S-video and component; add connectors for those
 - For the SD input, a differential amp is not needed. Instead use the simple termination input described in the data sheet.
+- 5V regulator is connected incorrectly; input voltage should be plug power, not 3.3V
