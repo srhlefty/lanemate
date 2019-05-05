@@ -151,8 +151,28 @@ architecture Behavioral of lane_mate is
 		);
 	END COMPONENT;
 	
+	component i2c_slave is
+	Generic (
+		SLAVE_ADDRESS : std_logic_vector(6 downto 0)
+	);
+	Port ( 
+		CLK : in  STD_LOGIC;
+		SDA : inout  STD_LOGIC;
+		SCL : inout  STD_LOGIC;
+		
+		-- Interface to the register map, e.g. dual-port bram
+		RAM_ADDR : out std_logic_vector(7 downto 0);
+		RAM_WDATA : out std_logic_vector(7 downto 0);
+		RAM_WE : out std_logic;
+		RAM_RDATA : in std_logic_vector(7 downto 0)
+	);
+	end component;
+	
+	
+	
 	type video_in_t is (HDMI, COMPOSITE);
 	signal video_input_source : video_in_t := COMPOSITE;
+	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
 begin
 
@@ -408,30 +428,52 @@ begin
 	end block;
 
 
-   iobuf1 : IOBUF
-   generic map (
-      DRIVE => 12,
-      IOSTANDARD => "I2C",
-      SLEW => "SLOW")
-   port map (
-      O => open,     -- Buffer output
-      IO => I2C_SDA,   -- Buffer inout port (connect directly to top-level port)
-      I => '1',     -- Buffer input
-      T => '1'      -- 3-state enable input, high=input, low=output 
-   );
+	register_map : block is
+	
+		type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
+		signal ram_data : ram_t := 
+		(
+			0 => x"12",
+			1 => x"34",
+			2 => x"56",
+			3 => x"78",
+			4 => x"33",
+			5 => x"FF",
+			others => x"00"
+		);
+		signal ram_addr : std_logic_vector(7 downto 0);
+		signal ram_wdata : std_logic_vector(7 downto 0);
+		signal ram_rdata : std_logic_vector(7 downto 0);
+		signal ram_we : std_logic;
+	
+	begin
 
-   iobuf2 : IOBUF
-   generic map (
-      DRIVE => 12,
-      IOSTANDARD => "I2C",
-      SLEW => "SLOW")
-   port map (
-      O => open,     -- Buffer output
-      IO => I2C_SCL,   -- Buffer inout port (connect directly to top-level port)
-      I => '1',     -- Buffer input
-      T => '1'      -- 3-state enable input, high=input, low=output 
-   );
-
+		process(SYSCLK) is
+		begin
+		if(rising_edge(SYSCLK)) then
+			if(ram_we = '1') then
+				ram_data(to_integer(unsigned(ram_addr))) <= ram_wdata;
+			end if;
+			ram_rdata <= ram_data(to_integer(unsigned(ram_addr)));
+		end if;
+		end process;
+		
+		Inst_i2c_slave: i2c_slave 
+		generic map (
+			SLAVE_ADDRESS => I2C_SLAVE_ADDR
+		)
+		PORT MAP(
+			CLK => SYSCLK,
+			SDA => I2C_SDA,
+			SCL => I2C_SCL,
+			RAM_ADDR => ram_addr,
+			RAM_WDATA => ram_wdata,
+			RAM_WE => ram_we,
+			RAM_RDATA => ram_rdata
+		);
+		
+		
+	end block;
 
 
 	blinker : block is

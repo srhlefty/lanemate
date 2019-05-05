@@ -251,7 +251,7 @@ int main (void)
 	delay_init();
 
 
-	//print("Waiting for FPGA to boot...\r\n");
+	print("Waiting for FPGA to boot...\r\n");
 	delay_cycles_ms(10000);
 
 
@@ -264,26 +264,26 @@ int main (void)
 	config_test_pin();
 	port_pin_toggle_output_level(TEST_PIN);
 
+	print("Reading out FPGA registers\r\n");
+	const uint16_t lanemate_address = 0b0101100;
+	const uint16_t regs[8] = {0,1,2,3,4,5,6,7};
+	for(int i=0;i<8;++i)
+	{
+		uint8_t b;
+		int ok = i2c_read_reg(lanemate_address, regs[i], &b);
+		if(ok == SLAVE_OK)
+		{
+			uint8_t buf[3];
+			byte_to_string(buf, b);
+			buf[2] = '\0';
+			print(buf);
+		}else if(ok == SLAVE_NAK)
+		print("NAK");
+		else if(ok == SLAVE_NO_ACK)
+		print("NO ACK");
+		print("\r\n");
+	}
 
-
-	/*
-	uint8_t str[5] = "XX\r\n";
-	print("Slave addresses:\r\n");
-	print("HDMI RX, IO:        "); byte_to_string(str, hdmi_rx_address); print(str);
-	print("HDMI RX, CP:        "); byte_to_string(str, hdmi_rx_cp_address); print(str);
-	print("HDMI RX, HDMI:      "); byte_to_string(str, hdmi_rx_hdmi_address); print(str);
-	print("HDMI RX, Repeater:  "); byte_to_string(str, hdmi_rx_repeater_address); print(str);
-	print("HDMI RX, EDID:      "); byte_to_string(str, hdmi_rx_edid_address); print(str);
-	print("HDMI RX, InfoFrame: "); byte_to_string(str, hdmi_rx_infoframe_address); print(str);
-	print("HDMI RX, CEC:       "); byte_to_string(str, hdmi_rx_cec_address); print(str);
-	print("HDMI RX, DPLL:      "); byte_to_string(str, hdmi_rx_dpll_address); print(str);
-	print("\r\n");
-	print("HDMI TX, Main:      "); byte_to_string(str, hdmi_tx_address); print(str);
-	print("HDMI TX, EDID:      "); byte_to_string(str, 0x7E >> 1); print(str);
-
-	print("Entering event loop\r\n");
-	servicer();
-	*/
 
 	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
 	uint32_t ticks_between_interrupts = ticks_per_second / 1;
