@@ -284,6 +284,17 @@ int main (void)
 		print("\r\n");
 	}
 
+	print("Register write test\r\n");
+	i2c_write_reg(lanemate_address, 0x00, 0x42);
+	uint8_t b;
+	i2c_read_reg(lanemate_address, 0x00, &b);
+	uint8_t buf[3];
+	byte_to_string(buf, b);
+	buf[2] = '\0';
+	print(buf);
+	print("\r\n");
+	
+
 
 	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
 	uint32_t ticks_between_interrupts = ticks_per_second / 1;
