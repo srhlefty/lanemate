@@ -168,11 +168,33 @@ architecture Behavioral of lane_mate is
 	);
 	end component;
 	
+	component bram_true_dual_port is
+	generic (
+		ADDR_WIDTH : natural;
+		DATA_WIDTH : natural
+	);
+    Port ( 
+		CLK1 : in std_logic;
+		ADDR1 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
+		RDATA1 : out std_logic_vector (DATA_WIDTH-1 downto 0);
+		WDATA1 : in std_logic_vector (DATA_WIDTH-1 downto 0);
+		WE1    : in std_logic;
+
+		CLK2 : in std_logic;
+		ADDR2 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
+		RDATA2 : out std_logic_vector (DATA_WIDTH-1 downto 0);
+		WDATA2 : in std_logic_vector (DATA_WIDTH-1 downto 0);
+		WE2    : in std_logic
+	);
+	end component;
 	
 	
 	type video_in_t is (HDMI, COMPOSITE);
 	signal video_input_source : video_in_t := COMPOSITE;
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
+
+	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
+	signal regmap : ram_t;
 	
 begin
 
@@ -428,36 +450,69 @@ begin
 	end block;
 
 
+	-- The register map is actually 2 sections of memory: a true dual-port bram, and
+	-- a distributed ram. With different design it would be possible to eliminate the
+	-- bram, but I did it this way because I wanted the repository to be a true dual
+	-- port memory. That way if I want to do things like self-clearing bits I don't
+	-- have to worry about an I2C write colliding with a self write. Probably way
+	-- overdesigned, but there's plenty of resources so it doesn't matter.
+	
+	-- The initial state of a bram is technically settable, but Xilinx recommends not
+	-- to rely on it. So at boot I write the defaults to the bram, and then do a 
+	-- refresh operation to synchronize the distributed ram to the bram. The refresh
+	-- is also done after an i2c write is detected. Even if I were using all 256
+	-- registers, the refresh takes about 260 clocks; compare this to the i2c clock,
+	-- which has a period of 1000 clocks. So there's no chance of missing an i2c write
+	-- while a refresh is taking place.
+
 	register_map : block is
 	
-		type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
-		signal ram_data : ram_t := 
+		constant map_defaults : ram_t := 
 		(
-			0 => x"12",
-			1 => x"34",
+			0 => x"01", -- Register table version
+			1 => x"00", -- Output source. 0 = 720p test pattern, 1 = HD shunt, 2 = SD shunt
 			2 => x"56",
 			3 => x"78",
 			4 => x"33",
 			5 => x"FF",
+			6 => x"AB",
+			7 => x"CD",
 			others => x"00"
 		);
+		
 		signal ram_addr : std_logic_vector(7 downto 0);
 		signal ram_wdata : std_logic_vector(7 downto 0);
 		signal ram_rdata : std_logic_vector(7 downto 0);
 		signal ram_we : std_logic;
+		signal we_old : std_logic := '0';
+		
+		signal regmap_addr : std_logic_vector(7 downto 0);
+		signal regmap_rdata : std_logic_vector(7 downto 0);
+		signal regmap_wdata : std_logic_vector(7 downto 0) := (others => '0');
+		signal regmap_we : std_logic := '0';
+		
+		type state_t is (IDLE, SET_DEFAULT, DEFAULT2, REFRESH, D1, D2, D3);
+		signal state : state_t := SET_DEFAULT;
 	
 	begin
+		Inst_bram_true_dual_port: bram_true_dual_port 
+		generic map (
+			ADDR_WIDTH => 8,
+			DATA_WIDTH => 8
+		)
+		PORT MAP(
+			CLK1 => SYSCLK,
+			ADDR1 => ram_addr,
+			RDATA1 => ram_rdata,
+			WDATA1 => ram_wdata,
+			WE1 => ram_we,
+			CLK2 => SYSCLK,
+			ADDR2 => regmap_addr,
+			RDATA2 => regmap_rdata,
+			WDATA2 => regmap_wdata,
+			WE2 => regmap_we
+		);
 
-		process(SYSCLK) is
-		begin
-		if(rising_edge(SYSCLK)) then
-			if(ram_we = '1') then
-				ram_data(to_integer(unsigned(ram_addr))) <= ram_wdata;
-			end if;
-			ram_rdata <= ram_data(to_integer(unsigned(ram_addr)));
-		end if;
-		end process;
-		
 		Inst_i2c_slave: i2c_slave 
 		generic map (
 			SLAVE_ADDRESS => I2C_SLAVE_ADDR
@@ -471,6 +526,67 @@ begin
 			RAM_WE => ram_we,
 			RAM_RDATA => ram_rdata
 		);
+		
+		-- At boot, fill the register map with the defaults
+		process(SYSCLK) is
+			variable nextaddr : natural;
+			variable raddr : natural;
+		begin
+		if(rising_edge(SYSCLK)) then
+
+			we_old <= ram_we;
+
+		case state is
+			when SET_DEFAULT =>
+				regmap_addr <= x"00";
+				regmap_wdata <= map_defaults(0);
+				regmap_we <= '1';
+				state <= DEFAULT2;
+			
+			when DEFAULT2 =>
+				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
+				if(nextaddr > map_defaults'high) then
+					regmap_we <= '0';
+					state <= REFRESH;
+				else
+					regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
+					regmap_wdata <= map_defaults(nextaddr);
+				end if;
+				
+			when REFRESH =>
+				regmap_addr <= x"00";
+				state <= D1;
+			
+			when D1 =>
+				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
+				regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
+				state <= D2;
+				
+			when D2 =>
+				raddr := to_integer(unsigned(regmap_addr)) - 1;
+				regmap(raddr) <= regmap_rdata;
+				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
+				if(nextaddr > regmap'high) then
+					state <= D3;
+				else
+					regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
+				end if;
+			
+			when D3 =>
+				raddr := to_integer(unsigned(regmap_addr));
+				regmap(raddr) <= regmap_rdata;
+				state <= IDLE;
+				
+			when IDLE =>
+				if(ram_we = '0' and we_old = '1') then
+					-- An i2c write has taken place, which means I should refresh the distributed array
+					state <= REFRESH;
+				else
+					state <= IDLE;
+				end if;
+		end case;
+		end if;
+		end process;
 		
 		
 	end block;

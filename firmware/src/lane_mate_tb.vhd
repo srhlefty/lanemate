@@ -55,14 +55,12 @@ ARCHITECTURE behavior OF lane_mate_tb IS
          SDI_VS : IN  std_logic;
          SDI_INT : IN  std_logic;
          SDV : IN  std_logic_vector(7 downto 0);
-         TMDS_CLK_P : OUT  std_logic;
-         TMDS_CLK_N : OUT  std_logic;
-         TMDS_R_P : OUT  std_logic;
-         TMDS_R_N : OUT  std_logic;
-         TMDS_G_P : OUT  std_logic;
-         TMDS_G_N : OUT  std_logic;
-         TMDS_B_P : OUT  std_logic;
-         TMDS_B_N : OUT  std_logic;
+	HDO_PCLK : out std_logic;
+	HDO_VS : out std_logic;
+	HDO_HS : out std_logic;
+	HDO_DE : out std_logic;
+	HDO_INT : in std_logic;
+	RGB_OUT : out std_logic_vector(23 downto 0);
          B0_GPIO0 : OUT  std_logic;
          B1_GPIO1 : OUT  std_logic;
          B1_GPIO2 : OUT  std_logic;
@@ -98,20 +96,18 @@ ARCHITECTURE behavior OF lane_mate_tb IS
    signal SDI_VS : std_logic := '0';
    signal SDI_INT : std_logic := '0';
    signal SDV : std_logic_vector(7 downto 0) := (others => '0');
+	signal HDO_INT : std_logic := '0';
 
 	--BiDirs
    signal I2C_SDA : std_logic;
    signal I2C_SCL : std_logic;
 
  	--Outputs
-   signal TMDS_CLK_P : std_logic;
-   signal TMDS_CLK_N : std_logic;
-   signal TMDS_R_P : std_logic;
-   signal TMDS_R_N : std_logic;
-   signal TMDS_G_P : std_logic;
-   signal TMDS_G_N : std_logic;
-   signal TMDS_B_P : std_logic;
-   signal TMDS_B_N : std_logic;
+	signal HDO_PCLK : std_logic;
+	signal HDO_VS : std_logic;
+	signal HDO_HS : std_logic;
+	signal HDO_DE : std_logic;
+	signal RGB_OUT : std_logic_vector(23 downto 0);
    signal B0_GPIO0 : std_logic;
    signal B1_GPIO1 : std_logic;
    signal B1_GPIO2 : std_logic;
@@ -150,14 +146,12 @@ BEGIN
           SDI_VS => SDI_VS,
           SDI_INT => SDI_INT,
           SDV => SDV,
-          TMDS_CLK_P => TMDS_CLK_P,
-          TMDS_CLK_N => TMDS_CLK_N,
-          TMDS_R_P => TMDS_R_P,
-          TMDS_R_N => TMDS_R_N,
-          TMDS_G_P => TMDS_G_P,
-          TMDS_G_N => TMDS_G_N,
-          TMDS_B_P => TMDS_B_P,
-          TMDS_B_N => TMDS_B_N,
+			HDO_PCLK => HDO_PCLK,
+			HDO_VS => HDO_VS,
+			HDO_HS => HDO_HS,
+			HDO_DE => HDO_DE,
+			HDO_INT => HDO_INT,
+			RGB_OUT => RGB_OUT,
           B0_GPIO0 => B0_GPIO0,
           B1_GPIO1 => B1_GPIO1,
           B1_GPIO2 => B1_GPIO2,
