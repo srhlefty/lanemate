@@ -188,56 +188,56 @@ begin
 
 
 
-	synth : block is
-		signal clk148 : std_logic;
-		signal clk74 : std_logic;
-		signal clk27 : std_logic;
-		signal clk54 : std_logic;
-		signal rst : std_logic := '1';
-		signal once : std_logic := '0';
-		signal field_old : std_logic := '0';
-		signal d1 : std_logic_vector(7 downto 0);
-		signal d2 : std_logic_vector(7 downto 0);
-		signal d3 : std_logic_vector(7 downto 0);
-	begin
-
-		Inst_clk_hd: clk_hd PORT MAP(
-			CLK100 => SYSCLK,
-			CLK74p25 => clk74,
-			CLK148p5 => clk148,
-			RST => '0',
-			LOCKED => open
-		);
-		Inst_clk_sd: clk_sd PORT MAP(
-			CLK100 => SYSCLK,
-			CLK27 => clk27,
-			CLK54 => clk54,
-			RST => '0',
-			LOCKED => open
-		);
-	
-		Inst_clock_forwarding: clock_forwarding 
-		GENERIC MAP(
-			INVERT => true
-		)
-		PORT MAP(
-			--CLK => clk27,
-			--CLK => SDI_PCLK,
-			CLK => clk74,
-			CLKO => HDO_PCLK
-		);
-		
-		Inst_timing_gen: timing_gen PORT MAP(
-			--CLK => clk27,
-			--CLK => SDI_PCLK,
-			CLK => clk74,
-			RST => '0',
-			VIC => x"00",
-			VS => HDO_VS,
-			HS => HDO_HS,
-			DE => HDO_DE,
-			D => RGB_OUT
-		);
+--	synth : block is
+--		signal clk148 : std_logic;
+--		signal clk74 : std_logic;
+--		signal clk27 : std_logic;
+--		signal clk54 : std_logic;
+--		signal rst : std_logic := '1';
+--		signal once : std_logic := '0';
+--		signal field_old : std_logic := '0';
+--		signal d1 : std_logic_vector(7 downto 0);
+--		signal d2 : std_logic_vector(7 downto 0);
+--		signal d3 : std_logic_vector(7 downto 0);
+--	begin
+--
+--		Inst_clk_hd: clk_hd PORT MAP(
+--			CLK100 => SYSCLK,
+--			CLK74p25 => clk74,
+--			CLK148p5 => clk148,
+--			RST => '0',
+--			LOCKED => open
+--		);
+--		Inst_clk_sd: clk_sd PORT MAP(
+--			CLK100 => SYSCLK,
+--			CLK27 => clk27,
+--			CLK54 => clk54,
+--			RST => '0',
+--			LOCKED => open
+--		);
+--	
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			--CLK => clk27,
+--			--CLK => SDI_PCLK,
+--			CLK => clk74,
+--			CLKO => HDO_PCLK
+--		);
+--		
+--		Inst_timing_gen: timing_gen PORT MAP(
+--			--CLK => clk27,
+--			--CLK => SDI_PCLK,
+--			CLK => clk74,
+--			RST => '0',
+--			VIC => x"00",
+--			VS => HDO_VS,
+--			HS => HDO_HS,
+--			DE => HDO_DE,
+--			D => RGB_OUT
+--		);
 		
 		
 --		process(SDI_PCLK) is
@@ -261,7 +261,7 @@ begin
 --			RGB_OUT(7 downto 0) <= SDV;
 		
 		
-	end block;
+--	end block;
 
 
 
@@ -364,48 +364,48 @@ begin
 
 
 
---	hd_shunt : block is
---		signal idata : std_logic_vector(23 downto 0) := (others => '0');
---		signal ivs : std_logic := '0';
---		signal ihs : std_logic := '0';
---		signal ide : std_logic := '0';
---		signal odata : std_logic_vector(23 downto 0);
---		signal ovs : std_logic := '0';
---		signal ohs : std_logic := '0';
---		signal ode : std_logic := '0';
---	begin
---		process(HDI_PCLK) is
---		begin
---		if(rising_edge(HDI_PCLK)) then
---			idata <= RGB_IN;
---			ivs <= HDI_VS;
---			ihs <= HDI_HS;
---			ide <= HDI_DE;
---			
---			odata <= idata;
---			ovs <= ivs;
---			ohs <= ihs;
---			ode <= ide;
---			
---			RGB_OUT <= odata;
---			HDO_VS <= ovs;
---			HDO_HS <= ohs;
---			HDO_DE <= ode;
---		end if;
---		end process;
---		
---		-- By inverting the clock here I'm putting the rising
---		-- edge in the middle of the data eye
---		Inst_clock_forwarding: clock_forwarding 
---		GENERIC MAP(
---			INVERT => true
---		)
---		PORT MAP(
---			CLK => HDI_PCLK,
---			CLKO => HDO_PCLK
---		);
---	
---	end block;
+	hd_shunt : block is
+		signal idata : std_logic_vector(23 downto 0) := (others => '0');
+		signal ivs : std_logic := '0';
+		signal ihs : std_logic := '0';
+		signal ide : std_logic := '0';
+		signal odata : std_logic_vector(23 downto 0);
+		signal ovs : std_logic := '0';
+		signal ohs : std_logic := '0';
+		signal ode : std_logic := '0';
+	begin
+		process(HDI_PCLK) is
+		begin
+		if(rising_edge(HDI_PCLK)) then
+			idata <= RGB_IN;
+			ivs <= HDI_VS;
+			ihs <= HDI_HS;
+			ide <= HDI_DE;
+			
+			odata <= idata;
+			ovs <= ivs;
+			ohs <= ihs;
+			ode <= ide;
+			
+			RGB_OUT <= odata;
+			HDO_VS <= ovs;
+			HDO_HS <= ohs;
+			HDO_DE <= ode;
+		end if;
+		end process;
+		
+		-- By inverting the clock here I'm putting the rising
+		-- edge in the middle of the data eye
+		Inst_clock_forwarding: clock_forwarding 
+		GENERIC MAP(
+			INVERT => true
+		)
+		PORT MAP(
+			CLK => HDI_PCLK,
+			CLKO => HDO_PCLK
+		);
+	
+	end block;
 
 
    iobuf1 : IOBUF
