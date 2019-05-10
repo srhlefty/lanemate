@@ -293,6 +293,8 @@ int main (void)
 	buf[2] = '\0';
 	print(buf);
 	print("\r\n");
+
+	uint8_t clock_source = 0;
 	
 
 
@@ -305,6 +307,12 @@ int main (void)
 		if(handle_event)
 		{
 			handle_event = false;
+
+			i2c_write_reg(lanemate_address, 0x02, clock_source);
+			clock_source += 1;
+			if(clock_source > 3)
+				clock_source = 0;
+
 
 			uint8_t vic_to_rx, actual_vic, aux;
 			int ok = i2c_read_reg(hdmi_tx_address, 0x3E, &actual_vic);

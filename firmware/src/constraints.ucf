@@ -204,7 +204,7 @@ NET "RGB_IN<21>" LOC = Y18;
 NET "RGB_IN<22>" LOC = Y19;
 NET "RGB_IN<23>" LOC = AA21;
 
-NET "HDO_PCLK" LOC = AB13;
+NET "HDO_PCLK" LOC = AB13 | SLEW = FAST ;
 NET "HDO_VS" LOC = AB9;
 NET "HDO_HS" LOC = AA10;
 NET "HDO_DE" LOC = AB10;
@@ -237,9 +237,10 @@ NET "RGB_OUT<23>" LOC = R7;
 NET "I2C_SDA" LOC = W4;
 NET "I2C_SCL" LOC = Y13;
 
-NET "SYSCLK" LOC = W12;
-
-
+NET "SYSCLK" LOC = W12; # GCLK3
+INST "progclk_bufgmux" LOC = BUFGMUX_X2Y3; # see code for explanation
+INST "clk_bufgmux" LOC = BUFGMUX_X2Y9; # see code for explanation
+NET "SYSCLK" CLOCK_DEDICATED_ROUTE = FALSE;
 
 
 

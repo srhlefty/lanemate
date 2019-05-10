@@ -188,15 +188,215 @@ architecture Behavioral of lane_mate is
 	);
 	end component;
 	
+	component programmable_clock is
+	Port ( 
+		CLK : in std_logic;
+		PROGCLK : in std_logic;
+		SEL : in std_logic_vector(1 downto 0); -- 00=100M, 01=27M, 10=74.25M, 11=148.5M
+		CLKOUT : out std_logic
+	);
+	end component;
 	
-	type video_in_t is (HDMI, COMPOSITE);
-	signal video_input_source : video_in_t := COMPOSITE;
-	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
-
 	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
-	signal regmap : ram_t;
+	signal register_map : ram_t;
 	
+	signal video_clock : std_logic;
+	signal stage1_hs : std_logic;
+	signal stage1_vs : std_logic;
+	signal stage1_de : std_logic;
+	signal stage1_d : std_logic_vector(23 downto 0);
+	
+	signal clk : std_logic;
+	signal ibufg_to_bufgs : std_logic;
+	signal progclk : std_logic;
 begin
+
+
+
+	-- Main clock input
+	-- SYSCLK drives two BUFG symbols due to a special restriction on
+	-- the DCM that I use as a programmable clock. The DCM's programming
+	-- interface requires a clock driven by one of the 8 BUFG blocks in
+	-- the upper half of the chip (see UG382, p.76). SYSCLK's pin is in
+	-- the lower half of the chip and can't directly reach those BUFGs.
+	-- So I have instantiated a separate BUFG constrained in the UCF to
+	-- be in the upper half, and use it to service the programming port
+	-- of the DCM. In order to route this the compiler has to take the
+	-- long way to the BUFG, and so I have to use the CLOCK_DEDICATED_ROUTE
+	-- constraint to prevent compile errors.
+	-- According to the routed design, the delay is
+	-- 5.5ns for SYSCLK -> progclk_bufgmux
+	-- 0.8ns for SYSCLK -> clk_bufgmux
+	-- Since progclk doesn't capture data from pins, this delay doesn't matter.
+
+   sysclk_ibufg : IBUFG generic map (IBUF_LOW_PWR => TRUE, IOSTANDARD => "DEFAULT")
+		port map (
+			I => SYSCLK,
+			O => ibufg_to_bufgs
+		);
+   progclk_bufgmux : BUFG
+		port map (
+			I => ibufg_to_bufgs,
+			O => progclk
+		);
+   clk_bufgmux : BUFG
+		port map (
+			I => ibufg_to_bufgs,
+			O => clk
+		);
+
+
+
+	
+	Inst_programmable_clock: programmable_clock PORT MAP(
+		CLK => clk,
+		PROGCLK => progclk,
+		SEL => register_map(2)(1 downto 0),
+		CLKOUT => video_clock
+	);
+	Inst_clock_forwarding: clock_forwarding 
+	GENERIC MAP(
+		INVERT => true
+	)
+	PORT MAP(
+		CLK => video_clock,
+		CLKO => HDO_PCLK
+	);
+	
+	RGB_OUT <= (others => '0');
+	HDO_DE <= '0';
+	HDO_VS <= '0';
+	HDO_HS <= '0';
+
+	-- There are 3 video sources: Internal test pattern, HDMI in, and SD in.
+	-- Therefore there are 3 clock sources. However only one can drive the
+	-- state machine. So I must switch between them depending on which input
+	-- the user wants. This is controlled by register 01.
+	-- 00 = internal
+	-- 01 = HDMI
+	-- 10 = SD
+
+--	clock_select : block is
+--		signal clktmp : std_logic;
+--		signal clk74 : std_logic;
+--		signal clk148 : std_logic;
+--	begin
+--	
+--		gen_internal_clk_hd: clk_hd PORT MAP(
+--			CLK100 => SYSCLK,
+--			CLK74p25 => clk74,
+--			CLK148p5 => clk148,
+--			RST => '0',
+--			LOCKED => open
+--		);
+--		
+--	
+--	end block;
+	
+	
+	-- Capture the input data from the chip edge using the selected clock.
+	-- If the video source is SD, an additional decode step is required
+	-- to extract the sync signals from the BT.656 stream provided by
+	-- the SD receiver. Note that the data stream is 4:2:2, not 4:4:4!
+	
+--	data_capture : block is
+--		signal decoded_vs : std_logic;
+--		signal decoded_hs : std_logic;
+--		signal decoded_de : std_logic;
+--		signal decoded_d : std_logic_vector(7 downto 0);
+--		signal testpat_vs : std_logic;
+--		signal testpat_hs : std_logic;
+--		signal testpat_de : std_logic;
+--		signal testpat_d : std_logic_vector(23 downto 0);
+--	begin
+--	
+--		Inst_bt656_decode: bt656_decode PORT MAP(
+--			D => SDV,
+--			CLK => video_clock,
+--			VS => decoded_vs,
+--			HS => decoded_hs,
+--			DE => decoded_de,
+--			DOUT => decoded_d
+--		);
+--		Inst_timing_gen: timing_gen PORT MAP(
+--			CLK => video_clock,
+--			RST => '0',
+--			VIC => x"00",
+--			VS => testpat_vs,
+--			HS => testpat_hs,
+--			DE => testpat_de,
+--			D => testpat_d
+--		);
+--		
+--		
+--		process(video_clock) is
+--			variable input_setting : std_logic_vector(1 downto 0);
+--		begin
+--		if(rising_edge(video_clock)) then
+--			input_setting :=  register_map(1)(1 downto 0);
+--			
+--			if(input_setting = "00") then
+--				stage1_vs <= testpat_vs;
+--				stage1_hs <= testpat_hs;
+--				stage1_de <= testpat_de;
+--				stage1_d  <= testpat_d;
+--			elsif(input_setting = "01") then
+--				stage1_vs <= HDI_VS;
+--				stage1_hs <= HDI_HS;
+--				stage1_de <= HDI_DE;
+--				stage1_d  <= RGB_IN;
+--			elsif(input_setting = "10") then
+--				stage1_vs <= decoded_vs;
+--				stage1_hs <= decoded_hs;
+--				stage1_de <= decoded_de;
+--				stage1_d(7 downto 0)  <= decoded_d;
+--				stage1_d(23 downto 8) <= (others => '0');
+--			else
+--				stage1_vs <= testpat_vs;
+--				stage1_hs <= testpat_hs;
+--				stage1_de <= testpat_de;
+--				stage1_d  <= testpat_d;
+--			end if;
+--		end if;
+--		end process;
+--	
+--	end block;
+	
+	
+	
+	
+	-- TODO
+	-- Send data to ram FIFO
+	-- Use delayed control signals to trigger readout of ram FIFO
+	
+	
+	
+
+--	data_transmit : block is
+--	begin
+--		process(video_clock) is
+--		begin
+--		if(rising_edge(video_clock)) then
+--			HDO_VS <= stage1_vs;
+--			HDO_HS <= stage1_hs;
+--			HDO_DE <= stage1_de;
+--			RGB_OUT <= stage1_d;
+--		end if;
+--		end process;
+--		
+--		-- By inverting the clock here I'm putting the rising
+--		-- edge in the middle of the data eye
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			CLK => video_clock,
+--			CLKO => HDO_PCLK
+--		);
+--	end block;
+	
+
 
 --	bt656 : block is
 --		signal data : std_logic_vector(7 downto 0);
@@ -406,48 +606,48 @@ begin
 
 
 
-	hd_shunt : block is
-		signal idata : std_logic_vector(23 downto 0) := (others => '0');
-		signal ivs : std_logic := '0';
-		signal ihs : std_logic := '0';
-		signal ide : std_logic := '0';
-		signal odata : std_logic_vector(23 downto 0);
-		signal ovs : std_logic := '0';
-		signal ohs : std_logic := '0';
-		signal ode : std_logic := '0';
-	begin
-		process(HDI_PCLK) is
-		begin
-		if(rising_edge(HDI_PCLK)) then
-			idata <= RGB_IN;
-			ivs <= HDI_VS;
-			ihs <= HDI_HS;
-			ide <= HDI_DE;
-			
-			odata <= idata;
-			ovs <= ivs;
-			ohs <= ihs;
-			ode <= ide;
-			
-			RGB_OUT <= odata;
-			HDO_VS <= ovs;
-			HDO_HS <= ohs;
-			HDO_DE <= ode;
-		end if;
-		end process;
-		
-		-- By inverting the clock here I'm putting the rising
-		-- edge in the middle of the data eye
-		Inst_clock_forwarding: clock_forwarding 
-		GENERIC MAP(
-			INVERT => true
-		)
-		PORT MAP(
-			CLK => HDI_PCLK,
-			CLKO => HDO_PCLK
-		);
-	
-	end block;
+--	hd_shunt : block is
+--		signal idata : std_logic_vector(23 downto 0) := (others => '0');
+--		signal ivs : std_logic := '0';
+--		signal ihs : std_logic := '0';
+--		signal ide : std_logic := '0';
+--		signal odata : std_logic_vector(23 downto 0);
+--		signal ovs : std_logic := '0';
+--		signal ohs : std_logic := '0';
+--		signal ode : std_logic := '0';
+--	begin
+--		process(HDI_PCLK) is
+--		begin
+--		if(rising_edge(HDI_PCLK)) then
+--			idata <= RGB_IN;
+--			ivs <= HDI_VS;
+--			ihs <= HDI_HS;
+--			ide <= HDI_DE;
+--			
+--			odata <= idata;
+--			ovs <= ivs;
+--			ohs <= ihs;
+--			ode <= ide;
+--			
+--			RGB_OUT <= odata;
+--			HDO_VS <= ovs;
+--			HDO_HS <= ohs;
+--			HDO_DE <= ode;
+--		end if;
+--		end process;
+--		
+--		-- By inverting the clock here I'm putting the rising
+--		-- edge in the middle of the data eye
+--		Inst_clock_forwarding: clock_forwarding 
+--		GENERIC MAP(
+--			INVERT => true
+--		)
+--		PORT MAP(
+--			CLK => HDI_PCLK,
+--			CLKO => HDO_PCLK
+--		);
+--	
+--	end block;
 
 
 	-- The register map is actually 2 sections of memory: a true dual-port bram, and
@@ -465,8 +665,10 @@ begin
 	-- which has a period of 1000 clocks. So there's no chance of missing an i2c write
 	-- while a refresh is taking place.
 
-	register_map : block is
+	register_map_handler : block is
 	
+		constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
+		
 		constant map_defaults : ram_t := 
 		(
 			0 => x"01", -- Register table version
@@ -501,12 +703,12 @@ begin
 			DATA_WIDTH => 8
 		)
 		PORT MAP(
-			CLK1 => SYSCLK,
+			CLK1 => clk,
 			ADDR1 => ram_addr,
 			RDATA1 => ram_rdata,
 			WDATA1 => ram_wdata,
 			WE1 => ram_we,
-			CLK2 => SYSCLK,
+			CLK2 => clk,
 			ADDR2 => regmap_addr,
 			RDATA2 => regmap_rdata,
 			WDATA2 => regmap_wdata,
@@ -518,7 +720,7 @@ begin
 			SLAVE_ADDRESS => I2C_SLAVE_ADDR
 		)
 		PORT MAP(
-			CLK => SYSCLK,
+			CLK => clk,
 			SDA => I2C_SDA,
 			SCL => I2C_SCL,
 			RAM_ADDR => ram_addr,
@@ -528,11 +730,11 @@ begin
 		);
 		
 		-- At boot, fill the register map with the defaults
-		process(SYSCLK) is
+		process(clk) is
 			variable nextaddr : natural;
 			variable raddr : natural;
 		begin
-		if(rising_edge(SYSCLK)) then
+		if(rising_edge(clk)) then
 
 			we_old <= ram_we;
 
@@ -564,9 +766,9 @@ begin
 				
 			when D2 =>
 				raddr := to_integer(unsigned(regmap_addr)) - 1;
-				regmap(raddr) <= regmap_rdata;
+				register_map(raddr) <= regmap_rdata;
 				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
-				if(nextaddr > regmap'high) then
+				if(nextaddr > register_map'high) then
 					state <= D3;
 				else
 					regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
@@ -574,7 +776,7 @@ begin
 			
 			when D3 =>
 				raddr := to_integer(unsigned(regmap_addr));
-				regmap(raddr) <= regmap_rdata;
+				register_map(raddr) <= regmap_rdata;
 				state <= IDLE;
 				
 			when IDLE =>
@@ -597,9 +799,9 @@ begin
 		signal count : natural := 0;
 	begin
 	
-		process(SYSCLK) is
+		process(clk) is
 		begin
-		if(rising_edge(SYSCLK)) then
+		if(rising_edge(clk)) then
 			if(count = 100000000 / 16) then
 				count <= 0;
 				val(15 downto 1) <= val(14 downto 0);
@@ -624,8 +826,10 @@ begin
 		B1_GPIO11 <= val(11);
 		B1_GPIO12 <= val(12);
 		B1_GPIO13 <= val(13);
-		B1_GPIO14 <= val(14);
-		B1_GPIO15 <= val(15);
+		--B1_GPIO14 <= val(14);
+		--B1_GPIO15 <= val(15);
+		B1_GPIO14 <= register_map(2)(0);
+		B1_GPIO15 <= register_map(2)(1);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
