@@ -79,26 +79,7 @@ end lane_mate;
 
 architecture Behavioral of lane_mate is
 
-	COMPONENT clk_hd
-	PORT(
-		CLK100 : IN std_logic;
-		RST : IN std_logic;          
-		CLK74p25 : OUT std_logic;
-		CLK148p5 : OUT std_logic;
-		LOCKED : OUT std_logic
-		);
-	END COMPONENT;
-	
-	COMPONENT clk_sd
-	PORT(
-		CLK100 : IN std_logic;
-		RST : IN std_logic;          
-		CLK27 : OUT std_logic;
-		CLK54 : OUT std_logic;
-		LOCKED : OUT std_logic
-		);
-	END COMPONENT;
-	
+
 	COMPONENT timing_gen
 	PORT(
 		CLK : IN std_logic;
@@ -111,28 +92,6 @@ architecture Behavioral of lane_mate is
 		);
 	END COMPONENT;
 	
-	COMPONENT timing_inspect
-	PORT(
-		PCLK : IN std_logic;
-		VS : IN std_logic;
-		HS : IN std_logic;          
-		HCOUNT : OUT natural;
-		HSYNC_WIDTH : OUT natural;
-		VCOUNT : OUT natural;
-		VSYNC_WIDTH : OUT natural
-		);
-	END COMPONENT;
-	
-	COMPONENT generate_sd_de
-	PORT(
-		PCLK : IN std_logic;
-		FIELD : IN std_logic;
-		HSIN : IN std_logic;          
-		HS : OUT std_logic;          
-		VS : OUT std_logic;
-		DE : OUT std_logic
-		);
-	END COMPONENT;
 
 	component clock_forwarding is
 	 Generic( INVERT : boolean);
@@ -193,14 +152,35 @@ architecture Behavioral of lane_mate is
 		CLK : in std_logic;
 		PROGCLK : in std_logic;
 		SEL : in std_logic_vector(1 downto 0); -- 00=100M, 01=27M, 10=74.25M, 11=148.5M
+		DCM_LOCKED : out std_logic;
 		CLKOUT : out std_logic
 	);
 	end component;
 	
+	component input_fifo
+	port(
+		rst : in std_logic;
+		wr_clk : in std_logic;
+		rd_clk : in std_logic;
+		din : in std_logic_vector(26 downto 0);
+		wr_en : in std_logic;
+		rd_en : in std_logic;          
+		dout : out std_logic_vector(26 downto 0);
+		full : out std_logic;
+		overflow : out std_logic;
+		empty : out std_logic;
+		underflow : out std_logic
+		);
+	end component;
+
 	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
 	signal register_map : ram_t;
+	signal REG_VIDEO_SRC : std_logic_vector(7 downto 0);
+	signal REG_PCLK_FREQ : std_logic_vector(7 downto 0);
 	
 	signal video_clock : std_logic;
+	signal video_clock_locked : std_logic;
+
 	signal stage1_hs : std_logic;
 	signal stage1_vs : std_logic;
 	signal stage1_de : std_logic;
@@ -209,6 +189,7 @@ architecture Behavioral of lane_mate is
 	signal clk : std_logic;
 	signal ibufg_to_bufgs : std_logic;
 	signal progclk : std_logic;
+
 begin
 
 
@@ -244,125 +225,204 @@ begin
 			I => ibufg_to_bufgs,
 			O => clk
 		);
-
-
-
 	
+		process(clk) is
+		begin
+		if(rising_edge(clk)) then
+			REG_VIDEO_SRC <= register_map(1);
+			REG_PCLK_FREQ <= register_map(2);
+		end if;
+		end process;
+		
 	Inst_programmable_clock: programmable_clock PORT MAP(
 		CLK => clk,
 		PROGCLK => progclk,
-		SEL => register_map(2)(1 downto 0),
+		SEL => REG_PCLK_FREQ(1 downto 0),
+		DCM_LOCKED => video_clock_locked,
 		CLKOUT => video_clock
 	);
-	Inst_clock_forwarding: clock_forwarding 
-	GENERIC MAP(
-		INVERT => true
-	)
-	PORT MAP(
-		CLK => video_clock,
-		CLKO => HDO_PCLK
-	);
-	
-	RGB_OUT <= (others => '0');
-	HDO_DE <= '0';
-	HDO_VS <= '0';
-	HDO_HS <= '0';
 
-	-- There are 3 video sources: Internal test pattern, HDMI in, and SD in.
-	-- Therefore there are 3 clock sources. However only one can drive the
-	-- state machine. So I must switch between them depending on which input
-	-- the user wants. This is controlled by register 01.
-	-- 00 = internal
-	-- 01 = HDMI
-	-- 10 = SD
 
---	clock_select : block is
---		signal clktmp : std_logic;
---		signal clk74 : std_logic;
---		signal clk148 : std_logic;
---	begin
---	
---		gen_internal_clk_hd: clk_hd PORT MAP(
---			CLK100 => SYSCLK,
---			CLK74p25 => clk74,
---			CLK148p5 => clk148,
---			RST => '0',
---			LOCKED => open
---		);
---		
---	
---	end block;
+	-- There are 3 video sources: internal test pattern, HDMI, and SD.
+	-- Each has its own clock and data bus, and I must mux between them
+	-- before sending the data on to the memory interface. I can't just
+	-- mux the entire bus, because clock muxes have restrictions based
+	-- on pin location, and mine are arranged in such a way that you
+	-- can't get them to pair up properly.
 	
+	-- So what I do here is capture the HDMI and SD buses at the chip edge
+	-- with their own clocks, then feed all 3 sources into their own simple
+	-- dual port FIFOs. A register setting picks which FIFO I'm going to read
+	-- from. Another register programs a DCM to the pixel frequency of the
+	-- input bus. In this way, the FIFO need not be very deep, because the
+	-- read frequency is the same as the write frequency.
 	
-	-- Capture the input data from the chip edge using the selected clock.
-	-- If the video source is SD, an additional decode step is required
-	-- to extract the sync signals from the BT.656 stream provided by
-	-- the SD receiver. Note that the data stream is 4:2:2, not 4:4:4!
+	-- Reset behavior is important with this sort of FIFO. I don't want to
+	-- leave read enable high the whole time, because then there may only
+	-- be one cell between the read and write pointers. A better strategy
+	-- is to detect a video source change (by watching the registers),
+	-- hold the fifos in reset until the DCM locks, release reset so that
+	-- writing begins, wait until the FIFO is half full, then turn read
+	-- enable on. 
 	
---	data_capture : block is
+--	source_select : block is
+--		signal hdbus : std_logic_vector(26 downto 0);
+--		signal sdbus : std_logic_vector(26 downto 0);
+--		signal intbus : std_logic_vector(26 downto 0);
+--
+--		signal hd_input : std_logic_vector(26 downto 0);
+--		signal sd_input : std_logic_vector(26 downto 0);
+--		signal int_input : std_logic_vector(26 downto 0);
+--
 --		signal decoded_vs : std_logic;
 --		signal decoded_hs : std_logic;
 --		signal decoded_de : std_logic;
 --		signal decoded_d : std_logic_vector(7 downto 0);
+--
 --		signal testpat_vs : std_logic;
 --		signal testpat_hs : std_logic;
 --		signal testpat_de : std_logic;
 --		signal testpat_d : std_logic_vector(23 downto 0);
+--		
+--		signal fifo_rst : std_logic_vector(2 downto 0) := "000";
+--		signal fifo_rd_en : std_logic_vector(2 downto 0) := "000";
+--		signal fifo_overflow : std_logic_vector(2 downto 0);
+--		signal fifo_underflow : std_logic_vector(2 downto 0);
+--		
+--		component input_fifo_control is
+--		 Port ( CLK : in  STD_LOGIC;
+--				  LOCKED : in  STD_LOGIC;
+--				  RST : out  STD_LOGIC;
+--				  RD_EN : out  STD_LOGIC);
+--		end component;
 --	begin
---	
---		Inst_bt656_decode: bt656_decode PORT MAP(
---			D => SDV,
---			CLK => video_clock,
---			VS => decoded_vs,
---			HS => decoded_hs,
---			DE => decoded_de,
---			DOUT => decoded_d
---		);
---		Inst_timing_gen: timing_gen PORT MAP(
+--
+--		process(video_clock) is
+--		begin
+--		if(rising_edge(video_clock)) then
+--			if(REG_VIDEO_SRC(1 downto 0) = "00") then
+--				stage1_vs <= int_input(26);
+--				stage1_hs <= int_input(25);
+--				stage1_de <= int_input(24);
+--				stage1_d  <= int_input(23 downto 0);
+--			elsif(REG_VIDEO_SRC(1 downto 0) = "01") then
+--				stage1_vs <= hd_input(26);
+--				stage1_hs <= hd_input(25);
+--				stage1_de <= hd_input(24);
+--				stage1_d  <= hd_input(23 downto 0);
+--			else --if(REG_VIDEO_SRC(1 downto 0) = "10") then
+--				stage1_vs <= sd_input(26);
+--				stage1_hs <= sd_input(25);
+--				stage1_de <= sd_input(24);
+--				stage1_d  <= sd_input(23 downto 0);
+--			end if;
+--		end if;
+--		end process;
+--
+--		-------------------------------------------------------------------------
+--		
+--		testpat_gen: timing_gen PORT MAP(
 --			CLK => video_clock,
 --			RST => '0',
---			VIC => x"00",
+--			VIC => x"00", -- TODO: make this toggle between 720p and 1080p
 --			VS => testpat_vs,
 --			HS => testpat_hs,
 --			DE => testpat_de,
 --			D => testpat_d
 --		);
 --		
+--		intbus(26) <= testpat_vs;
+--		intbus(25) <= testpat_hs;
+--		intbus(24) <= testpat_de;
+--		intbus(23 downto 0) <= testpat_d;
+--	
+--		int_fifo: input_fifo PORT MAP(
+--			rst => fifo_rst(0),
+--			wr_clk => video_clock,
+--			rd_clk => video_clock,
+--			din => intbus,
+--			wr_en => '1',
+--			rd_en => fifo_rd_en(0),
+--			dout => int_input,
+--			full => open,
+--			overflow => fifo_overflow(0),
+--			empty => open,
+--			underflow => fifo_underflow(0)
+--		);
+--		int_fifo_control: input_fifo_control PORT MAP(
+--			CLK => clk,
+--			LOCKED => video_clock_locked,
+--			RST => fifo_rst(0),
+--			RD_EN => fifo_rd_en(0)
+--		);
+--	
+--		-------------------------------------------------------------------------
 --		
---		process(video_clock) is
---			variable input_setting : std_logic_vector(1 downto 0);
---		begin
---		if(rising_edge(video_clock)) then
---			input_setting :=  register_map(1)(1 downto 0);
---			
---			if(input_setting = "00") then
---				stage1_vs <= testpat_vs;
---				stage1_hs <= testpat_hs;
---				stage1_de <= testpat_de;
---				stage1_d  <= testpat_d;
---			elsif(input_setting = "01") then
---				stage1_vs <= HDI_VS;
---				stage1_hs <= HDI_HS;
---				stage1_de <= HDI_DE;
---				stage1_d  <= RGB_IN;
---			elsif(input_setting = "10") then
---				stage1_vs <= decoded_vs;
---				stage1_hs <= decoded_hs;
---				stage1_de <= decoded_de;
---				stage1_d(7 downto 0)  <= decoded_d;
---				stage1_d(23 downto 8) <= (others => '0');
---			else
---				stage1_vs <= testpat_vs;
---				stage1_hs <= testpat_hs;
---				stage1_de <= testpat_de;
---				stage1_d  <= testpat_d;
---			end if;
---		end if;
---		end process;
+--		hdbus(26) <= HDI_VS;
+--		hdbus(25) <= HDI_HS;
+--		hdbus(24) <= HDI_DE;
+--		hdbus(23 downto 0) <= RGB_IN;
+--	
+--		hd_fifo: input_fifo PORT MAP(
+--			rst => fifo_rst(1),
+--			wr_clk => HDI_PCLK,
+--			rd_clk => video_clock,
+--			din => hdbus,
+--			wr_en => '1',
+--			rd_en => fifo_rd_en(1),
+--			dout => hd_input,
+--			full => open,
+--			overflow => fifo_overflow(1),
+--			empty => open,
+--			underflow => fifo_underflow(1)
+--		);
+--		hd_fifo_control: input_fifo_control PORT MAP(
+--			CLK => HDI_PCLK,
+--			LOCKED => video_clock_locked,
+--			RST => fifo_rst(1),
+--			RD_EN => fifo_rd_en(1)
+--		);
+--	
+--		-------------------------------------------------------------------------
+--		
+--		Inst_bt656_decode: bt656_decode PORT MAP(
+--			D => SDV,
+--			CLK => SDI_PCLK,
+--			VS => decoded_vs,
+--			HS => decoded_hs,
+--			DE => decoded_de,
+--			DOUT => decoded_d
+--		);
+--	
+--		sdbus(26) <= decoded_vs;
+--		sdbus(25) <= decoded_hs;
+--		sdbus(24) <= decoded_de;
+--		sdbus(23 downto 8) <= (others => '0');
+--		sdbus(7 downto 0) <= decoded_d;
+--	
+--		sd_fifo: input_fifo PORT MAP(
+--			rst => fifo_rst(2),
+--			wr_clk => SDI_PCLK,
+--			rd_clk => video_clock,
+--			din => sdbus,
+--			wr_en => '1',
+--			rd_en => fifo_rd_en(2),
+--			dout => sd_input,
+--			full => open,
+--			overflow => fifo_overflow(2),
+--			empty => open,
+--			underflow => fifo_underflow(2)
+--		);
+--		sd_fifo_control: input_fifo_control PORT MAP(
+--			CLK => SDI_PCLK,
+--			LOCKED => video_clock_locked,
+--			RST => fifo_rst(2),
+--			RD_EN => fifo_rd_en(2)
+--		);
 --	
 --	end block;
 	
-	
+		
 	
 	
 	-- TODO
@@ -372,29 +432,29 @@ begin
 	
 	
 
---	data_transmit : block is
---	begin
---		process(video_clock) is
---		begin
---		if(rising_edge(video_clock)) then
---			HDO_VS <= stage1_vs;
---			HDO_HS <= stage1_hs;
---			HDO_DE <= stage1_de;
---			RGB_OUT <= stage1_d;
---		end if;
---		end process;
---		
---		-- By inverting the clock here I'm putting the rising
---		-- edge in the middle of the data eye
---		Inst_clock_forwarding: clock_forwarding 
---		GENERIC MAP(
---			INVERT => true
---		)
---		PORT MAP(
---			CLK => video_clock,
---			CLKO => HDO_PCLK
---		);
---	end block;
+	data_transmit : block is
+	begin
+		process(video_clock) is
+		begin
+		if(rising_edge(video_clock)) then
+			HDO_VS <= stage1_vs;
+			HDO_HS <= stage1_hs;
+			HDO_DE <= stage1_de;
+			RGB_OUT <= stage1_d;
+		end if;
+		end process;
+		
+		-- By inverting the clock here I'm putting the rising
+		-- edge in the middle of the data eye
+		Inst_clock_forwarding: clock_forwarding 
+		GENERIC MAP(
+			INVERT => true
+		)
+		PORT MAP(
+			CLK => video_clock,
+			CLKO => HDO_PCLK
+		);
+	end block;
 	
 
 
@@ -672,8 +732,8 @@ begin
 		constant map_defaults : ram_t := 
 		(
 			0 => x"01", -- Register table version
-			1 => x"00", -- Output source. 0 = 720p test pattern, 1 = HD shunt, 2 = SD shunt
-			2 => x"56",
+			1 => x"00", -- Input source. 0 = internal test pattern, 1 = HDMI, 2 = SD
+			2 => x"02", -- Input pclk freq. 0 = 100M, 1 = 27M, 2 = 74.25M, 3 = 148.5M
 			3 => x"78",
 			4 => x"33",
 			5 => x"FF",
@@ -828,8 +888,8 @@ begin
 		B1_GPIO13 <= val(13);
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
-		B1_GPIO14 <= register_map(2)(0);
-		B1_GPIO15 <= register_map(2)(1);
+		B1_GPIO14 <= REG_PCLK_FREQ(0);
+		B1_GPIO15 <= REG_PCLK_FREQ(1);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
