@@ -242,13 +242,6 @@ INST "progclk_bufgmux" LOC = BUFGMUX_X2Y3; # see code for explanation
 INST "clk_bufgmux" LOC = BUFGMUX_X2Y9; # see code for explanation
 NET "SYSCLK" CLOCK_DEDICATED_ROUTE = FALSE;
 
-# These clocks both come from SYSCLK but progclk goes via the slow
-# route and incurs a 5ns delay. PAR treats them as 2 distinct clocks
-# and so I need proper clock domain crossing constraints between them.
-#NET "clk" TNM_NET = FFS "GRP_A";
-#NET "progclk" TNM_NET = FFS "GRP_B";
-#TIMESPEC TS_DOMAINCROSS = FROM "GRP_A" TO "GRP_B" 5 ns; #DATAPATHONLY;	
-
 
 
 #NET "GPIO0" IOSTANDARD = LVCMOS15  | SLEW = FAST | DRIVE = 8;

@@ -34,7 +34,6 @@ entity programmable_clock is
 		CLK : in std_logic;
 		PROGCLK : in std_logic;
 		SEL : in std_logic_vector(1 downto 0); -- 00=100M, 01=27M, 10=74.25M, 11=148.5M
-		DCM_LOCKED : out std_logic;
 		CLKOUT : out std_logic
 );
 end programmable_clock;
@@ -73,27 +72,13 @@ architecture Behavioral of programmable_clock is
 	signal m : std_logic_vector(7 downto 0);
 	signal d : std_logic_vector(7 downto 0);
 	signal sel_old : std_logic_vector(1 downto 0) := "11";
-	signal sel_new : std_logic_vector(1 downto 0) := "11";
-	signal stmp : std_logic_vector(1 downto 0) := "11";
 begin
 
-
-	-- cross SEL from CLK to PROGCLK
 	process(CLK) is
 	begin
 	if(rising_edge(CLK)) then
-		stmp <= SEL;
-		sel_new <= stmp;
-	end if;
-	end process;
-
-
-
-	process(CLK) is
-	begin
-	if(rising_edge(CLK)) then
-		sel_old <= sel_new;
-		if(to_integer(unsigned(sel_new)) /= to_integer(unsigned(sel_old))) then
+		sel_old <= SEL;
+		if(to_integer(unsigned(SEL)) /= to_integer(unsigned(sel_old))) then
 			go <= '1';
 		else
 			go <= '0';
@@ -101,14 +86,14 @@ begin
 	end if;
 	end process;
 	
-	with sel_new select m <=
+	with SEL select m <=
 		std_logic_vector(to_unsigned(mvalues(0),8)) when "00",
 		std_logic_vector(to_unsigned(mvalues(1),8)) when "01",
 		std_logic_vector(to_unsigned(mvalues(2),8)) when "10",
 		std_logic_vector(to_unsigned(mvalues(3),8)) when "11",
 		std_logic_vector(to_unsigned(mvalues(0),8)) when others;
 		
-	with sel_new select d <=
+	with SEL select d <=
 		std_logic_vector(to_unsigned(dvalues(0),8)) when "00",
 		std_logic_vector(to_unsigned(dvalues(1),8)) when "01",
 		std_logic_vector(to_unsigned(dvalues(2),8)) when "10",
@@ -161,7 +146,6 @@ begin
       I => clkfx  -- 1-bit input: Clock buffer input
    );
 
-	DCM_LOCKED <= locked;
 
 end Behavioral;
 

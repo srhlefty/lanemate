@@ -294,7 +294,7 @@ int main (void)
 	print(buf);
 	print("\r\n");
 
-	uint8_t clock_source = 2;
+	uint8_t clock_source = 0;
 	
 
 
@@ -308,7 +308,7 @@ int main (void)
 		{
 			handle_event = false;
 
-			//i2c_write_reg(lanemate_address, 0x02, clock_source);
+			i2c_write_reg(lanemate_address, 0x02, clock_source);
 			clock_source += 1;
 			if(clock_source > 3)
 				clock_source = 0;
