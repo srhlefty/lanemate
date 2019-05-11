@@ -34,7 +34,7 @@ use work.pkg_types.all;
 entity timing_gen is
     Port ( CLK : in  STD_LOGIC;
 	        RST : in std_logic;
-           VIC : in  STD_LOGIC_VECTOR (7 downto 0);
+           SEL : in  STD_LOGIC_VECTOR (1 downto 0);
            VS : out  STD_LOGIC;
            HS : out  STD_LOGIC;
            DE : out  STD_LOGIC;
@@ -232,6 +232,21 @@ begin
 	end block;
 
 	timing_reset <= RST or rst_boot;
+	
+	process(CLK) is
+	begin
+	if(rising_edge(CLK)) then
+		if(SEL = "00") then
+			output_vic <= VIC720p;
+		elsif(SEL = "01") then
+			output_vic <= VIC480p;
+		elsif(SEL = "10") then
+			output_vic <= VIC720p;
+		elsif(SEL = "11") then
+			output_vic <= VIC1080p;
+		end if;
+	end if;
+	end process;
 	
 	Inst_sync_vg: sync_vg PORT MAP(
 		clk => CLK,
