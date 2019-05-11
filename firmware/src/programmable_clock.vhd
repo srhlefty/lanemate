@@ -34,6 +34,7 @@ entity programmable_clock is
 		CLK : in std_logic;
 		PROGCLK : in std_logic;
 		SEL : in std_logic_vector(1 downto 0); -- 00=100M, 01=27M, 10=74.25M, 11=148.5M
+		DCM_LOCKED : out std_logic;
 		CLKOUT : out std_logic
 );
 end programmable_clock;
@@ -146,6 +147,12 @@ begin
       I => clkfx  -- 1-bit input: Clock buffer input
    );
 
+	process(CLK) is
+	begin
+	if(rising_edge(CLK)) then
+		DCM_LOCKED <= locked;
+	end if;
+	end process;
 
 end Behavioral;
 
