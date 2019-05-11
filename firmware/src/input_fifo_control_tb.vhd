@@ -41,16 +41,18 @@ ARCHITECTURE behavior OF input_fifo_control_tb IS
  
     COMPONENT input_fifo_control
     PORT(
-         CLK : IN  std_logic;
-         LOCKED : IN  std_logic;
-         RST : OUT  std_logic;
+			SYSCLK : in  STD_LOGIC;
+			LOCKED : in  STD_LOGIC;
+			RCLK : in std_logic;		
+			RST : out  STD_LOGIC;
          RD_EN : OUT  std_logic
         );
     END COMPONENT;
     
 
    --Inputs
-   signal CLK : std_logic := '0';
+   signal SYSCLK : std_logic := '0';
+   signal RCLK : std_logic := '0';
    signal LOCKED : std_logic := '1';
 
  	--Outputs
@@ -61,20 +63,24 @@ BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
    uut: input_fifo_control PORT MAP (
-          CLK => CLK,
+          SYSCLK => SYSCLK,
           LOCKED => LOCKED,
+			 RCLK => RCLK,
           RST => RST,
           RD_EN => RD_EN
         );
 
-	CLK <= not CLK after 5 ns;
+	SYSCLK <= not SYSCLK after 5 ns;
+--	RCLK <= (not RCLK and LOCKED) after 18.519 ns; -- 27MHz
+	RCLK <= (not RCLK and LOCKED) after 3.367 ns;
 	
 	process is
 	begin
 		wait for 400 ns;
 		LOCKED <= '0';
-		wait for 102 ns;
+		wait for 1 ms;
 		LOCKED <= '1';
+		wait for 1 ms;
 	end process;
 
 END;
