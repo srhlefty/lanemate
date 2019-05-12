@@ -100,7 +100,7 @@ architecture Behavioral of source_select is
 		
 	component input_fifo_control is
 	generic (
-		DESIRED_FIFO_LEVEL : natural := 15
+		DESIRED_FIFO_LEVEL : natural := 64
 	);
 	Port ( 
 		SYSCLK : in  STD_LOGIC;

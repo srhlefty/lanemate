@@ -176,7 +176,7 @@ const regdata tx_data[180] = {
 	{	0xAB	,	0x40	,	0x40	},	//	default	Fixed
 	{	0xAF	,	0x04	,	0x04	},	//	custom	HDCP Enable, Fixed, Frame Encryption, Fixed, HDMI/DVI Mode Select, Fixed
 	{	0xB9	,	0x00	,	0x00	},	//	default	Fixed
-	{	0xBA	,	0x08	,	0x08	},	//	default	Clock Delay, Internal/External HDCP EEPROM, Fixed, Display AKSV, R Two Point Check
+	{	0xBA	,	0x68	,	0x08	},	//	default	Clock Delay, Internal/External HDCP EEPROM, Fixed, Display AKSV, R Two Point Check
 	{	0xBB	,	0x00	,	0x00	},	//	default	Fixed
 	{	0xC4	,	0x00	,	0x00	},	//	default	EDID Segment
 	{	0xC5	,	0x00	,	0x00	},	//	default	Fixed
@@ -294,7 +294,7 @@ int main (void)
 	print(buf);
 	print("\r\n");
 
-	uint8_t source = 0;
+	uint8_t source = 2;
 	
 
 
@@ -308,11 +308,22 @@ int main (void)
 		{
 			handle_event = false;
 
-			//i2c_write_reg(lanemate_address, 0x01, source);
+			print("Changing source\r\n");
+			i2c_write_reg(lanemate_address, 0x01, source);
+
+			/*
 			if(source == 0)
 				source = 1;
 			else
 				source = 0;
+			*/
+			/*
+			if(ba_value == 7)
+				ba_value = 0;
+			else
+				++ba_value;
+			*/
+			//delay_cycles_ms(15000);
 
 
 			uint8_t vic_to_rx, actual_vic, aux;
