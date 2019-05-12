@@ -78,6 +78,20 @@ port (
 end lane_mate;
 
 architecture Behavioral of lane_mate is
+	component synchronizer_2ff is
+	Generic ( 
+		DATA_WIDTH : natural;
+		EXTRA_INPUT_REGISTER : boolean := false;
+		USE_GRAY_CODE : boolean := true
+	);
+	Port ( 
+		CLKA   : in std_logic;
+		DA     : in std_logic_vector(DATA_WIDTH-1 downto 0);
+		CLKB   : in  std_logic;
+		DB     : out std_logic_vector(DATA_WIDTH-1 downto 0);
+		RESETB : in std_logic
+	);
+	end component;
 
 	COMPONENT timing_gen
 	PORT(
@@ -137,11 +151,19 @@ architecture Behavioral of lane_mate is
 	component programmable_clock is
 	Port ( 
 		CLK : in std_logic;
-		PROGCLK : in std_logic;
-		SEL : in std_logic_vector(1 downto 0); -- 00=100M, 01=27M, 10=74.25M, 11=148.5M
-		DCM_LOCKED : out std_logic;
+		SEL : in std_logic_vector(1 downto 0); -- 00=27M, 01=74.25M, 10=148.5M
+		DCM1_LOCKED : out std_logic;
+		DCM2_LOCKED : out std_logic;
 		CLKOUT : out std_logic
 	);
+	end component;
+
+	component source_manager is
+    Port ( CLK : in  STD_LOGIC;
+           SOURCE : in  STD_LOGIC_VECTOR (2 downto 0);   -- 00=720p test pat, 01=1080p test pat, 10=hd in 720p, 11=hd in 1080p, 100=sd in
+           CLK_SEL : out  STD_LOGIC_VECTOR (1 downto 0);
+           SRC_SEL : out  STD_LOGIC_VECTOR (1 downto 0);
+           SRC_ENABLE : out  STD_LOGIC);
 	end component;
 	
 	component source_select is
@@ -197,38 +219,24 @@ architecture Behavioral of lane_mate is
 	
 	signal clk : std_logic;
 	signal ibufg_to_bufgs : std_logic;
-	signal progclk : std_logic;
 	
-	signal dcm_locked : std_logic;
+	signal dcm1_locked : std_logic;
+	signal dcm2_locked : std_logic;
+	
+	signal source_sel : std_logic_vector(1 downto 0) := "00";
+	signal clk_sel : std_logic_vector(1 downto 0) := "00";
+	signal clk_sel_v : std_logic_vector(1 downto 0) := "00";
+	signal source_enabled : std_logic;
 begin
 
 
 
 	-- Main clock input
-	-- SYSCLK drives two BUFG symbols due to a special restriction on
-	-- the DCM that I use as a programmable clock. The DCM's programming
-	-- interface requires a clock driven by one of the 8 BUFG blocks in
-	-- the upper half of the chip (see UG382, p.76). SYSCLK's pin is in
-	-- the lower half of the chip and can't directly reach those BUFGs.
-	-- So I have instantiated a separate BUFG constrained in the UCF to
-	-- be in the upper half, and use it to service the programming port
-	-- of the DCM. In order to route this the compiler has to take the
-	-- long way to the BUFG, and so I have to use the CLOCK_DEDICATED_ROUTE
-	-- constraint to prevent compile errors.
-	-- According to the routed design, the delay is
-	-- 5.5ns for SYSCLK -> progclk_bufgmux
-	-- 0.8ns for SYSCLK -> clk_bufgmux
-	-- Since progclk doesn't capture data from pins, this delay doesn't matter.
 
    sysclk_ibufg : IBUFG generic map (IBUF_LOW_PWR => TRUE, IOSTANDARD => "DEFAULT")
 		port map (
 			I => SYSCLK,
 			O => ibufg_to_bufgs
-		);
-   progclk_bufgmux : BUFG
-		port map (
-			I => ibufg_to_bufgs,
-			O => progclk
 		);
    clk_bufgmux : BUFG
 		port map (
@@ -237,11 +245,25 @@ begin
 		);
 
 	
+	
+	
+	
+	-- There are 3 video sources: internal test pattern, HDMI, and SD.
+	-- Each has its own clock and data bus, and I must mux between them
+	-- before sending the data on to the memory interface. 
+	
+	-- But I can't mux between the clocks provided to me by the HD and SD
+	-- receiver chips, due to the Spartan-6 BUFGMUX topology. What I can
+	-- do though is use 2 DCMs to generate the 3 clock frequencies I plan
+	-- on dealing with: 27MHz, 74.25MHz, and 148.5MHz. I can then use a
+	-- series of 2 BUFGMUX blocks to select which one to use. This is done
+	-- in the programmable_clock module.
+
 	Inst_programmable_clock: programmable_clock PORT MAP(
 		CLK => clk,
-		PROGCLK => progclk,
-		SEL => register_map(2)(1 downto 0),
-		DCM_LOCKED => dcm_locked,
+		SEL => clk_sel,
+		DCM1_LOCKED => dcm1_locked,
+		DCM2_LOCKED => dcm2_locked,
 		CLKOUT => video_clock
 	);
 	Inst_clock_forwarding: clock_forwarding 
@@ -254,33 +276,40 @@ begin
 	);
 	
 	
+	Inst_source_manager: source_manager PORT MAP(
+		CLK => clk,
+		SOURCE => register_map(1)(2 downto 0),
+		CLK_SEL => clk_sel,
+		SRC_SEL => source_sel,
+		SRC_ENABLE => source_enabled
+	);
 	
-	-- There are 3 video sources: internal test pattern, HDMI, and SD.
-	-- Each has its own clock and data bus, and I must mux between them
-	-- before sending the data on to the memory interface. I can't just
-	-- mux the entire bus, because clock muxes have restrictions based
-	-- on pin location, and mine are arranged in such a way that you
-	-- can't get them to pair up properly.
 	
-	-- So what I do here is capture the HDMI and SD buses at the chip edge
-	-- with their own clocks, then feed all 3 sources into their own simple
-	-- dual port FIFOs. A register setting picks which FIFO I'm going to read
-	-- from. Another register programs a DCM to the pixel frequency of the
-	-- input bus. In this way, the FIFO need not be very deep, because the
-	-- read frequency is the same as the write frequency.
 	
-	-- Reset behavior is important with this sort of FIFO. I don't want to
-	-- leave read enable high the whole time, because then there may only
-	-- be one cell between the read and write pointers. A better strategy
-	-- is to detect a video source change (by watching the registers),
-	-- hold the fifos in reset until the DCM locks, release reset so that
-	-- writing begins, wait until the FIFO is half full, then turn read
-	-- enable on. 
+	-- So at the chip edge, I ingest video data into short FIFOs using the
+	-- actual external clock. Then on the read side, I use the DCM-generated
+	-- clocks to empty the FIFO. When the desired video source changes, I
+	-- reset the FIFOs and reenable FIFO reads once the FIFO is half full.
+	-- This gives me the most amount of margin to guard against clock freq
+	-- differences between the external and internal sources.
 	
+	sel_cross: synchronizer_2ff
+	generic map (
+		DATA_WIDTH => 2,
+		EXTRA_INPUT_REGISTER => false,
+		USE_GRAY_CODE => true
+	)
+	port map(
+		CLKA => clk,
+		DA => clk_sel,
+		CLKB => video_clock,
+		DB => clk_sel_v,
+		RESETB => '0'
+	);
 	testpat_gen: timing_gen PORT MAP(
 		CLK => video_clock,
 		RST => '0',
-		SEL => register_map(2)(1 downto 0),
+		SEL => clk_sel_v,
 		VS => testpat_vs,
 		HS => testpat_hs,
 		DE => testpat_de,
@@ -290,7 +319,7 @@ begin
 	Inst_source_select: source_select PORT MAP(
 		SYSCLK => clk,
 		PIXEL_CLK => video_clock,
-		PIXEL_CLK_LOCKED => dcm_locked,
+		PIXEL_CLK_LOCKED => source_enabled,
 		
 		INT_VS => testpat_vs,
 		INT_HS => testpat_hs,
@@ -306,7 +335,7 @@ begin
 		SD_PCLK => SDI_PCLK,
 		SD_D => SDV,
 		
-		SEL => register_map(1)(1 downto 0),
+		SEL => source_sel,
 		
 		OUT_VS => stage1_vs,
 		OUT_HS => stage1_hs,
@@ -503,7 +532,7 @@ begin
 		--B1_GPIO13 <= val(13);
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
-		B1_GPIO13 <= dcm_locked;
+		B1_GPIO13 <= source_enabled;
 		B1_GPIO14 <= register_map(2)(0);
 		B1_GPIO15 <= register_map(2)(1);
 

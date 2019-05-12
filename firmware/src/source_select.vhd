@@ -34,7 +34,7 @@ entity source_select is
 		SYSCLK : in  STD_LOGIC;
 		
 		PIXEL_CLK : in std_logic;
-		PIXEL_CLK_LOCKED : in std_logic;
+		PIXEL_CLK_LOCKED : in std_logic; -- on SYSCLK domain
 		
 		-- clk is PIXEL_CLK
 		INT_VS : in std_logic;

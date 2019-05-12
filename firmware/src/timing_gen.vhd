@@ -232,21 +232,11 @@ begin
 	end block;
 
 	timing_reset <= RST or rst_boot;
-	
-	process(CLK) is
-	begin
-	if(rising_edge(CLK)) then
-		if(SEL = "00") then
-			output_vic <= VIC720p;
-		elsif(SEL = "01") then
-			output_vic <= VIC480p;
-		elsif(SEL = "10") then
-			output_vic <= VIC720p;
-		elsif(SEL = "11") then
-			output_vic <= VIC1080p;
-		end if;
-	end if;
-	end process;
+
+	with SEL select output_vic <=
+		VIC720p when "01",
+		VIC1080p when "10",
+		VIC480p when others;
 	
 	Inst_sync_vg: sync_vg PORT MAP(
 		clk => CLK,
