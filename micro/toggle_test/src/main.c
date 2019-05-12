@@ -308,7 +308,7 @@ int main (void)
 		{
 			handle_event = false;
 
-			i2c_write_reg(lanemate_address, 0x01, source);
+			//i2c_write_reg(lanemate_address, 0x01, source);
 			if(source == 0)
 				source = 1;
 			else

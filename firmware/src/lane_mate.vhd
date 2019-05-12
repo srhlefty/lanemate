@@ -293,28 +293,36 @@ begin
 	-- This gives me the most amount of margin to guard against clock freq
 	-- differences between the external and internal sources.
 	
-	sel_cross: synchronizer_2ff
-	generic map (
-		DATA_WIDTH => 2,
-		EXTRA_INPUT_REGISTER => false,
-		USE_GRAY_CODE => true
-	)
-	port map(
-		CLKA => clk,
-		DA => clk_sel,
-		CLKB => video_clock,
-		DB => clk_sel_v,
-		RESETB => '0'
-	);
-	testpat_gen: timing_gen PORT MAP(
-		CLK => video_clock,
-		RST => '0',
-		SEL => clk_sel_v,
-		VS => testpat_vs,
-		HS => testpat_hs,
-		DE => testpat_de,
-		D => testpat_d
-	);
+	synth : block is
+		signal crossdata : std_logic_vector(2 downto 0);
+		signal crossdata_pclk : std_logic_vector(2 downto 0);
+	begin
+		crossdata(2) <= not source_enabled;
+		crossdata(1 downto 0) <= clk_sel;
+		
+		sel_cross: synchronizer_2ff
+		generic map (
+			DATA_WIDTH => 3,
+			EXTRA_INPUT_REGISTER => false,
+			USE_GRAY_CODE => false
+		)
+		port map(
+			CLKA => clk,
+			DA => crossdata,
+			CLKB => video_clock,
+			DB => crossdata_pclk,
+			RESETB => '0'
+		);
+		testpat_gen: timing_gen PORT MAP(
+			CLK => video_clock,
+			RST => crossdata_pclk(2),
+			SEL => crossdata_pclk(1 downto 0),
+			VS => testpat_vs,
+			HS => testpat_hs,
+			DE => testpat_de,
+			D => testpat_d
+		);
+	end block;
 	
 	Inst_source_select: source_select PORT MAP(
 		SYSCLK => clk,
@@ -528,13 +536,14 @@ begin
 		B1_GPIO9 <= val(9);
 		B1_GPIO10 <= val(10);
 		B1_GPIO11 <= val(11);
-		B1_GPIO12 <= val(12);
+		--B1_GPIO12 <= val(12);
 		--B1_GPIO13 <= val(13);
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
-		B1_GPIO13 <= source_enabled;
-		B1_GPIO14 <= register_map(2)(0);
-		B1_GPIO15 <= register_map(2)(1);
+		B1_GPIO12 <= source_sel(0);
+		B1_GPIO13 <= source_sel(1);
+		B1_GPIO14 <= clk_sel(0);
+		B1_GPIO15 <= clk_sel(1);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
