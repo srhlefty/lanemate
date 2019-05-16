@@ -19,6 +19,11 @@ extern const uint16_t hdmi_rx_infoframe_address;
 extern const uint16_t hdmi_rx_cec_address;
 extern const uint16_t hdmi_rx_dpll_address;
 
+void hdmi_rx_force_freerun();
+void hdmi_rx_autofreerun();
+void hdmi_rx_set_freerun_to_720p60();
+void hdmi_rx_set_freerun_to_1080p60();
+
 void configure_hdmi_rx(void);
 
 

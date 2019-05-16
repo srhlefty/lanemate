@@ -295,7 +295,8 @@ int main (void)
 	print("\r\n");
 
 	uint8_t source = 2;
-	
+	i2c_write_reg(lanemate_address, 0x01, source);
+	uint8_t res = 0;
 
 
 	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
@@ -308,21 +309,30 @@ int main (void)
 		{
 			handle_event = false;
 
-			print("Changing source\r\n");
+			
+			if(res == 0)
+			{
+				print("Changing freerun to 1080p60\r\n");
+				hdmi_rx_set_freerun_to_1080p60();
+				res = 1;
+			}else
+			{
+				print("Changing freerun to 720p60\r\n");
+				hdmi_rx_set_freerun_to_720p60();
+				res = 0;
+			}
+			// changing resolution changes the clock frequency,
+			// so I need to trigger dcm reset, which can be
+			// done by writing to the video source register
 			i2c_write_reg(lanemate_address, 0x01, source);
 
-			
+			/*
 			if(source == 2)
 				source = 3;
 			else
 				source = 2;
-			
-			/*
-			if(ba_value == 7)
-				ba_value = 0;
-			else
-				++ba_value;
 			*/
+			
 			delay_cycles_ms(15000);
 
 

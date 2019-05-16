@@ -38,6 +38,31 @@ const uint8_t rx_edid[256] =
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xE7
 };
 
+void hdmi_rx_force_freerun()
+{
+	// [0] force CP to free run
+	// [1] output default color when CP free runs
+	// [2] use default color specified by registers C0, C1, C2
+	i2c_write_reg(hdmi_rx_cp_address, 0xBF, 0x07);
+}
+
+void hdmi_rx_autofreerun()
+{
+	// [0] CP free runs when cable disconnected
+	// [1] output default color when CP free runs
+	// [2] use default color specified by registers C0, C1, C2
+	i2c_write_reg(hdmi_rx_cp_address, 0xBF, 0x06);
+}
+
+void hdmi_rx_set_freerun_to_720p60()
+{
+	i2c_write_reg(hdmi_rx_address, 0x00, 0x13);
+}
+void hdmi_rx_set_freerun_to_1080p60()
+{
+	i2c_write_reg(hdmi_rx_address, 0x00, 0x1E);
+}
+
 
 void configure_hdmi_rx(void)
 {
@@ -79,13 +104,13 @@ void configure_hdmi_rx(void)
 	i2c_write_reg(hdmi_rx_address, 0x15, 0x11); // un-tristate the pixel data, pixel clock, and sync pins
 	i2c_write_reg(hdmi_rx_address, 0x03, 0x40); // OP_FORMAT_SEL, 24-bit RGB with SDR clock
 	i2c_write_reg(hdmi_rx_address, 0x01, 0x05); // PRIM_MODE = component, V_FREQ = 60Hz
-	i2c_write_reg(hdmi_rx_address, 0x00, 0x13); // VID_STD = 1280x720
+	hdmi_rx_set_freerun_to_720p60(); // VID_STD = 1280x720
 	i2c_write_reg(hdmi_rx_address, 0x02, 0xF2); // automatic input colorspace, RGB output space
 	i2c_write_reg(hdmi_rx_cp_address, 0xC9, 0x01); // DIS_AUTO_PARAM_BUF (use above settings for free run)
 	i2c_write_reg(hdmi_rx_cp_address, 0xC0, 0xFF); // free run color, R
 	i2c_write_reg(hdmi_rx_cp_address, 0xC1, 0x00); // free run color, G
 	i2c_write_reg(hdmi_rx_cp_address, 0xC2, 0xFF); // free run color, B
-	i2c_write_reg(hdmi_rx_cp_address, 0xBF, 0x07); // force free run and specify manual color choice
+	hdmi_rx_autofreerun();
 	i2c_write_reg(hdmi_rx_hdmi_address, 0x01, 0x01); // enable automatic TMDS clock termination
 
 	// Default polarity: HS and VS are negative; DE is positive.
