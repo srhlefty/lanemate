@@ -311,19 +311,19 @@ int main (void)
 			print("Changing source\r\n");
 			i2c_write_reg(lanemate_address, 0x01, source);
 
-			/*
-			if(source == 0)
-				source = 1;
+			
+			if(source == 2)
+				source = 3;
 			else
-				source = 0;
-			*/
+				source = 2;
+			
 			/*
 			if(ba_value == 7)
 				ba_value = 0;
 			else
 				++ba_value;
 			*/
-			//delay_cycles_ms(15000);
+			delay_cycles_ms(15000);
 
 
 			uint8_t vic_to_rx, actual_vic, aux;

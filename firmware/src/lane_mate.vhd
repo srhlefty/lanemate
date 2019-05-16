@@ -127,106 +127,75 @@ architecture Behavioral of lane_mate is
 		RAM_RDATA : in std_logic_vector(7 downto 0)
 	);
 	end component;
-	
-	component bram_true_dual_port is
-	generic (
-		ADDR_WIDTH : natural;
-		DATA_WIDTH : natural
-	);
-    Port ( 
-		CLK1 : in std_logic;
-		ADDR1 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
-		RDATA1 : out std_logic_vector (DATA_WIDTH-1 downto 0);
-		WDATA1 : in std_logic_vector (DATA_WIDTH-1 downto 0);
-		WE1    : in std_logic;
-
-		CLK2 : in std_logic;
-		ADDR2 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
-		RDATA2 : out std_logic_vector (DATA_WIDTH-1 downto 0);
-		WDATA2 : in std_logic_vector (DATA_WIDTH-1 downto 0);
-		WE2    : in std_logic
-	);
-	end component;
-	
-	component programmable_clock is
-	Port ( 
-		CLK : in std_logic;
-		SEL : in std_logic_vector(1 downto 0); -- 00=27M, 01=74.25M, 10=148.5M
-		DCM1_LOCKED : out std_logic;
-		DCM2_LOCKED : out std_logic;
-		CLKOUT : out std_logic
-	);
-	end component;
-
-	component source_manager is
-    Port ( CLK : in  STD_LOGIC;
-           SOURCE : in  STD_LOGIC_VECTOR (2 downto 0);   -- 00=720p test pat, 01=1080p test pat, 10=hd in 720p, 11=hd in 1080p, 100=sd in
-           CLK_SEL : out  STD_LOGIC_VECTOR (1 downto 0);
-           SRC_SEL : out  STD_LOGIC_VECTOR (1 downto 0);
-           SRC_ENABLE : out  STD_LOGIC);
-	end component;
-	
-	component source_select is
-	Port ( 
-		SYSCLK : in  STD_LOGIC;
 		
-		PIXEL_CLK : in std_logic;
-		PIXEL_CLK_LOCKED : in std_logic;
-		
-		-- clk is PIXEL_CLK
-		INT_VS : in std_logic;
-		INT_HS : in std_logic;
-		INT_DE : in std_logic;
-		INT_D  : in std_logic_vector(23 downto 0);
-		
-		HD_PCLK : in std_logic;
-		HD_VS : in std_logic;
-		HD_HS : in std_logic;
-		HD_DE : in std_logic;
-		HD_D  : in std_logic_vector(23 downto 0);
-		
-		-- BT.656 (YCbCr 4:2:2, embedded syncs)
-		SD_PCLK : in std_logic;
-		SD_D : in std_logic_vector(7 downto 0);
-		
-		SEL : in std_logic_vector(1 downto 0);
-		
-		-- clk is PIXEL_CLK
-		OUT_VS : out std_logic;
-		OUT_HS : out std_logic;
-		OUT_DE : out std_logic;
-		OUT_D  : out std_logic_vector(23 downto 0)
-	);
-	end component;
+	COMPONENT bt656_decode
+	PORT(
+		D : IN std_logic_vector(7 downto 0);
+		CLK : IN std_logic;          
+		VS : OUT std_logic;
+		HS : OUT std_logic;
+		DE : OUT std_logic;
+		DOUT : OUT std_logic_vector(7 downto 0)
+		);
+	END COMPONENT;
 	
 	
-	
+	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
 	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
-	signal register_map : ram_t;
+	signal register_map : ram_t :=
+	(
+		0 => x"01", -- Register table version
+		1 => x"00", -- 
+		2 => x"56",
+		3 => x"78",
+		4 => x"33",
+		5 => x"FF",
+		6 => x"AB",
+		7 => x"CD",
+		others => x"00"
+	);
+	signal ram_addr : std_logic_vector(7 downto 0);
+	signal ram_wdata : std_logic_vector(7 downto 0);
+	signal ram_rdata : std_logic_vector(7 downto 0);
+	signal ram_we : std_logic;
 	
-	signal video_clock : std_logic;
 
 	signal testpat_vs : std_logic;
 	signal testpat_hs : std_logic;
 	signal testpat_de : std_logic;
 	signal testpat_d : std_logic_vector(23 downto 0);
+
+	signal hd_vs : std_logic;
+	signal hd_hs : std_logic;
+	signal hd_de : std_logic;
+	signal hd_d : std_logic_vector(23 downto 0);
+	
+	signal decoded_sd_vs : std_logic;
+	signal decoded_sd_hs : std_logic;
+	signal decoded_sd_de : std_logic;
+	signal decoded_sd_d : std_logic_vector(7 downto 0);
+	
 	
 	signal stage1_hs : std_logic;
 	signal stage1_vs : std_logic;
 	signal stage1_de : std_logic;
 	signal stage1_d : std_logic_vector(23 downto 0);
+
+	signal stage2_hs : std_logic;
+	signal stage2_vs : std_logic;
+	signal stage2_de : std_logic;
+	signal stage2_d : std_logic_vector(23 downto 0);
 	
 	signal clk : std_logic;
 	signal ibufg_to_bufgs : std_logic;
 	
+	signal video_clock : std_logic;
 	signal dcm1_locked : std_logic;
 	signal dcm2_locked : std_logic;
 	
-	signal source_sel : std_logic_vector(1 downto 0) := "00";
-	signal clk_sel : std_logic_vector(1 downto 0) := "00";
-	signal clk_sel_v : std_logic_vector(1 downto 0) := "00";
-	signal source_enabled : std_logic;
+	signal video_source_ready : std_logic := '0';
+	
 begin
 
 
@@ -245,7 +214,210 @@ begin
 		);
 
 	
+	clock_manager : block is
+		type state_t is (IDLE, RESETTING);
+		signal state : state_t := IDLE;
+		signal count : natural range 0 to 12 := 0;
+		signal hdclk : std_logic;
+		signal sdclk : std_logic;
+		signal clk_select : std_logic := '0';
+		signal dcm_rst : std_logic := '0';
+	begin
 	
+		hd_dcm : DCM_CLKGEN
+		generic map (
+			CLKFXDV_DIVIDE => 2,       -- CLKFXDV divide value (2, 4, 8, 16, 32)
+			CLKFX_DIVIDE => 2,         -- Divide value - D - (1-256)
+			CLKFX_MD_MAX => 1.5,       -- Specify maximum M/D ratio for timing anlysis
+			CLKFX_MULTIPLY => 2,       -- Multiply value - M - (2-256)
+			CLKIN_PERIOD => 13.468,       -- Input clock period specified in nS
+			SPREAD_SPECTRUM => "NONE", -- Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
+												-- "VIDEO_LINK_M0", "VIDEO_LINK_M1" or "VIDEO_LINK_M2" 
+			STARTUP_WAIT => FALSE      -- Delay config DONE until DCM_CLKGEN LOCKED (TRUE/FALSE)
+		)
+		port map (
+			CLKFX => hdclk,         -- 1-bit output: Generated clock output
+			CLKFX180 => open,   -- 1-bit output: Generated clock output 180 degree out of phase from CLKFX.
+			CLKFXDV => open,     -- 1-bit output: Divided clock output
+			LOCKED => dcm1_locked,       -- 1-bit output: Locked output
+			PROGDONE => open,   -- 1-bit output: Active high output to indicate the successful re-programming
+			STATUS => open,       -- 2-bit output: DCM_CLKGEN status
+			CLKIN => HDI_PCLK,         -- 1-bit input: Input clock
+			FREEZEDCM => '0', -- 1-bit input: Prevents frequency adjustments to input clock
+			PROGCLK => '0',     -- 1-bit input: Clock input for M/D reconfiguration
+			PROGDATA => '0',   -- 1-bit input: Serial data input for M/D reconfiguration
+			PROGEN => '0',       -- 1-bit input: Active high program enable
+			RST => dcm_rst              -- 1-bit input: Reset input pin
+		);
+		
+		sd_dcm : DCM_CLKGEN
+		generic map (
+			CLKFXDV_DIVIDE => 2,       -- CLKFXDV divide value (2, 4, 8, 16, 32)
+			CLKFX_DIVIDE => 2,         -- Divide value - D - (1-256)
+			CLKFX_MD_MAX => 1.5,       -- Specify maximum M/D ratio for timing anlysis
+			CLKFX_MULTIPLY => 2,       -- Multiply value - M - (2-256)
+			CLKIN_PERIOD => 37.037,       -- Input clock period specified in nS
+			SPREAD_SPECTRUM => "NONE", -- Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
+												-- "VIDEO_LINK_M0", "VIDEO_LINK_M1" or "VIDEO_LINK_M2" 
+			STARTUP_WAIT => FALSE      -- Delay config DONE until DCM_CLKGEN LOCKED (TRUE/FALSE)
+		)
+		port map (
+			CLKFX => sdclk,         -- 1-bit output: Generated clock output
+			CLKFX180 => open,   -- 1-bit output: Generated clock output 180 degree out of phase from CLKFX.
+			CLKFXDV => open,     -- 1-bit output: Divided clock output
+			LOCKED => dcm2_locked,       -- 1-bit output: Locked output
+			PROGDONE => open,   -- 1-bit output: Active high output to indicate the successful re-programming
+			STATUS => open,       -- 2-bit output: DCM_CLKGEN status
+			CLKIN => SDI_PCLK,         -- 1-bit input: Input clock
+			FREEZEDCM => '0', -- 1-bit input: Prevents frequency adjustments to input clock
+			PROGCLK => '0',     -- 1-bit input: Clock input for M/D reconfiguration
+			PROGDATA => '0',   -- 1-bit input: Serial data input for M/D reconfiguration
+			PROGEN => '0',       -- 1-bit input: Active high program enable
+			RST => dcm_rst              -- 1-bit input: Reset input pin
+		);
+		
+		clkmux : BUFGMUX
+		generic map (
+			CLK_SEL_TYPE => "SYNC"  -- Glitchles ("SYNC") or fast ("ASYNC") clock switch-over
+		)
+		port map (
+			O => video_clock,   -- 1-bit output: Clock buffer output
+			I0 => hdclk, -- 1-bit input: Clock buffer input (S=0)
+			I1 => sdclk, -- 1-bit input: Clock buffer input (S=1)
+			S => clk_select    -- 1-bit input: Clock buffer select
+		);
+	
+		process(clk) is
+		begin
+		if(rising_edge(clk)) then
+		case register_map(1) is
+			when x"00" =>
+				-- HD test pattern
+				video_source_ready <= dcm1_locked;
+				clk_select <= '0';
+			
+			when x"01" =>
+				-- SD test pattern
+				video_source_ready <= dcm2_locked;
+				clk_select <= '1';
+			
+			when x"02" =>
+				-- HD input
+				video_source_ready <= dcm1_locked;
+				clk_select <= '0';
+			
+			when x"03" =>
+				-- SD input
+				video_source_ready <= dcm2_locked;
+				clk_select <= '1';
+			
+			when others =>
+				video_source_ready <= '0';
+		end case;
+		end if;
+		end process;
+		
+		-- The HD video source can change resolutions and thus clock frequencies.
+		-- When that happens, the hd dcm will unlock and stay unlocked until a 
+		-- reset is performed. In general I will know when this happens in the 
+		-- micro, because it will be monitoring the receiver's registers, which
+		-- indicate the resolution output. So here I provide the facility to cause
+		-- a dcm reset by doing so any time the video source register is written to.
+		process(clk) is
+		begin
+		if(rising_edge(clk)) then
+		case state is
+			when IDLE =>
+				if(ram_addr = x"01" and ram_we = '1') then
+					dcm_rst <= '1';
+					count <= 12; -- 100MHz is 3.7x faster than 27MHz, and resets must be >3 input clocks long
+					state <= RESETTING;
+				else
+					dcm_rst <= '0';
+				end if;
+			
+			when RESETTING =>
+				if(count = 0) then
+					state <= IDLE;
+				else
+					count <= count - 1;
+				end if;
+		end case;
+		end if;
+		end process;
+		
+		Inst_bt656_decode: bt656_decode PORT MAP(
+			D => SDV,
+			CLK => sdclk,
+			VS => decoded_sd_vs,
+			HS => decoded_sd_hs,
+			DE => decoded_sd_de,
+			DOUT => decoded_sd_d
+		);
+		
+		process(hdclk) is
+		begin
+		if(rising_edge(hdclk)) then
+			hd_vs <= HDI_VS;
+			hd_hs <= HDI_HS;
+			hd_de <= HDI_DE;
+			hd_d  <= RGB_IN;
+		end if;
+		end process;
+	end block;
+	
+	
+	process(video_clock) is
+	begin
+	if(rising_edge(video_clock)) then
+		if(register_map(1) = x"02") then
+			stage1_vs <= hd_vs;
+			stage1_hs <= hd_hs;
+			stage1_de <= hd_de;
+			stage1_d  <= hd_d;
+		elsif(register_map(1) = x"03") then
+			stage1_vs <= decoded_sd_vs;
+			stage1_hs <= decoded_sd_hs;
+			stage1_de <= decoded_sd_de;
+			stage1_d(23 downto 8) <= (others => '0');
+			stage1_d(7 downto 0)  <= decoded_sd_d;
+		else
+			stage1_vs <= '0';
+			stage1_hs <= '0';
+			stage1_de <= '0';
+			stage1_d  <= (others => '0');
+		end if;
+	end if;
+	end process;
+	
+	process(video_clock) is
+	begin
+	if(rising_edge(video_clock)) then
+		stage2_vs <= stage1_vs;
+		stage2_hs <= stage1_hs;
+		stage2_de <= stage1_de;
+		stage2_d  <= stage1_d;
+	end if;
+	end process;
+	
+	process(video_clock) is
+	begin
+	if(rising_edge(video_clock)) then
+		HDO_VS <= stage2_vs;
+		HDO_HS <= stage2_hs;
+		HDO_DE <= stage2_de;
+		RGB_OUT <= stage2_d;
+	end if;
+	end process;
+	
+	Inst_clock_forwarding: clock_forwarding 
+	GENERIC MAP(
+		INVERT => true
+	)
+	PORT MAP(
+		CLK => video_clock,
+		CLKO => HDO_PCLK
+	);
 	
 	
 	-- There are 3 video sources: internal test pattern, HDMI, and SD.
@@ -259,173 +431,68 @@ begin
 	-- series of 2 BUFGMUX blocks to select which one to use. This is done
 	-- in the programmable_clock module.
 
-	Inst_programmable_clock: programmable_clock PORT MAP(
-		CLK => clk,
-		SEL => clk_sel,
-		DCM1_LOCKED => dcm1_locked,
-		DCM2_LOCKED => dcm2_locked,
-		CLKOUT => video_clock
-	);
-	Inst_clock_forwarding: clock_forwarding 
-	GENERIC MAP(
-		INVERT => true
-	)
-	PORT MAP(
-		CLK => video_clock,
-		CLKO => HDO_PCLK
-	);
+--	Inst_programmable_clock: programmable_clock PORT MAP(
+--		CLK => clk,
+--		SEL => clk_sel,
+--		DCM1_LOCKED => dcm1_locked,
+--		DCM2_LOCKED => dcm2_locked,
+--		CLKOUT => video_clock
+--	);
+--	
+--	
+--	Inst_source_manager: source_manager PORT MAP(
+--		CLK => clk,
+--		SOURCE => register_map(1)(2 downto 0),
+--		CLK_SEL => clk_sel,
+--		SRC_SEL => source_sel,
+--		SRC_ENABLE => source_enabled
+--	);
+--	
+--	
+--	
+--	-- So at the chip edge, I ingest video data into short FIFOs using the
+--	-- actual external clock. Then on the read side, I use the DCM-generated
+--	-- clocks to empty the FIFO. When the desired video source changes, I
+--	-- reset the FIFOs and reenable FIFO reads once the FIFO is half full.
+--	-- This gives me the most amount of margin to guard against clock freq
+--	-- differences between the external and internal sources.
+--	
+--	synth : block is
+--		signal crossdata : std_logic_vector(2 downto 0);
+--		signal crossdata_pclk : std_logic_vector(2 downto 0);
+--	begin
+--		crossdata(2) <= not source_enabled;
+--		crossdata(1 downto 0) <= clk_sel;
+--		
+--		sel_cross: synchronizer_2ff
+--		generic map (
+--			DATA_WIDTH => 3,
+--			EXTRA_INPUT_REGISTER => false,
+--			USE_GRAY_CODE => false
+--		)
+--		port map(
+--			CLKA => clk,
+--			DA => crossdata,
+--			CLKB => video_clock,
+--			DB => crossdata_pclk,
+--			RESETB => '0'
+--		);
+--		testpat_gen: timing_gen PORT MAP(
+--			CLK => video_clock,
+--			RST => crossdata_pclk(2),
+--			SEL => crossdata_pclk(1 downto 0),
+--			VS => testpat_vs,
+--			HS => testpat_hs,
+--			DE => testpat_de,
+--			D => testpat_d
+--		);
+--	end block;
+--	
 	
 	
-	Inst_source_manager: source_manager PORT MAP(
-		CLK => clk,
-		SOURCE => register_map(1)(2 downto 0),
-		CLK_SEL => clk_sel,
-		SRC_SEL => source_sel,
-		SRC_ENABLE => source_enabled
-	);
-	
-	
-	
-	-- So at the chip edge, I ingest video data into short FIFOs using the
-	-- actual external clock. Then on the read side, I use the DCM-generated
-	-- clocks to empty the FIFO. When the desired video source changes, I
-	-- reset the FIFOs and reenable FIFO reads once the FIFO is half full.
-	-- This gives me the most amount of margin to guard against clock freq
-	-- differences between the external and internal sources.
-	
-	synth : block is
-		signal crossdata : std_logic_vector(2 downto 0);
-		signal crossdata_pclk : std_logic_vector(2 downto 0);
-	begin
-		crossdata(2) <= not source_enabled;
-		crossdata(1 downto 0) <= clk_sel;
-		
-		sel_cross: synchronizer_2ff
-		generic map (
-			DATA_WIDTH => 3,
-			EXTRA_INPUT_REGISTER => false,
-			USE_GRAY_CODE => false
-		)
-		port map(
-			CLKA => clk,
-			DA => crossdata,
-			CLKB => video_clock,
-			DB => crossdata_pclk,
-			RESETB => '0'
-		);
-		testpat_gen: timing_gen PORT MAP(
-			CLK => video_clock,
-			RST => crossdata_pclk(2),
-			SEL => crossdata_pclk(1 downto 0),
-			VS => testpat_vs,
-			HS => testpat_hs,
-			DE => testpat_de,
-			D => testpat_d
-		);
-	end block;
-	
-	Inst_source_select: source_select PORT MAP(
-		SYSCLK => clk,
-		PIXEL_CLK => video_clock,
-		PIXEL_CLK_LOCKED => source_enabled,
-		
-		INT_VS => testpat_vs,
-		INT_HS => testpat_hs,
-		INT_DE => testpat_de,
-		INT_D => testpat_d,
-		
-		HD_PCLK => HDI_PCLK,
-		HD_VS => HDI_VS,
-		HD_HS => HDI_HS,
-		HD_DE => HDI_DE,
-		HD_D => RGB_IN,
-		
-		SD_PCLK => SDI_PCLK,
-		SD_D => SDV,
-		
-		SEL => source_sel,
-		
-		OUT_VS => stage1_vs,
-		OUT_HS => stage1_hs,
-		OUT_DE => stage1_de,
-		OUT_D => stage1_d
-	);
-	
-	process(video_clock) is
-	begin
-	if(rising_edge(video_clock)) then
-		HDO_VS <= stage1_vs;
-		HDO_HS <= stage1_hs;
-		HDO_DE <= stage1_de;
-		RGB_OUT <= stage1_d;
-	end if;
-	end process;
-	
-
-	-- The register map is actually 2 sections of memory: a true dual-port bram, and
-	-- a distributed ram. With different design it would be possible to eliminate the
-	-- bram, but I did it this way because I wanted the repository to be a true dual
-	-- port memory. That way if I want to do things like self-clearing bits I don't
-	-- have to worry about an I2C write colliding with a self write. Probably way
-	-- overdesigned, but there's plenty of resources so it doesn't matter.
-	
-	-- The initial state of a bram is technically settable, but Xilinx recommends not
-	-- to rely on it. So at boot I write the defaults to the bram, and then do a 
-	-- refresh operation to synchronize the distributed ram to the bram. The refresh
-	-- is also done after an i2c write is detected. Even if I were using all 256
-	-- registers, the refresh takes about 260 clocks; compare this to the i2c clock,
-	-- which has a period of 1000 clocks. So there's no chance of missing an i2c write
-	-- while a refresh is taking place.
 
 	register_map_handler : block is
-	
-		constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
-		
-		constant map_defaults : ram_t := 
-		(
-			0 => x"01", -- Register table version
-			1 => x"00", -- Output source. 0 = 720p test pattern, 1 = HD shunt, 2 = SD shunt
-			2 => x"56",
-			3 => x"78",
-			4 => x"33",
-			5 => x"FF",
-			6 => x"AB",
-			7 => x"CD",
-			others => x"00"
-		);
-		
-		signal ram_addr : std_logic_vector(7 downto 0);
-		signal ram_wdata : std_logic_vector(7 downto 0);
-		signal ram_rdata : std_logic_vector(7 downto 0);
-		signal ram_we : std_logic;
-		signal we_old : std_logic := '0';
-		
-		signal regmap_addr : std_logic_vector(7 downto 0);
-		signal regmap_rdata : std_logic_vector(7 downto 0);
-		signal regmap_wdata : std_logic_vector(7 downto 0) := (others => '0');
-		signal regmap_we : std_logic := '0';
-		
-		type state_t is (IDLE, SET_DEFAULT, DEFAULT2, REFRESH, D1, D2, D3);
-		signal state : state_t := SET_DEFAULT;
-	
 	begin
-		Inst_bram_true_dual_port: bram_true_dual_port 
-		generic map (
-			ADDR_WIDTH => 8,
-			DATA_WIDTH => 8
-		)
-		PORT MAP(
-			CLK1 => clk,
-			ADDR1 => ram_addr,
-			RDATA1 => ram_rdata,
-			WDATA1 => ram_wdata,
-			WE1 => ram_we,
-			CLK2 => clk,
-			ADDR2 => regmap_addr,
-			RDATA2 => regmap_rdata,
-			WDATA2 => regmap_wdata,
-			WE2 => regmap_we
-		);
 
 		Inst_i2c_slave: i2c_slave 
 		generic map (
@@ -441,64 +508,13 @@ begin
 			RAM_RDATA => ram_rdata
 		);
 		
-		-- At boot, fill the register map with the defaults
 		process(clk) is
-			variable nextaddr : natural;
-			variable raddr : natural;
 		begin
 		if(rising_edge(clk)) then
-
-			we_old <= ram_we;
-
-		case state is
-			when SET_DEFAULT =>
-				regmap_addr <= x"00";
-				regmap_wdata <= map_defaults(0);
-				regmap_we <= '1';
-				state <= DEFAULT2;
-			
-			when DEFAULT2 =>
-				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
-				if(nextaddr > map_defaults'high) then
-					regmap_we <= '0';
-					state <= REFRESH;
-				else
-					regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
-					regmap_wdata <= map_defaults(nextaddr);
-				end if;
-				
-			when REFRESH =>
-				regmap_addr <= x"00";
-				state <= D1;
-			
-			when D1 =>
-				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
-				regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
-				state <= D2;
-				
-			when D2 =>
-				raddr := to_integer(unsigned(regmap_addr)) - 1;
-				register_map(raddr) <= regmap_rdata;
-				nextaddr := to_integer(unsigned(regmap_addr)) + 1;
-				if(nextaddr > register_map'high) then
-					state <= D3;
-				else
-					regmap_addr <= std_logic_vector(to_unsigned(nextaddr, regmap_addr'length));
-				end if;
-			
-			when D3 =>
-				raddr := to_integer(unsigned(regmap_addr));
-				register_map(raddr) <= regmap_rdata;
-				state <= IDLE;
-				
-			when IDLE =>
-				if(ram_we = '0' and we_old = '1') then
-					-- An i2c write has taken place, which means I should refresh the distributed array
-					state <= REFRESH;
-				else
-					state <= IDLE;
-				end if;
-		end case;
+			if(ram_we = '1') then
+				register_map(to_integer(unsigned(ram_addr))) <= ram_wdata;
+			end if;
+			ram_rdata <= register_map(to_integer(unsigned(ram_addr)));
 		end if;
 		end process;
 		
@@ -540,10 +556,10 @@ begin
 		--B1_GPIO13 <= val(13);
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
-		B1_GPIO12 <= source_sel(0);
-		B1_GPIO13 <= source_sel(1);
-		B1_GPIO14 <= clk_sel(0);
-		B1_GPIO15 <= clk_sel(1);
+		B1_GPIO12 <= register_map(1)(0);
+		B1_GPIO13 <= register_map(1)(1);
+		B1_GPIO14 <= register_map(1)(2);
+		B1_GPIO15 <= register_map(1)(3);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
