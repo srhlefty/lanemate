@@ -6,6 +6,7 @@
 #include "uart.h"
 #include "hdmi_rx.h"
 
+/*
 #define TEST_PIN PIN_PA24
 void config_test_pin(void);
 void config_test_pin(void)
@@ -17,7 +18,7 @@ void config_test_pin(void)
 	port_pin_set_config(TEST_PIN, &pin_conf);
 	port_pin_set_output_level(TEST_PIN, LOW);
 }
-
+*/
 
 const uint16_t hdmi_tx_address = 0x72 >> 1;
 const uint16_t sd_rx_address = 0x40 >> 1;
@@ -54,30 +55,30 @@ const regdata tx_data[180] = {
 	{	0x15	,	0x00	,	0x03	},	//	custom	I2S Sampling Frequency (CS bits 27-24), Input Video Format
 	{	0x16	,	0b00110100	,	0b00110100	},	//	custom	Output Format, Reserved, Color Depth, Input Style, DDR Input Edge, Output Colorspace for Black Image
 	{	0x17	,	0b01100110	,	0b01100100	},	//	custom	Fixed, Vsync Polarity, Hsync Polarity, Reserved, Interpolation Style, Aspect Ratio, DE Generator Enable
-	{	0x18	,	0x46	,	0xe6	},	//	custom	CSC Enable, CSC Scaling Factor, A1 (CSC)
-	{	0x19	,	0x69	,	0x69	},	//	custom	A1 (CSC)
-	{	0x1A	,	0x04	,	0x04	},	//	custom	Coefficient Update, A2 (CSC)
-	{	0x1B	,	0xac	,	0xac	},	//	custom	A2 (CSC)
+	{	0x18	,	0x00	,	0xe6	},	//	custom	CSC Enable, CSC Scaling Factor, A1 (CSC)
+	{	0x19	,	0x00	,	0x69	},	//	custom	A1 (CSC)
+	{	0x1A	,	0x00	,	0x04	},	//	custom	Coefficient Update, A2 (CSC)
+	{	0x1B	,	0x00	,	0xac	},	//	custom	A2 (CSC)
 	{	0x1C	,	0x00	,	0x00	},	//	custom	A3 (CSC)
 	{	0x1D	,	0x00	,	0x00	},	//	custom	A3 (CSC)
-	{	0x1E	,	0x1c	,	0x1c	},	//	custom	A4 (CSC)
-	{	0x1F	,	0x81	,	0x81	},	//	custom	A4 (CSC)
-	{	0x20	,	0x1c	,	0x1c	},	//	custom	B1 (CSC)
-	{	0x21	,	0xbc	,	0xbc	},	//	custom	B1 (CSC)
-	{	0x22	,	0x04	,	0x04	},	//	custom	B2 (CSC)
-	{	0x23	,	0xad	,	0xad	},	//	custom	B2 (CSC)
-	{	0x24	,	0x1e	,	0x1e	},	//	custom	B3 (CSC)
-	{	0x25	,	0x63	,	0x63	},	//	custom	B3 (CSC)
-	{	0x26	,	0x02	,	0x02	},	//	custom	B4 (CSC)
-	{	0x27	,	0x20	,	0x20	},	//	custom	B4 (CSC)
-	{	0x28	,	0x1f	,	0x1f	},	//	custom	C1 (CSC)
-	{	0x29	,	0xfe	,	0xfe	},	//	custom	C1 (CSC)
-	{	0x2A	,	0x04	,	0x04	},	//	custom	C2 (CSC)
-	{	0x2B	,	0xad	,	0xad	},	//	custom	C2 (CSC)
-	{	0x2C	,	0x08	,	0x08	},	//	custom	C3 (CSC)
-	{	0x2D	,	0x1a	,	0x1a	},	//	custom	C3 (CSC)
-	{	0x2E	,	0x1b	,	0x1b	},	//	custom	C4 (CSC)
-	{	0x2F	,	0xa9	,	0xa9	},	//	custom	C4 (CSC)
+	{	0x1E	,	0x00	,	0x1c	},	//	custom	A4 (CSC)
+	{	0x1F	,	0x00	,	0x81	},	//	custom	A4 (CSC)
+	{	0x20	,	0x00	,	0x1c	},	//	custom	B1 (CSC)
+	{	0x21	,	0x00	,	0xbc	},	//	custom	B1 (CSC)
+	{	0x22	,	0x00	,	0x04	},	//	custom	B2 (CSC)
+	{	0x23	,	0x00	,	0xad	},	//	custom	B2 (CSC)
+	{	0x24	,	0x00	,	0x1e	},	//	custom	B3 (CSC)
+	{	0x25	,	0x00	,	0x63	},	//	custom	B3 (CSC)
+	{	0x26	,	0x00	,	0x02	},	//	custom	B4 (CSC)
+	{	0x27	,	0x00	,	0x20	},	//	custom	B4 (CSC)
+	{	0x28	,	0x00	,	0x1f	},	//	custom	C1 (CSC)
+	{	0x29	,	0x00	,	0xfe	},	//	custom	C1 (CSC)
+	{	0x2A	,	0x00	,	0x04	},	//	custom	C2 (CSC)
+	{	0x2B	,	0x00	,	0xad	},	//	custom	C2 (CSC)
+	{	0x2C	,	0x00	,	0x08	},	//	custom	C3 (CSC)
+	{	0x2D	,	0x00	,	0x1a	},	//	custom	C3 (CSC)
+	{	0x2E	,	0x00	,	0x1b	},	//	custom	C4 (CSC)
+	{	0x2F	,	0x00	,	0xa9	},	//	custom	C4 (CSC)
 	{	0x30	,	0x00	,	0x00	},	//	default	Hsync Placement (Embedded Sync Decoder)
 	{	0x31	,	0x00	,	0x00	},	//	default	Hsync Placement, Hsync Duration
 	{	0x32	,	0x00	,	0x00	},	//	default	Vsync Placement
@@ -176,7 +177,7 @@ const regdata tx_data[180] = {
 	{	0xAB	,	0x40	,	0x40	},	//	default	Fixed
 	{	0xAF	,	0x04	,	0x04	},	//	custom	HDCP Enable, Fixed, Frame Encryption, Fixed, HDMI/DVI Mode Select, Fixed
 	{	0xB9	,	0x00	,	0x00	},	//	default	Fixed
-	{	0xBA	,	0x68	,	0x08	},	//	default	Clock Delay, Internal/External HDCP EEPROM, Fixed, Display AKSV, R Two Point Check
+	{	0xBA	,	0x08	,	0x08	},	//	default	Clock Delay, Internal/External HDCP EEPROM, Fixed, Display AKSV, R Two Point Check
 	{	0xBB	,	0x00	,	0x00	},	//	default	Fixed
 	{	0xC4	,	0x00	,	0x00	},	//	default	EDID Segment
 	{	0xC5	,	0x00	,	0x00	},	//	default	Fixed
@@ -218,19 +219,19 @@ const regdata tx_data[180] = {
 void configure_sd_rx(void);
 void configure_sd_rx(void)
 {
-	print("Setting up SD RX\r\n");
+	//print("Setting up SD RX\r\n");
 	i2c_write_reg(sd_rx_address, 0x58, 0x05); // 0x5 = output VS; 0x4 = output FIELD
 }
 
 void configure_hdmi_tx(void);
 void configure_hdmi_tx(void)
 {
-	print("Setting up HDMI TX...\r\n");
+	//print("Setting up HDMI TX...\r\n");
 	for(uint8_t i=0;i<tx_table_size;++i)
 	{
 		i2c_write_reg(hdmi_tx_address, tx_data[i].reg, tx_data[i].val_hd);
 	}
-	print("  Finished.\r\n");
+	//print("  Finished.\r\n");
 }
 
 
@@ -247,24 +248,24 @@ int main (void)
 	system_init();
 	configure_usart();
 
-	print("\r\n\n\nSoftware started\r\n");
+	//print("\r\n\n\nSoftware started\r\n");
 	delay_init();
 
 
 	print("Waiting for FPGA to boot...\r\n");
-	delay_cycles_ms(10000);
+	delay_cycles_ms(1000);
 
 
 	configure_i2c_master();
 	configure_hdmi_rx();
-	//configure_sd_rx();
+	configure_sd_rx();
 	configure_hdmi_tx();
 
+	
+	//config_test_pin();
+	//port_pin_toggle_output_level(TEST_PIN);
 
-	config_test_pin();
-	port_pin_toggle_output_level(TEST_PIN);
-
-	print("Reading out FPGA registers\r\n");
+	//print("Reading out FPGA registers\r\n");
 	const uint16_t lanemate_address = 0b0101100;
 	const uint16_t regs[8] = {0,1,2,3,4,5,6,7};
 	for(int i=0;i<8;++i)
@@ -284,17 +285,7 @@ int main (void)
 		print("\r\n");
 	}
 
-	print("Register write test\r\n");
-	i2c_write_reg(lanemate_address, 0x00, 0x42);
-	uint8_t b;
-	i2c_read_reg(lanemate_address, 0x00, &b);
-	uint8_t buf[3];
-	byte_to_string(buf, b);
-	buf[2] = '\0';
-	print(buf);
-	print("\r\n");
-
-	uint8_t source = 2;
+	uint8_t source = 0;
 	i2c_write_reg(lanemate_address, 0x01, source);
 	uint8_t res = 0;
 
@@ -302,6 +293,7 @@ int main (void)
 	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
 	uint32_t ticks_between_interrupts = ticks_per_second / 1;
 	SysTick_Config(ticks_between_interrupts);
+	uint8_t cycle_count = 0;
 
 	while(1)
 	{
@@ -309,47 +301,66 @@ int main (void)
 		{
 			handle_event = false;
 
-			
-			if(res == 0)
+			if(cycle_count == 15)
 			{
-				print("Changing freerun to 1080p60\r\n");
-				hdmi_rx_set_freerun_to_1080p60();
-				res = 1;
+				if(res == 0)
+				{
+					//print("Changing freerun to 1080p60\r\n");
+					//hdmi_rx_set_freerun_to_1080p60();
+					res = 1;
+				}else
+				{
+					//print("Changing freerun to 720p60\r\n");
+					//hdmi_rx_set_freerun_to_720p60();
+					res = 0;
+				}
+				// changing resolution changes the clock frequency,
+				// so I need to trigger dcm reset, which can be
+				// done by writing to the video source register
+				i2c_write_reg(lanemate_address, 0x01, source);
+
+				cycle_count = 0;
+			}else
+				++cycle_count;
+			
+
+
+
+			// Measure the input video stream, if it exists.
+			// Note that if an actual video source is not attached,
+			// the frame size measurement registers are not accurate.
+			uint8_t reg7,reg8,reg9,regA,reg6F;
+			i2c_read_reg(hdmi_rx_address, 0x6F, &reg6F);
+			bool cable_present = (reg6F & 0x01) > 0;
+
+			if(cable_present)
+			{
+				i2c_read_reg(hdmi_rx_hdmi_address, 0x07, &reg7);
+				i2c_read_reg(hdmi_rx_hdmi_address, 0x08, &reg8);
+				uint16_t line_width = ((reg7 & 0b11111) << 8) | reg8;
+				i2c_read_reg(hdmi_rx_hdmi_address, 0x09, &reg9);
+				i2c_read_reg(hdmi_rx_hdmi_address, 0x0A, &regA);
+				uint16_t field0_height = ((reg9 & 0b11111) << 8) | regA;
+
+				if(line_width == 1280 && field0_height == 720)
+				print("HDMI RX: receiving 720p\r\n");
+				else if(line_width == 1920 && field0_height == 1080)
+				print("HDMI RX: receiving 1080p\r\n");
+				else
+				print("HDMI RX: receiving unsupported video\r\n");
 			}else
 			{
-				print("Changing freerun to 720p60\r\n");
-				hdmi_rx_set_freerun_to_720p60();
-				res = 0;
+				uint8_t freerun;
+				i2c_read_reg(hdmi_rx_address, 0x00, &freerun);
+				if(freerun == 0x13)
+				print("HDMI RX: free running at 720p\r\n");
+				else if(freerun == 0x1E)
+				print("HDMI RX: free running at 1080p\r\n");
+				else
+				print("HDMI RX: free running at other resolution\r\n");
 			}
-			// changing resolution changes the clock frequency,
-			// so I need to trigger dcm reset, which can be
-			// done by writing to the video source register
-			i2c_write_reg(lanemate_address, 0x01, source);
 
-			/*
-			if(source == 2)
-				source = 3;
-			else
-				source = 2;
-			*/
 			
-			delay_cycles_ms(15000);
-
-
-			uint8_t vic_to_rx, actual_vic, aux;
-			int ok = i2c_read_reg(hdmi_tx_address, 0x3E, &actual_vic);
-			int ok2 = i2c_read_reg(hdmi_tx_address, 0x3F, &aux);
-			int ok3 = i2c_read_reg(hdmi_tx_address, 0x3D, &vic_to_rx);
-			uint8_t str[50] = "HDMI TX: VIC (detected, used, aux) = XX, XX, XX\r\n";
-			byte_to_string(str+37, actual_vic >> 2);
-			byte_to_string(str+41, vic_to_rx);
-			byte_to_string(str+45, aux);
-			if(ok == SLAVE_OK && ok2 == SLAVE_OK && ok3 == SLAVE_OK)
-				print(str);
-			else
-				print("No response\r\n");
-
-			/*
 			uint8_t status1, status2, status3;
 			i2c_read_reg(sd_rx_address, 0x10, &status1);
 			i2c_read_reg(sd_rx_address, 0x12, &status2);
@@ -387,68 +398,37 @@ int main (void)
 					break;
 				}
 				print("\r\n");
+			}else
+			{
+				print("SD RX: free running\r\n");
+			}
+			
 
-				uint8_t vic, auxvic;
-				i2c_read_reg(hdmi_tx_address, 0x3E, &vic);
-				i2c_read_reg(hdmi_tx_address, 0x3F, &auxvic);
-				uint8_t str[29] = "HDMI TX: input VIC = XX, XX\r\n";
-				byte_to_string(str+21, vic >> 2);
-				byte_to_string(str+25, auxvic);
+
+
+			uint8_t vic_to_rx, actual_vic, aux;
+			int ok = i2c_read_reg(hdmi_tx_address, 0x3E, &actual_vic);
+			int ok2 = i2c_read_reg(hdmi_tx_address, 0x3F, &aux);
+			int ok3 = i2c_read_reg(hdmi_tx_address, 0x3D, &vic_to_rx);
+			if(vic_to_rx == 4)
+				print("HDMI TX: detected 720p60\r\n");
+			else if(vic_to_rx == 16)
+				print("HDMI TX: detected 1080p60\r\n");
+			else
+			{
+				uint8_t str[50] = "HDMI TX: VIC (detected, used, aux) = XX, XX, XX\r\n";
+				byte_to_string(str+37, actual_vic >> 2);
+				byte_to_string(str+41, vic_to_rx);
+				byte_to_string(str+45, aux);
 				print(str);
 			}
-			*/
+
+			print("\r\n");
 
 
+			
 
-			/*
-			// measure the input video stream, if it exists
-			uint8_t reg7,reg8,reg9,regA,reg6F;
-			i2c_read_reg(hdmi_rx_hdmi_address, 0x07, &reg7);
-			i2c_read_reg(hdmi_rx_hdmi_address, 0x08, &reg8);
-			i2c_read_reg(hdmi_rx_hdmi_address, 0x09, &reg9);
-			i2c_read_reg(hdmi_rx_hdmi_address, 0x0A, &regA);
-			i2c_read_reg(hdmi_rx_address, 0x6F, &reg6F);
-			uint8_t str[18] = "XX  XX XX XX XX\r\n";
-			byte_to_string(str+0, reg6F);
-			byte_to_string(str+4, reg7);
-			byte_to_string(str+7, reg8);
-			byte_to_string(str+10, reg9);
-			byte_to_string(str+13, regA);
-			print(str);
-			*/
-
-
-			/*
-			uint8_t reg51, reg52;
-			i2c_read_reg(hdmi_rx_hdmi_address, 0x51, &reg51);
-			i2c_read_reg(hdmi_rx_hdmi_address, 0x52, &reg52);
-			uint8_t str[8] = "XX XX\r\n";
-			byte_to_string(str, reg51);
-			byte_to_string(str+3, reg52);
-			print(str);
-			*/
-
-
-			/*
-			if(CABLE_DET && DE_REGEN_FILTER_LOCKED && VERT_FILTER_LOCKED)
-			{
-				unsigned int width_high = (value & 0b000011111);	
-				i2c_read_reg(hdmi_rx_hdmi_address, 0x08, &value);
-				unsigned int LINE_WIDTH = (width_high << 5) | value;
-
-				i2c_read_reg(hdmi_rx_hdmi_address, 0x09, &value);
-				unsigned int height_high = (value & 0b00011111);
-				i2c_read_reg(hdmi_rx_hdmi_address, 0x0A, &value);
-				unsigned int FIELD0_HEIGHT = (height_high << 5) | value;
-
-				uint8_t width_str[5] = "    ";
-				uint8_t height_str[5] = "    ";
-				int_to_string(width_str, LINE_WIDTH);
-				int_to_string(height_str, FIELD0_HEIGHT);
-				print("Locked on to input video: ");
-				print(width_str); print("x"); print(height_str); print("\r\n");
-			}
-			*/
 		}
 	}
+	
 }

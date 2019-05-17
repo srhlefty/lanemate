@@ -107,11 +107,19 @@ void configure_hdmi_rx(void)
 	hdmi_rx_set_freerun_to_720p60(); // VID_STD = 1280x720
 	i2c_write_reg(hdmi_rx_address, 0x02, 0xF2); // automatic input colorspace, RGB output space
 	i2c_write_reg(hdmi_rx_cp_address, 0xC9, 0x01); // DIS_AUTO_PARAM_BUF (use above settings for free run)
-	i2c_write_reg(hdmi_rx_cp_address, 0xC0, 0xFF); // free run color, R
-	i2c_write_reg(hdmi_rx_cp_address, 0xC1, 0x00); // free run color, G
-	i2c_write_reg(hdmi_rx_cp_address, 0xC2, 0xFF); // free run color, B
+	i2c_write_reg(hdmi_rx_cp_address, 0xC0, 0x00); // free run color, G
+	i2c_write_reg(hdmi_rx_cp_address, 0xC1, 0xFF); // free run color, R
+	i2c_write_reg(hdmi_rx_cp_address, 0xC2, 0x00); // free run color, B
 	hdmi_rx_autofreerun();
 	i2c_write_reg(hdmi_rx_hdmi_address, 0x01, 0x01); // enable automatic TMDS clock termination
+
+	/*
+	uint8_t val;
+	i2c_read_reg(hdmi_rx_address, 0x33, &val);
+	val = val | 0b00000000;
+	i2c_write_reg(hdmi_rx_address, 0x33, val);
+	i2c_write_reg(hdmi_rx_address, 0x19, 0b00000000 | 6);
+	*/
 
 	// Default polarity: HS and VS are negative; DE is positive.
 	// If I want them all to be positive polarity this command will do it

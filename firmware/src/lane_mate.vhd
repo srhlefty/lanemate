@@ -139,6 +139,20 @@ architecture Behavioral of lane_mate is
 		);
 	END COMPONENT;
 	
+	component test_pattern is
+	Port ( 
+		PCLK : in  STD_LOGIC;
+		VS : in  STD_LOGIC;
+		HS : in  STD_LOGIC;
+		DE : in  STD_LOGIC;
+		CE : in  STD_LOGIC;
+		D : in  STD_LOGIC_VECTOR (23 downto 0);
+		VSOUT : out  STD_LOGIC;
+		HSOUT : out  STD_LOGIC;
+		DEOUT : out  STD_LOGIC;
+		DOUT : out  STD_LOGIC_VECTOR (23 downto 0)
+	);
+	end component;
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
@@ -146,7 +160,7 @@ architecture Behavioral of lane_mate is
 	signal register_map : ram_t :=
 	(
 		0 => x"01", -- Register table version
-		1 => x"00", -- 
+		1 => x"02", -- 
 		2 => x"56",
 		3 => x"78",
 		4 => x"33",
@@ -170,6 +184,11 @@ architecture Behavioral of lane_mate is
 	signal hd_hs : std_logic;
 	signal hd_de : std_logic;
 	signal hd_d : std_logic_vector(23 downto 0);
+
+	signal hdt_vs : std_logic;
+	signal hdt_hs : std_logic;
+	signal hdt_de : std_logic;
+	signal hdt_d : std_logic_vector(23 downto 0);
 	
 	signal decoded_sd_vs : std_logic;
 	signal decoded_sd_hs : std_logic;
@@ -195,6 +214,10 @@ architecture Behavioral of lane_mate is
 	signal dcm2_locked : std_logic;
 	
 	signal video_source_ready : std_logic := '0';
+	
+	signal enable_test_pattern : std_logic := '0';
+	
+	signal rgbmask : std_logic_vector(23 downto 0);
 	
 begin
 
@@ -355,26 +378,50 @@ begin
 			DOUT => decoded_sd_d
 		);
 		
+		process(RGB_IN, HDI_DE) is
+		begin
+			for i in 0 to RGB_IN'high loop
+				rgbmask(i) <= RGB_IN(i) and HDI_DE;
+			end loop;
+		end process;
+		
 		process(hdclk) is
 		begin
 		if(rising_edge(hdclk)) then
 			hd_vs <= HDI_VS;
 			hd_hs <= HDI_HS;
 			hd_de <= HDI_DE;
-			hd_d  <= RGB_IN;
+			hd_d  <= rgbmask;
 		end if;
 		end process;
 	end block;
 	
+	with register_map(1) select enable_test_pattern <=
+		'1' when x"00",
+		'0' when others;
+		
+	Inst_test_pattern: test_pattern PORT MAP(
+		PCLK => video_clock,
+		VS => hd_vs,
+		HS => hd_hs,
+		DE => hd_de,
+		CE => enable_test_pattern,
+		D => hd_d,
+		VSOUT => hdt_vs,
+		HSOUT => hdt_hs,
+		DEOUT => hdt_de,
+		DOUT => hdt_d
+	);
+
 	
 	process(video_clock) is
 	begin
 	if(rising_edge(video_clock)) then
-		if(register_map(1) = x"02") then
-			stage1_vs <= hd_vs;
-			stage1_hs <= hd_hs;
-			stage1_de <= hd_de;
-			stage1_d  <= hd_d;
+		if(register_map(1) = x"00" or register_map(1) = x"02") then
+			stage1_vs <= hdt_vs;
+			stage1_hs <= hdt_hs;
+			stage1_de <= hdt_de;
+			stage1_d  <= hdt_d;
 		elsif(register_map(1) = x"03") then
 			stage1_vs <= decoded_sd_vs;
 			stage1_hs <= decoded_sd_hs;
@@ -412,7 +459,7 @@ begin
 	
 	Inst_clock_forwarding: clock_forwarding 
 	GENERIC MAP(
-		INVERT => true
+		INVERT => false
 	)
 	PORT MAP(
 		CLK => video_clock,
