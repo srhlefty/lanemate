@@ -160,8 +160,8 @@ architecture Behavioral of lane_mate is
 	signal register_map : ram_t :=
 	(
 		0 => x"01", -- Register table version
-		1 => x"02", -- 
-		2 => x"56",
+		1 => x"00", -- video source, HD (0x00) or SD (0x01)
+		2 => x"00", -- test pattern, off (0x00) or on (0x01)
 		3 => x"78",
 		4 => x"33",
 		5 => x"FF",
@@ -315,27 +315,18 @@ begin
 		if(rising_edge(clk)) then
 		case register_map(1) is
 			when x"00" =>
-				-- HD test pattern
+				-- HD clock
 				video_source_ready <= dcm1_locked;
 				clk_select <= '0';
 			
 			when x"01" =>
-				-- SD test pattern
+				-- SD clock
 				video_source_ready <= dcm2_locked;
 				clk_select <= '1';
-			
-			when x"02" =>
-				-- HD input
-				video_source_ready <= dcm1_locked;
-				clk_select <= '0';
-			
-			when x"03" =>
-				-- SD input
-				video_source_ready <= dcm2_locked;
-				clk_select <= '1';
-			
+				
 			when others =>
 				video_source_ready <= '0';
+				clk_select <= '0';
 		end case;
 		end if;
 		end process;
@@ -369,6 +360,9 @@ begin
 		end if;
 		end process;
 		
+		
+		-- Primary SD video data capture ----------------------------------------
+		
 		Inst_bt656_decode: bt656_decode PORT MAP(
 			D => SDV,
 			CLK => sdclk,
@@ -377,6 +371,13 @@ begin
 			DE => decoded_sd_de,
 			DOUT => decoded_sd_d
 		);
+		
+		-------------------------------------------------------------------------
+		
+		
+		
+		
+		-- Primary HD video data capture ----------------------------------------
 		
 		process(RGB_IN, HDI_DE) is
 		begin
@@ -394,35 +395,25 @@ begin
 			hd_d  <= rgbmask;
 		end if;
 		end process;
+		
+		-------------------------------------------------------------------------
+		
 	end block;
 	
-	with register_map(1) select enable_test_pattern <=
-		'1' when x"00",
-		'0' when others;
-		
-	Inst_test_pattern: test_pattern PORT MAP(
-		PCLK => video_clock,
-		VS => hd_vs,
-		HS => hd_hs,
-		DE => hd_de,
-		CE => enable_test_pattern,
-		D => hd_d,
-		VSOUT => hdt_vs,
-		HSOUT => hdt_hs,
-		DEOUT => hdt_de,
-		DOUT => hdt_d
-	);
-
 	
+		
+		
+	-- Video source select -----------------------------------------------------
+		
 	process(video_clock) is
 	begin
 	if(rising_edge(video_clock)) then
-		if(register_map(1) = x"00" or register_map(1) = x"02") then
-			stage1_vs <= hdt_vs;
-			stage1_hs <= hdt_hs;
-			stage1_de <= hdt_de;
-			stage1_d  <= hdt_d;
-		elsif(register_map(1) = x"03") then
+		if(register_map(1) = x"00") then
+			stage1_vs <= hd_vs;
+			stage1_hs <= hd_hs;
+			stage1_de <= hd_de;
+			stage1_d  <= hd_d;
+		elsif(register_map(1) = x"01") then
 			stage1_vs <= decoded_sd_vs;
 			stage1_hs <= decoded_sd_hs;
 			stage1_de <= decoded_sd_de;
@@ -437,15 +428,42 @@ begin
 	end if;
 	end process;
 	
-	process(video_clock) is
-	begin
-	if(rising_edge(video_clock)) then
-		stage2_vs <= stage1_vs;
-		stage2_hs <= stage1_hs;
-		stage2_de <= stage1_de;
-		stage2_d  <= stage1_d;
-	end if;
-	end process;
+	----------------------------------------------------------------------------
+
+
+
+
+
+	-- Test pattern (overwrites source data) -----------------------------------
+
+	with register_map(2) select enable_test_pattern <=
+		'1' when x"01",
+		'0' when others;
+	
+	Inst_test_pattern: test_pattern PORT MAP(
+		PCLK => video_clock,
+		VS => stage1_vs,
+		HS => stage1_hs,
+		DE => stage1_de,
+		CE => enable_test_pattern,
+		D => stage1_d,
+		VSOUT => stage2_vs,
+		HSOUT => stage2_hs,
+		DEOUT => stage2_de,
+		DOUT => stage2_d
+	);
+	
+	----------------------------------------------------------------------------
+	
+	
+	
+	
+	
+
+
+
+
+	-- Output ------------------------------------------------------------------
 	
 	process(video_clock) is
 	begin
@@ -466,77 +484,16 @@ begin
 		CLKO => HDO_PCLK
 	);
 	
+	----------------------------------------------------------------------------
 	
-	-- There are 3 video sources: internal test pattern, HDMI, and SD.
-	-- Each has its own clock and data bus, and I must mux between them
-	-- before sending the data on to the memory interface. 
 	
-	-- But I can't mux between the clocks provided to me by the HD and SD
-	-- receiver chips, due to the Spartan-6 BUFGMUX topology. What I can
-	-- do though is use 2 DCMs to generate the 3 clock frequencies I plan
-	-- on dealing with: 27MHz, 74.25MHz, and 148.5MHz. I can then use a
-	-- series of 2 BUFGMUX blocks to select which one to use. This is done
-	-- in the programmable_clock module.
 
---	Inst_programmable_clock: programmable_clock PORT MAP(
---		CLK => clk,
---		SEL => clk_sel,
---		DCM1_LOCKED => dcm1_locked,
---		DCM2_LOCKED => dcm2_locked,
---		CLKOUT => video_clock
---	);
---	
---	
---	Inst_source_manager: source_manager PORT MAP(
---		CLK => clk,
---		SOURCE => register_map(1)(2 downto 0),
---		CLK_SEL => clk_sel,
---		SRC_SEL => source_sel,
---		SRC_ENABLE => source_enabled
---	);
---	
---	
---	
---	-- So at the chip edge, I ingest video data into short FIFOs using the
---	-- actual external clock. Then on the read side, I use the DCM-generated
---	-- clocks to empty the FIFO. When the desired video source changes, I
---	-- reset the FIFOs and reenable FIFO reads once the FIFO is half full.
---	-- This gives me the most amount of margin to guard against clock freq
---	-- differences between the external and internal sources.
---	
---	synth : block is
---		signal crossdata : std_logic_vector(2 downto 0);
---		signal crossdata_pclk : std_logic_vector(2 downto 0);
---	begin
---		crossdata(2) <= not source_enabled;
---		crossdata(1 downto 0) <= clk_sel;
---		
---		sel_cross: synchronizer_2ff
---		generic map (
---			DATA_WIDTH => 3,
---			EXTRA_INPUT_REGISTER => false,
---			USE_GRAY_CODE => false
---		)
---		port map(
---			CLKA => clk,
---			DA => crossdata,
---			CLKB => video_clock,
---			DB => crossdata_pclk,
---			RESETB => '0'
---		);
---		testpat_gen: timing_gen PORT MAP(
---			CLK => video_clock,
---			RST => crossdata_pclk(2),
---			SEL => crossdata_pclk(1 downto 0),
---			VS => testpat_vs,
---			HS => testpat_hs,
---			DE => testpat_de,
---			D => testpat_d
---		);
---	end block;
---	
-	
-	
+
+
+
+
+
+	-- I2C register map --------------------------------------------------------
 
 	register_map_handler : block is
 	begin
@@ -565,8 +522,14 @@ begin
 		end if;
 		end process;
 		
-		
 	end block;
+	
+	----------------------------------------------------------------------------
+	
+	
+	
+	
+	
 
 
 	blinker : block is
@@ -606,7 +569,7 @@ begin
 		B1_GPIO12 <= register_map(1)(0);
 		B1_GPIO13 <= register_map(1)(1);
 		B1_GPIO14 <= register_map(1)(2);
-		B1_GPIO15 <= register_map(1)(3);
+		B1_GPIO15 <= SDI_VS;
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';

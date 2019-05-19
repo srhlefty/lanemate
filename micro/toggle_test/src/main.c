@@ -22,6 +22,7 @@ void config_test_pin(void)
 
 const uint16_t hdmi_tx_address = 0x72 >> 1;
 const uint16_t sd_rx_address = 0x40 >> 1;
+const uint16_t lanemate_address = 0b0101100;
 
 typedef struct regdata_
 {
@@ -223,8 +224,8 @@ void configure_sd_rx(void)
 	i2c_write_reg(sd_rx_address, 0x58, 0x05); // 0x5 = output VS; 0x4 = output FIELD
 }
 
-void configure_hdmi_tx(void);
-void configure_hdmi_tx(void)
+void configure_hdmi_tx_for_hd_input(void);
+void configure_hdmi_tx_for_hd_input(void)
 {
 	//print("Setting up HDMI TX...\r\n");
 	for(uint8_t i=0;i<tx_table_size;++i)
@@ -234,6 +235,16 @@ void configure_hdmi_tx(void)
 	//print("  Finished.\r\n");
 }
 
+void configure_hdmi_tx_for_sd_input(void);
+void configure_hdmi_tx_for_sd_input(void)
+{
+	//print("Setting up HDMI TX...\r\n");
+	for(uint8_t i=0;i<tx_table_size;++i)
+	{
+		i2c_write_reg(hdmi_tx_address, tx_data[i].reg, tx_data[i].val_sd);
+	}
+	//print("  Finished.\r\n");
+}
 
 
 volatile bool handle_event = false;
@@ -258,35 +269,16 @@ int main (void)
 
 	configure_i2c_master();
 	configure_hdmi_rx();
+	hdmi_rx_set_freerun_to_1080p60();
 	configure_sd_rx();
-	configure_hdmi_tx();
+	configure_hdmi_tx_for_sd_input();
 
 	
-	//config_test_pin();
-	//port_pin_toggle_output_level(TEST_PIN);
 
-	//print("Reading out FPGA registers\r\n");
-	const uint16_t lanemate_address = 0b0101100;
-	const uint16_t regs[8] = {0,1,2,3,4,5,6,7};
-	for(int i=0;i<8;++i)
-	{
-		uint8_t b;
-		int ok = i2c_read_reg(lanemate_address, regs[i], &b);
-		if(ok == SLAVE_OK)
-		{
-			uint8_t buf[3];
-			byte_to_string(buf, b);
-			buf[2] = '\0';
-			print(buf);
-		}else if(ok == SLAVE_NAK)
-		print("NAK");
-		else if(ok == SLAVE_NO_ACK)
-		print("NO ACK");
-		print("\r\n");
-	}
-
-	uint8_t source = 0;
+	uint8_t source = 1; // 0=hd, 1=sd
+	uint8_t testpattern = 0; // 0=off, 1=on
 	i2c_write_reg(lanemate_address, 0x01, source);
+	i2c_write_reg(lanemate_address, 0x02, testpattern);
 	uint8_t res = 0;
 
 
@@ -303,21 +295,23 @@ int main (void)
 
 			if(cycle_count == 15)
 			{
+				/*
 				if(res == 0)
 				{
-					//print("Changing freerun to 1080p60\r\n");
-					//hdmi_rx_set_freerun_to_1080p60();
+					print("Changing freerun to 1080p60\r\n");
+					hdmi_rx_set_freerun_to_1080p60();
 					res = 1;
 				}else
 				{
-					//print("Changing freerun to 720p60\r\n");
-					//hdmi_rx_set_freerun_to_720p60();
+					print("Changing freerun to 720p60\r\n");
+					hdmi_rx_set_freerun_to_720p60();
 					res = 0;
 				}
 				// changing resolution changes the clock frequency,
 				// so I need to trigger dcm reset, which can be
 				// done by writing to the video source register
 				i2c_write_reg(lanemate_address, 0x01, source);
+				*/
 
 				cycle_count = 0;
 			}else
