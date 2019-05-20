@@ -266,7 +266,7 @@ int main (void)
 
 
 	print("Waiting for FPGA to boot...\r\n");
-	delay_cycles_ms(1000);
+	delay_cycles_ms(10000);
 
 
 	configure_i2c_master();
@@ -314,6 +314,18 @@ int main (void)
 				// done by writing to the video source register
 				i2c_write_reg(lanemate_address, 0x01, source);
 				*/
+
+				if(source == 1)
+				{
+					source = 0;
+					configure_hdmi_tx_for_hd_input();
+				}
+				else
+				{
+					source = 1;
+					configure_hdmi_tx_for_sd_input();
+				}
+				i2c_write_reg(lanemate_address, 0x01, source);
 
 				cycle_count = 0;
 			}else
