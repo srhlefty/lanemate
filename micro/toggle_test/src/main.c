@@ -222,6 +222,8 @@ void configure_sd_rx(void)
 {
 	//print("Setting up SD RX\r\n");
 	i2c_write_reg(sd_rx_address, 0x58, 0x05); // 0x5 = output VS; 0x4 = output FIELD
+	i2c_write_reg(sd_rx_address, 0xF9, 0x0B); // set coast mode VSYNC to 60Hz
+	i2c_write_reg(sd_rx_address, 0x00, 0x50); // force input to NTSC M (5), Composite (0)
 }
 
 void configure_hdmi_tx_for_hd_input(void);
