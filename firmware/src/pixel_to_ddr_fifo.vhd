@@ -175,6 +175,7 @@ begin
 		signal addr_plus_0 : std_logic_vector(23 downto 0) := (others => '0');
 		signal addr_plus_1 : std_logic_vector(23 downto 0) := (others => '0');
 		signal offset_plus_1 : std_logic_vector(16 downto 0) := (others => '0');
+		signal offset_plus_2 : std_logic_vector(16 downto 0) := (others => '0');
 		
 		-- I push 3 elements into the fifo at a time, but the address only increments
 		-- every other. So the mechanism for computing the address is slightly nontrivial.
@@ -220,6 +221,7 @@ begin
 				if(count = 31) then
 					addr_plus_0 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr)) + to_integer(unsigned(addr_offset)) , addr_plus_0'length));
 					offset_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset)) + 1 , offset_plus_1'length));
+					offset_plus_2 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset)) + 2 , offset_plus_2'length));
 				end if;
 				
 				if(count = 32) then
@@ -251,10 +253,11 @@ begin
 							gearbox_out <= addr_plus_1 & word3;
 							pusher_state <= IDLE;
 							
-							addr_offset <= offset_plus_1;
 							if(offset_mode = EVEN) then
+								addr_offset <= offset_plus_1;
 								offset_mode <= ODD;
 							else
+								addr_offset <= offset_plus_2;
 								offset_mode <= EVEN;
 							end if;
 					end case;

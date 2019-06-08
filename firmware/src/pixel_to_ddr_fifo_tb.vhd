@@ -40,18 +40,22 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
     -- Component Declaration for the Unit Under Test (UUT)
  
     COMPONENT pixel_to_ddr_fifo
-    PORT(
-         PCLK : IN  std_logic;
-         PDATA : IN  std_logic_vector(23 downto 0);
-         PPUSH : IN  std_logic;
-         PRESET : IN  std_logic;
-         MCLK : IN  std_logic;
-         MPOP : IN  std_logic;
-         MDATA : OUT  std_logic_vector(255 downto 0);
-         MDVALID : OUT  std_logic;
-         MLIMIT : IN  std_logic_vector(7 downto 0);
-         MREADY : OUT  std_logic
-        );
+    Port ( 
+		PCLK : in  STD_LOGIC;                           -- pixel clock
+		PDATA : in  STD_LOGIC_VECTOR (23 downto 0);     -- pixel data
+		PPUSH : in  STD_LOGIC;                          -- DE
+		PFRAME_ADDR : in std_logic_vector(23 downto 0); -- DDR write pointer
+		PNEW_FRAME : in std_logic;                      -- pulse to indicate start of frame
+		PRESET_FIFO : in STD_LOGIC;                     -- clear the data and address FIFOs
+		
+		MCLK : in  STD_LOGIC;                           -- memory clock
+		MPOP : in  STD_LOGIC;                           -- fifo control
+		MDATA : out  STD_LOGIC_VECTOR (255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MADDR : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
+		MDVALID : out  STD_LOGIC;                       -- data valid
+		MLIMIT : in STD_LOGIC_VECTOR (7 downto 0);      -- minimum number of fifo elements for MREADY = 1
+		MREADY : out  STD_LOGIC
+	);
     END COMPONENT;
     
 	component ddr_to_pixel_fifo is
@@ -70,8 +74,10 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
+   signal PFRAME_ADDR : std_logic_vector(23 downto 0) := (others => '0');
    signal PPUSH : std_logic := '0';
-   signal PRESET : std_logic := '0';
+   signal PNEW_FRAME : std_logic := '0';
+   signal PRESET_FIFO : std_logic := '0';
    signal MCLK : std_logic := '0';
    signal MLIMIT : std_logic_vector(7 downto 0) := x"04";
 
@@ -89,8 +95,6 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 	signal count : natural := 0;
 	signal mcount : natural := 0;
 	
-	type state_t is (WAITING, P1, P2, P3);
-	signal state : state_t := WAITING;
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
@@ -98,7 +102,9 @@ BEGIN
           PCLK => PCLK,
           PDATA => PDATA,
           PPUSH => PPUSH,
-          PRESET => PRESET,
+          PFRAME_ADDR => PFRAME_ADDR,
+          PNEW_FRAME => PNEW_FRAME,
+          PRESET_FIFO => PRESET_FIFO,
           MCLK => MCLK,
           MPOP => mpop,
           MDATA => MDATA,
@@ -150,28 +156,26 @@ BEGIN
 	end process;
 	
 	
-	process(MCLK) is
+	mcb_block : block is
+		type state_t is (WAITING, P1);
+		signal state : state_t := WAITING;
 	begin
-	if(rising_edge(MCLK)) then
-	case state is
-	when WAITING =>
-		if(MREADY = '1') then
-			mpop <= '1';
-			state <= P1;
-		else
+		process(MCLK) is
+		begin
+		if(rising_edge(MCLK)) then
+		case state is
+		when WAITING =>
+			if(MREADY = '1') then
+				mpop <= '1';
+				state <= P1;
+			else
+				mpop <= '0';
+			end if;
+		when P1 =>
 			mpop <= '0';
+			state <= WAITING;
+		end case;
 		end if;
-	when P1 =>
-		mpop <= '1';
-		state <= P2;
-	when P2 =>
-		mpop <= '1';
-		state <= P3;
-	when P3 =>
-		mpop <= '0';
-		state <= WAITING;
-	end case;
-	end if;
-	end process;
-	
+		end process;
+	end block;
 END;
