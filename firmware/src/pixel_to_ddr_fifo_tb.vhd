@@ -79,20 +79,45 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
            MDATA : in  STD_LOGIC_VECTOR (255 downto 0)
            );
 	end component;
+	
+	component internal_mcb is
+	Port ( 
+		MCLK : in std_logic;
+		TRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
+		
+		-- interface common to both fifos
+		MREADY : in std_logic;
+		
+		-- interface to data-to-write fifo
+		MPOP_W : out std_logic;
+		MDATA_W : in std_logic_vector(255 downto 0);  -- half-burst data (4 high speed clocks worth of data)
+		MADDR_W : in std_logic_vector(23 downto 0);   -- ddr address, high 24 bits
+		MDVALID_W : in std_logic;                      -- data valid
+		
+		-- interface to data-to-read fifo
+		MPOP_R : out std_logic;
+		MADDR_R : in std_logic_vector(23 downto 0);   -- ddr address, high 24 bits
+		MDVALID_R : in std_logic;
+		
+		-- interface to data-just-read fifo
+		MPUSH : out std_logic;
+		MDATA_R : out std_logic_vector(255 downto 0)
+	);
+	end component;
 
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
-   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(15, 24));
-   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(4, 24));
+   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
+   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PPUSH : std_logic := '0';
    signal PNEW_FRAME : std_logic := '0';
    signal PRESET_FIFO : std_logic := '0';
    signal MCLK : std_logic := '0';
    signal MLIMIT : std_logic_vector(7 downto 0) := x"04";
 
-	signal mpop_w : std_logic := '0';
-	signal mpop_r : std_logic := '0';
+	signal MPOP_W : std_logic := '0';
+	signal MPOP_R : std_logic := '0';
 	
  	--Outputs
    signal MDATA_W : std_logic_vector(255 downto 0);
@@ -121,26 +146,40 @@ BEGIN
           PNEW_FRAME => PNEW_FRAME,
           PRESET_FIFO => PRESET_FIFO,
           MCLK => MCLK,
-          MPOP_W => mpop_w,
+          MPOP_W => MPOP_W,
           MDATA_W => MDATA_W,
           MADDR_W => MADDR_W,
           MDVALID_W => MDVALID_W,
-			 MPOP_R => mpop_r,
+			 MPOP_R => MPOP_R,
 			 MADDR_R => MADDR_R,
 			 MDVALID_R => MDVALID_R,
           MLIMIT => MLIMIT,
           MREADY => MREADY
         );
-	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
-		PCLK => PCLK,
-		PDATA => pdata_out,
-		PPOP => ppop,
-		PDVALID => pdatavalid,
-		PRESET => '0',
+--	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
+--		PCLK => PCLK,
+--		PDATA => pdata_out,
+--		PPOP => ppop,
+--		PDVALID => pdatavalid,
+--		PRESET => '0',
+--		MCLK => MCLK,
+--		MRESET => '0',
+--		MPUSH => MDVALID_W,
+--		MDATA => MDATA_W
+--	);
+	Inst_internal_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
-		MRESET => '0',
-		MPUSH => MDVALID_W,
-		MDATA => MDATA_W
+		TRANSACTION_SIZE => MLIMIT,
+		MREADY => MREADY,
+		MPOP_W => MPOP_W,
+		MDATA_W => MDATA_W,
+		MADDR_W => MADDR_W,
+		MDVALID_W => MDVALID_W,
+		MPOP_R => MPOP_R,
+		MADDR_R => MADDR_R,
+		MDVALID_R => MDVALID_R,
+		MPUSH => open,
+		MDATA_R => open
 	);
 
 	PCLK <= not PCLK after 3.367 ns; -- 1080p
@@ -166,40 +205,8 @@ BEGIN
 			PPUSH <= '0';
 		end if;
 		
-		-- I can't just leave pop high the whole time. To absorb the ~ 6 clocks it takes
-		-- to retrieve and process the next 3 256-bit words from the wide FIFO the pop
-		-- line needs to go high after at least ~ 6 elements have made it into the
-		-- narrow FIFO. This is fairly soon after the MCB first begins reading out lines
-		-- from ram so it's not a huge delay.
-		if(count > 200) then
-			ppop <= '1';
-		else
-			ppop <= '0';
-		end if;
 	end if;
 	end process;
 	
 	
-	mcb_block : block is
-		type state_t is (WAITING, P1);
-		signal state : state_t := WAITING;
-	begin
-		process(MCLK) is
-		begin
-		if(rising_edge(MCLK)) then
-		case state is
-		when WAITING =>
-			if(MREADY = '1') then
-				mpop_w <= '1';
-				state <= P1;
-			else
-				mpop_w <= '0';
-			end if;
-		when P1 =>
-			mpop_w <= '0';
-			state <= WAITING;
-		end case;
-		end if;
-		end process;
-	end block;
 END;
