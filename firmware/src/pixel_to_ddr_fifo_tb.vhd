@@ -83,8 +83,8 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
-   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
-   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
+   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(15, 24));
+   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(4, 24));
    signal PPUSH : std_logic := '0';
    signal PNEW_FRAME : std_logic := '0';
    signal PRESET_FIFO : std_logic := '0';
@@ -151,6 +151,11 @@ BEGIN
 	begin
 	if(rising_edge(PCLK)) then
 		count <= count + 1;
+		if(count = 2) then
+			PNEW_FRAME <= '1';
+		else
+			PNEW_FRAME <= '0';
+		end if;
 --		if((count >= 10 and count < 10+32) or (count >= 50 and count < 50+32)) then
 		if((count >= 10 and count < 10+32*4)) then
 			n := std_logic_vector(to_unsigned(count-10, 8));
