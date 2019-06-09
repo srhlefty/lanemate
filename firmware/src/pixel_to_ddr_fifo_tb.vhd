@@ -44,15 +44,24 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 		PCLK : in  STD_LOGIC;                           -- pixel clock
 		PDATA : in  STD_LOGIC_VECTOR (23 downto 0);     -- pixel data
 		PPUSH : in  STD_LOGIC;                          -- DE
-		PFRAME_ADDR : in std_logic_vector(23 downto 0); -- DDR write pointer
+		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
+		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
 		PNEW_FRAME : in std_logic;                      -- pulse to indicate start of frame
 		PRESET_FIFO : in STD_LOGIC;                     -- clear the data and address FIFOs
 		
-		MCLK : in  STD_LOGIC;                           -- memory clock
-		MPOP : in  STD_LOGIC;                           -- fifo control
-		MDATA : out  STD_LOGIC_VECTOR (255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
-		MADDR : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
-		MDVALID : out  STD_LOGIC;                       -- data valid
+		-- data-to-write fifo
+		MCLK : in  STD_LOGIC;                             -- memory clock
+		MPOP_W : in  STD_LOGIC;                           -- fifo control
+		MDATA_W : out  STD_LOGIC_VECTOR (255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MADDR_W : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
+		MDVALID_W : out  STD_LOGIC;                       -- data valid
+
+		-- data-to-read fifo
+		MPOP_R : in  STD_LOGIC;                           -- fifo control
+		MADDR_R : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
+		MDVALID_R : out  STD_LOGIC;                       -- data valid
+
+		-- common interface
 		MLIMIT : in STD_LOGIC_VECTOR (7 downto 0);      -- minimum number of fifo elements for MREADY = 1
 		MREADY : out  STD_LOGIC
 	);
@@ -74,18 +83,23 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
-   signal PFRAME_ADDR : std_logic_vector(23 downto 0) := (others => '0');
+   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
+   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
    signal PPUSH : std_logic := '0';
    signal PNEW_FRAME : std_logic := '0';
    signal PRESET_FIFO : std_logic := '0';
    signal MCLK : std_logic := '0';
    signal MLIMIT : std_logic_vector(7 downto 0) := x"04";
 
-	signal mpop : std_logic := '0';
+	signal mpop_w : std_logic := '0';
+	signal mpop_r : std_logic := '0';
 	
  	--Outputs
-   signal MDATA : std_logic_vector(255 downto 0);
-   signal MDVALID : std_logic;
+   signal MDATA_W : std_logic_vector(255 downto 0);
+   signal MADDR_W : std_logic_vector(23 downto 0);
+   signal MADDR_R : std_logic_vector(23 downto 0);
+   signal MDVALID_W : std_logic;
+   signal MDVALID_R : std_logic;
    signal MREADY : std_logic;
 	
 	signal pdata_out : std_logic_vector(23 downto 0);
@@ -102,13 +116,18 @@ BEGIN
           PCLK => PCLK,
           PDATA => PDATA,
           PPUSH => PPUSH,
-          PFRAME_ADDR => PFRAME_ADDR,
+          PFRAME_ADDR_W => PFRAME_ADDR_W,
+          PFRAME_ADDR_R => PFRAME_ADDR_R,
           PNEW_FRAME => PNEW_FRAME,
           PRESET_FIFO => PRESET_FIFO,
           MCLK => MCLK,
-          MPOP => mpop,
-          MDATA => MDATA,
-          MDVALID => MDVALID,
+          MPOP_W => mpop_w,
+          MDATA_W => MDATA_W,
+          MADDR_W => MADDR_W,
+          MDVALID_W => MDVALID_W,
+			 MPOP_R => mpop_r,
+			 MADDR_R => MADDR_R,
+			 MDVALID_R => MDVALID_R,
           MLIMIT => MLIMIT,
           MREADY => MREADY
         );
@@ -120,8 +139,8 @@ BEGIN
 		PRESET => '0',
 		MCLK => MCLK,
 		MRESET => '0',
-		MPUSH => MDVALID,
-		MDATA => MDATA
+		MPUSH => MDVALID_W,
+		MDATA => MDATA_W
 	);
 
 	PCLK <= not PCLK after 3.367 ns; -- 1080p
@@ -166,13 +185,13 @@ BEGIN
 		case state is
 		when WAITING =>
 			if(MREADY = '1') then
-				mpop <= '1';
+				mpop_w <= '1';
 				state <= P1;
 			else
-				mpop <= '0';
+				mpop_w <= '0';
 			end if;
 		when P1 =>
-			mpop <= '0';
+			mpop_w <= '0';
 			state <= WAITING;
 		end case;
 		end if;
