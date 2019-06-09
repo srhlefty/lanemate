@@ -43,18 +43,23 @@
 -- frame write pointer changes.
 
 -- To allow for different memory access patterns, the MLIMIT input determines how many elements
--- it takes before MREADY is triggered.
+-- it takes before MREADY is triggered. The greatest common divisor of the three frame sizes is
+-- 32 elements, but I don't have to make it divide evenly. It just means I need a way of forcing
+-- this module to flush the remaining data (which I don't currently have). To make sure there's
+-- always enough data in the output fifo for one line, I think the best approach is to set MLIMIT
+-- to the number of elements in a line. For the SD case, use 90 so that it's an even number of
+-- bursts.
 
--- DDR address management is done through the PFRAME_ADDR and PNEW_FRAME controls.
+-- DDR address management is done through the PFRAME_ADDR_* and PNEW_FRAME controls.
 -- PFRAME_ADDR is the base frame address, set by the micro based on what the application
 -- wants to do. Even though the DDR3 address bus is 27 bits wide, it is only 24 bits
 -- because I always read or write a complete burst, which is 8 locations, thus the last
 -- 3 bits of the actual DDR address will always be zero. To compute the DDR address,
--- this module has an internal accumulator that it adds to PFRAME_ADDR. Obviously this
+-- this module has an internal accumulator that it adds to PFRAME_ADDR_*. Obviously this
 -- offset needs to be reset at the start of the next frame; this is done by pulsing
 -- PNEW_FRAME. 
 
--- Note: this module samples PFRAME_ADDR only when PNEW_FRAME is pulsed.
+-- Note: this module samples PFRAME_ADDR_* only when PNEW_FRAME is pulsed.
 
 
 ----------------------------------------------------------------------------------
@@ -75,15 +80,24 @@ entity pixel_to_ddr_fifo is
 		PCLK : in  STD_LOGIC;                           -- pixel clock
 		PDATA : in  STD_LOGIC_VECTOR (23 downto 0);     -- pixel data
 		PPUSH : in  STD_LOGIC;                          -- DE
-		PFRAME_ADDR : in std_logic_vector(23 downto 0); -- DDR write pointer
+		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
+		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
 		PNEW_FRAME : in std_logic;                      -- pulse to indicate start of frame
 		PRESET_FIFO : in STD_LOGIC;                     -- clear the data and address FIFOs
 		
-		MCLK : in  STD_LOGIC;                           -- memory clock
-		MPOP : in  STD_LOGIC;                           -- fifo control
-		MDATA : out  STD_LOGIC_VECTOR (255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
-		MADDR : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
-		MDVALID : out  STD_LOGIC;                       -- data valid
+		-- data-to-write fifo
+		MCLK : in  STD_LOGIC;                             -- memory clock
+		MPOP_W : in  STD_LOGIC;                           -- fifo control
+		MDATA_W : out  STD_LOGIC_VECTOR (255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MADDR_W : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
+		MDVALID_W : out  STD_LOGIC;                       -- data valid
+
+		-- data-to-read fifo
+		MPOP_R : in  STD_LOGIC;                           -- fifo control
+		MADDR_R : out std_logic_vector(23 downto 0);      -- ddr address, high 24 bits
+		MDVALID_R : out  STD_LOGIC;                       -- data valid
+
+		-- common interface
 		MLIMIT : in STD_LOGIC_VECTOR (7 downto 0);      -- minimum number of fifo elements for MREADY = 1
 		MREADY : out  STD_LOGIC
 	);
@@ -138,16 +152,13 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	end component;
 	
 	
-	constant ram_addr_width : natural := 9;
-	constant ram_data_width : natural := 256 + 24; -- 256 for data, 24 for address
 
-	signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
-	signal ram_wdata1 : std_logic_vector(ram_data_width-1 downto 0);
-	signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
-	signal ram_rdata2 : std_logic_vector(ram_data_width-1 downto 0);
-	signal ram_we : std_logic;
+	constant ram_addr_width : natural := 9;
+	constant ram_data_width_w : natural := 256 + 24; -- 256 for data, 24 for address
+	constant ram_data_width_r : natural := 24; -- just address
 	
-	signal gearbox_out : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
+	signal gearbox_out_w : std_logic_vector(ram_data_width_w-1 downto 0) := (others => '0');
+	signal gearbox_out_r : std_logic_vector(ram_data_width_r-1 downto 0) := (others => '0');
 	
 	signal fifo_push : std_logic := '0';
 	signal fifo_used : std_logic_vector(ram_addr_width-1 downto 0);
@@ -166,16 +177,24 @@ begin
 		type pusher_state_t is (IDLE, P1, P2, P3);
 		signal pusher_state : pusher_state_t := IDLE;
 		
-		signal base_addr : std_logic_vector(23 downto 0) := (others => '0');
+		signal base_addr_w : std_logic_vector(23 downto 0) := (others => '0');
+		signal base_addr_r : std_logic_vector(23 downto 0) := (others => '0');
 		-- 1080p has 1080 lines, 180 elements per line, so max address offset is 1080*180/2 = 97,200
 		-- with the /2 because it takes 2 elements to do one burst at the same address. Thus a 17-bit number.
-		signal addr_offset : std_logic_vector(16 downto 0) := (others => '0');
+		signal addr_offset_w : std_logic_vector(16 downto 0) := (others => '0');
+		signal addr_offset_r : std_logic_vector(16 downto 0) := (others => '0');
+		
 		type offset_mode_t is (EVEN, ODD);
 		signal offset_mode : offset_mode_t := EVEN;
-		signal addr_plus_0 : std_logic_vector(23 downto 0) := (others => '0');
-		signal addr_plus_1 : std_logic_vector(23 downto 0) := (others => '0');
-		signal offset_plus_1 : std_logic_vector(16 downto 0) := (others => '0');
-		signal offset_plus_2 : std_logic_vector(16 downto 0) := (others => '0');
+		
+		signal waddr_plus_0 : std_logic_vector(23 downto 0) := (others => '0');
+		signal raddr_plus_0 : std_logic_vector(23 downto 0) := (others => '0');
+		signal waddr_plus_1 : std_logic_vector(23 downto 0) := (others => '0');
+		signal raddr_plus_1 : std_logic_vector(23 downto 0) := (others => '0');
+		signal woffset_plus_1 : std_logic_vector(16 downto 0) := (others => '0');
+		signal roffset_plus_1 : std_logic_vector(16 downto 0) := (others => '0');
+		signal woffset_plus_2 : std_logic_vector(16 downto 0) := (others => '0');
+		signal roffset_plus_2 : std_logic_vector(16 downto 0) := (others => '0');
 		
 		-- I push 3 elements into the fifo at a time, but the address only increments
 		-- every other. So the mechanism for computing the address is slightly nontrivial.
@@ -191,8 +210,10 @@ begin
 		if(rising_edge(PCLK)) then
 		
 			if(PNEW_FRAME = '1') then
-				base_addr <= PFRAME_ADDR;
-				addr_offset <= (others => '0');
+				base_addr_w <= PFRAME_ADDR_W;
+				base_addr_r <= PFRAME_ADDR_R;
+				addr_offset_w <= (others => '0');
+				addr_offset_r <= (others => '0');
 				offset_mode <= EVEN;
 			else
 			
@@ -219,9 +240,12 @@ begin
 				-- That's a significant amount of propagation delay, so here I spread out those
 				-- two add operations over 2 clocks.
 				if(count = 31) then
-					addr_plus_0 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr)) + to_integer(unsigned(addr_offset)) , addr_plus_0'length));
-					offset_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset)) + 1 , offset_plus_1'length));
-					offset_plus_2 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset)) + 2 , offset_plus_2'length));
+					waddr_plus_0 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr_w)) + to_integer(unsigned(addr_offset_w)) , waddr_plus_0'length));
+					raddr_plus_0 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr_r)) + to_integer(unsigned(addr_offset_r)) , raddr_plus_0'length));
+					woffset_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset_w)) + 1 , woffset_plus_1'length));
+					roffset_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset_r)) + 1 , roffset_plus_1'length));
+					woffset_plus_2 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset_w)) + 2 , woffset_plus_2'length));
+					roffset_plus_2 <= std_logic_vector(to_unsigned( to_integer(unsigned(addr_offset_r)) + 2 , roffset_plus_2'length));
 				end if;
 				
 				if(count = 32) then
@@ -229,7 +253,8 @@ begin
 					word1 <= shifter(10)(15 downto 0) & shifter(9) & shifter(8) & shifter(7) & shifter(6) & shifter(5) & shifter(4) & shifter(3) & shifter(2) & shifter(1) & shifter(0);
 					word2 <= shifter(21)(7 downto 0) & shifter(20) & shifter(19) & shifter(18) & shifter(17) & shifter(16) & shifter(15) & shifter(14) & shifter(13) & shifter(12) & shifter(11) & shifter(10)(23 downto 16);
 					word3 <= shifter(31) & shifter(30) & shifter(29) & shifter(28) & shifter(27) & shifter(26) & shifter(25) & shifter(24) & shifter(23) & shifter(22) & shifter(21)(23 downto 8);
-					addr_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr)) + to_integer(unsigned(offset_plus_1)) , addr_plus_1'length));
+					waddr_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr_w)) + to_integer(unsigned(woffset_plus_1)) , waddr_plus_1'length));
+					raddr_plus_1 <= std_logic_vector(to_unsigned( to_integer(unsigned(base_addr_r)) + to_integer(unsigned(roffset_plus_1)) , raddr_plus_1'length));
 					pusher_state <= P1;
 				else
 					case pusher_state is
@@ -238,26 +263,32 @@ begin
 							pusher_state <= IDLE;
 						when P1 =>
 							fifo_push <= '1';
-							gearbox_out <= addr_plus_0 & word1;
+							gearbox_out_w <= waddr_plus_0 & word1;
+							gearbox_out_r <= raddr_plus_0;
 							pusher_state <= P2;
 						when P2 =>
 							fifo_push <= '1';
 							if(offset_mode = EVEN) then
-								gearbox_out <= addr_plus_0 & word2;
+								gearbox_out_w <= waddr_plus_0 & word2;
+								gearbox_out_r <= raddr_plus_0;
 							else
-								gearbox_out <= addr_plus_1 & word2;
+								gearbox_out_w <= waddr_plus_1 & word2;
+								gearbox_out_r <= raddr_plus_1;
 							end if;
 							pusher_state <= P3;
 						when P3 =>
 							fifo_push <= '1';
-							gearbox_out <= addr_plus_1 & word3;
+							gearbox_out_w <= waddr_plus_1 & word3;
+							gearbox_out_r <= raddr_plus_1;
 							pusher_state <= IDLE;
 							
 							if(offset_mode = EVEN) then
-								addr_offset <= offset_plus_1;
+								addr_offset_w <= woffset_plus_1;
+								addr_offset_r <= roffset_plus_1;
 								offset_mode <= ODD;
 							else
-								addr_offset <= offset_plus_2;
+								addr_offset_w <= woffset_plus_2;
+								addr_offset_r <= roffset_plus_2;
 								offset_mode <= EVEN;
 							end if;
 					end case;
@@ -282,41 +313,47 @@ begin
 	end if;
 	end process;
 
-	Inst_bram_simple_dual_port: bram_simple_dual_port 
-	generic map(
-		ADDR_WIDTH => ram_addr_width,
-		DATA_WIDTH => ram_data_width
-	)
-	PORT MAP(
-		CLK1 => PCLK,
-		WADDR1 => ram_waddr1,
-		WDATA1 => ram_wdata1,
-		WE1 => ram_we,
-		CLK2 => MCLK,
-		RADDR2 => ram_raddr2,
-		RDATA2 => ram_rdata2
-	);
 	
-	mem_out : block is
-		signal bus_tmp : std_logic_vector(ram_data_width-1 downto 0);
+	writer_fifo_block : block is
+		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_wdata1 : std_logic_vector(ram_data_width_w-1 downto 0);
+		signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_rdata2 : std_logic_vector(ram_data_width_w-1 downto 0);
+		signal ram_we : std_logic;
+		signal bus_tmp : std_logic_vector(ram_data_width_w-1 downto 0);
 	begin
 	
-		Inst_fifo_2clk: fifo_2clk 
+		write_bram: bram_simple_dual_port 
 		generic map(
 			ADDR_WIDTH => ram_addr_width,
-			DATA_WIDTH => ram_data_width
+			DATA_WIDTH => ram_data_width_w
+		)
+		PORT MAP(
+			CLK1 => PCLK,
+			WADDR1 => ram_waddr1,
+			WDATA1 => ram_wdata1,
+			WE1 => ram_we,
+			CLK2 => MCLK,
+			RADDR2 => ram_raddr2,
+			RDATA2 => ram_rdata2
+		);
+	
+		write_fifo: fifo_2clk 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_w
 		)
 		PORT MAP(
 			WRITE_CLK => PCLK,
 			RESET => PRESET_FIFO,
 			FREE => open,
-			DIN => gearbox_out,
+			DIN => gearbox_out_w,
 			PUSH => fifo_push,
 			READ_CLK => MCLK,
 			USED => fifo_used,
 			DOUT => bus_tmp,
-			DVALID => MDVALID,
-			POP => MPOP,
+			DVALID => MDVALID_W,
+			POP => MPOP_W,
 			RAM_WADDR => ram_waddr1,
 			RAM_WDATA => ram_wdata1,
 			RAM_WE => ram_we,
@@ -325,8 +362,60 @@ begin
 			RAM_RDATA => ram_rdata2
 		);
 		
-		MADDR <= bus_tmp(ram_data_width-1 downto ram_data_width-24); -- 24 bits wide
-		MDATA <= bus_tmp(ram_data_width-24-1 downto 0);              -- 256 bits wide
+		MADDR_W <= bus_tmp(ram_data_width_w-1 downto ram_data_width_w-24); -- 24 bits wide
+		MDATA_W <= bus_tmp(ram_data_width_w-24-1 downto 0);                -- 256 bits wide
+		
+	end block;
+
+	reader_fifo_block : block is
+		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_wdata1 : std_logic_vector(ram_data_width_r-1 downto 0);
+		signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_rdata2 : std_logic_vector(ram_data_width_r-1 downto 0);
+		signal ram_we : std_logic;
+		signal bus_tmp : std_logic_vector(ram_data_width_r-1 downto 0);
+	begin
+	
+		read_bram: bram_simple_dual_port 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_r
+		)
+		PORT MAP(
+			CLK1 => PCLK,
+			WADDR1 => ram_waddr1,
+			WDATA1 => ram_wdata1,
+			WE1 => ram_we,
+			CLK2 => MCLK,
+			RADDR2 => ram_raddr2,
+			RDATA2 => ram_rdata2
+		);
+	
+		read_fifo: fifo_2clk 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_r
+		)
+		PORT MAP(
+			WRITE_CLK => PCLK,
+			RESET => PRESET_FIFO,
+			FREE => open,
+			DIN => gearbox_out_r,
+			PUSH => fifo_push,
+			READ_CLK => MCLK,
+			USED => open,
+			DOUT => bus_tmp,
+			DVALID => MDVALID_R,
+			POP => MPOP_R,
+			RAM_WADDR => ram_waddr1,
+			RAM_WDATA => ram_wdata1,
+			RAM_WE => ram_we,
+			RAM_RESET => open,
+			RAM_RADDR => ram_raddr2,
+			RAM_RDATA => ram_rdata2
+		);
+		
+		MADDR_R <= bus_tmp;
 		
 	end block;
 
