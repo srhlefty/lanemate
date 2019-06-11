@@ -141,7 +141,7 @@ architecture Behavioral of ddr_to_pixel_fifo is
 	signal fifo_used : std_logic_vector(ram_addr_width-1 downto 0);
 	
 	
-	constant pram_addr_width : natural := 5;
+	constant pram_addr_width : natural := 11;
 	constant pram_data_width : natural := 24;
 
 	signal pram_waddr1 : std_logic_vector(pram_addr_width-1 downto 0);
@@ -153,6 +153,7 @@ architecture Behavioral of ddr_to_pixel_fifo is
 	signal pfifo_data : std_logic_vector(pram_data_width-1 downto 0);
 	signal pfifo_push : std_logic := '0';
 	signal pfifo_full : std_logic;
+	signal pfifo_empty : std_logic;
 	
 	
 	
@@ -342,7 +343,7 @@ begin
 		DOUT => PDATA,
 		DVALID => PDVALID,
 		RESET => PRESET,
-		EMPTY => open,
+		EMPTY => pfifo_empty,
 		FULL => pfifo_full,
 		OVERFLOW => open,
 		RAM_WADDR1 => pram_waddr1,

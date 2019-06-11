@@ -114,7 +114,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    signal PNEW_FRAME : std_logic := '0';
    signal PRESET_FIFO : std_logic := '0';
    signal MCLK : std_logic := '0';
-   signal MLIMIT : std_logic_vector(7 downto 0) := x"04";
+   signal MLIMIT : std_logic_vector(7 downto 0) := x"1e"; -- This must be an integer fraction of the number of fifo elements in a line!
 
 	signal MPOP_W : std_logic := '0';
 	signal MPOP_R : std_logic := '0';
@@ -132,7 +132,10 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 	signal pdatavalid : std_logic;
 
 	signal count : natural := 0;
-	signal mcount : natural := 0;
+
+
+	signal mcb_push_out : std_logic;
+	signal mcb_push_data : std_logic_vector(255 downto 0);
 	
 BEGIN
  
@@ -156,17 +159,7 @@ BEGIN
           MLIMIT => MLIMIT,
           MREADY => MREADY
         );
---	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
---		PCLK => PCLK,
---		PDATA => pdata_out,
---		PPOP => ppop,
---		PDVALID => pdatavalid,
---		PRESET => '0',
---		MCLK => MCLK,
---		MRESET => '0',
---		MPUSH => MDVALID_W,
---		MDATA => MDATA_W
---	);
+
 	Inst_internal_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
 		TRANSACTION_SIZE => MLIMIT,
@@ -178,11 +171,24 @@ BEGIN
 		MPOP_R => MPOP_R,
 		MADDR_R => MADDR_R,
 		MDVALID_R => MDVALID_R,
-		MPUSH => open,
-		MDATA_R => open
+		MPUSH => mcb_push_out,
+		MDATA_R => mcb_push_data
 	);
 
-	PCLK <= not PCLK after 3.367 ns; -- 1080p
+	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
+		PCLK => PCLK,
+		PDATA => pdata_out,
+		PPOP => ppop,
+		PDVALID => pdatavalid,
+		PRESET => '0',
+		MCLK => MCLK,
+		MRESET => '0',
+		MPUSH => mcb_push_out,
+		MDATA => mcb_push_data
+	);
+
+	--PCLK <= not PCLK after 3.367 ns; -- 1080p
+	PCLK <= not PCLK after 6.73 ns; -- 720p
 	MCLK <= not MCLK after 5 ns; -- 100MHz
 
 	process(PCLK) is
@@ -195,14 +201,20 @@ BEGIN
 		else
 			PNEW_FRAME <= '0';
 		end if;
---		if((count >= 10 and count < 10+32) or (count >= 50 and count < 50+32)) then
-		if((count >= 10 and count < 10+32*4)) then
+
+		if((count >= 10 and count < 10+1280)) then
 			n := std_logic_vector(to_unsigned(count-10, 8));
 			PDATA <= n & n & n;
 			PPUSH <= '1';
 		else
 			PDATA <= (others => '0');
 			PPUSH <= '0';
+		end if;
+		
+		if(count >= 800 and count < 800+1280) then
+			ppop <= '1';
+		else
+			ppop <= '0';
 		end if;
 		
 	end if;
