@@ -193,6 +193,9 @@ BEGIN
 
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
+		--constant line_length : natural := 1920;
+		constant line_length : natural := 1280;
+		constant readout_delay : natural := line_length/2;
 	begin
 	if(rising_edge(PCLK)) then
 		count <= count + 1;
@@ -202,7 +205,7 @@ BEGIN
 			PNEW_FRAME <= '0';
 		end if;
 
-		if((count >= 10 and count < 10+1280)) then
+		if((count >= 10 and count < 10+line_length)) then
 			n := std_logic_vector(to_unsigned(count-10, 8));
 			PDATA <= n & n & n;
 			PPUSH <= '1';
@@ -211,7 +214,7 @@ BEGIN
 			PPUSH <= '0';
 		end if;
 		
-		if(count >= 800 and count < 800+1280) then
+		if(count >= 10+readout_delay and count < 10+readout_delay+line_length) then
 			ppop <= '1';
 		else
 			ppop <= '0';

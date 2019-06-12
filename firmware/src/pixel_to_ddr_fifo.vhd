@@ -43,12 +43,8 @@
 -- frame write pointer changes.
 
 -- To allow for different memory access patterns, the MLIMIT input determines how many elements
--- it takes before MREADY is triggered. The greatest common divisor of the three frame sizes is
--- 32 elements, but I don't have to make it divide evenly. It just means I need a way of forcing
--- this module to flush the remaining data (which I don't currently have). To make sure there's
--- always enough data in the output fifo for one line, I think the best approach is to set MLIMIT
--- to the number of elements in a line. For the SD case, use 90 so that it's an even number of
--- bursts.
+-- it takes before MREADY is triggered. My notional plan is 30 elements for the HD resolutions
+-- so that the fixed delay between incoming and outgoing DE can be about half a line.
 
 -- DDR address management is done through the PFRAME_ADDR_* and PNEW_FRAME controls.
 -- PFRAME_ADDR is the base frame address, set by the micro based on what the application

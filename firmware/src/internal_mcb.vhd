@@ -82,7 +82,7 @@ architecture Behavioral of internal_mcb is
 	signal ram_we : std_logic;
 
 	
-	type state_t is (WAITING_FOR_DATA, DELAY1, WRITE_STREAM, BEGIN_READ, DELAY1R, READ1, DELAY2R, READ2, PUSH2, READFINISH);
+	type state_t is (WAITING_FOR_DATA, DELAY1, WRITE_STREAM, DELAY1R, DELAY2R, READ_STREAM, READFINISH);
 	signal state : state_t := WAITING_FOR_DATA;
 	signal count : natural range 0 to 255 := 0;
 	signal limit : natural range 0 to 255 := 0;
@@ -100,6 +100,7 @@ begin
 	MPOP_W <= pop_w;
 	MPOP_R <= pop_r;
 	MPUSH <= mpush_r;
+	ram_raddr2 <= MADDR_R(8 downto 0);
 
 	process(MCLK) is
 	begin
@@ -107,6 +108,7 @@ begin
 	case state is
 		when WAITING_FOR_DATA =>
 			active <= '0';
+			mpush_r <= '0';
 			if(MREADY = '1') then
 				-- This indicates that it is safe to read out TRANSACTION_SIZE elements
 				-- from the two fifos
@@ -129,10 +131,11 @@ begin
 			
 			
 			if(count = limit) then
-				even <= '0';
+				even <= '1';
 				active <= '0';
+				pop_r <= '1';
 				count <= 0;
-				state <= BEGIN_READ;
+				state <= DELAY1R;
 			else
 				active <= '1';
 				count <= count + 1;
@@ -145,39 +148,34 @@ begin
 			end if;
 			
 		
-		when BEGIN_READ =>
-			pop_r <= '1';
-			state <= DELAY1R;
-			
 		when DELAY1R =>
-			pop_r <= '1'; -- note I read twice on purpose, address only changes every other
-			state <= READ1;
-			
-		when READ1 =>
-			pop_r <= '0';
-			ram_raddr2 <= MADDR_R(8 downto 0);
 			state <= DELAY2R;
-			
 		when DELAY2R =>
-			state <= READ2;
+			state <= READ_STREAM;
 			
-		when READ2 =>
-			mpush_r <= '1';
-			MDATA_R <= ram_rdata2(255 downto 0);
-			state <= PUSH2;
-			
-		when PUSH2 =>
-			MDATA_R <= ram_rdata2(511 downto 256);
-			state <= READFINISH;
-		
-		when READFINISH =>
-			mpush_r <= '0';
-			count <= count + 2; -- account for one internal ram address holding 2 elements
-			if(count = limit-2) then
-				state <= WAITING_FOR_DATA;
-			else
-				state <= BEGIN_READ;
+		when READ_STREAM =>
+			if(count = limit-3) then
+				pop_r <= '0';
 			end if;
+			
+			if(count = limit) then
+				even <= '0';
+				mpush_r <= '0';
+				state <= READFINISH;
+			else
+				count <= count + 1;
+				mpush_r <= '1';
+				even <= not even;
+				if(even = '1') then
+					MDATA_R <= ram_rdata2(255 downto 0);
+				else
+					MDATA_R <= ram_rdata2(511 downto 256);
+				end if;
+			end if;
+			
+			
+		when READFINISH =>
+			state <= WAITING_FOR_DATA;
 			
 	end case;
 	end if;
