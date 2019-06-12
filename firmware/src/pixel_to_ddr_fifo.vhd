@@ -75,6 +75,7 @@ entity pixel_to_ddr_fifo is
     Port ( 
 		PCLK : in  STD_LOGIC;                           -- pixel clock
 		PDATA : in  STD_LOGIC_VECTOR (23 downto 0);     -- pixel data
+		P8BIT : in std_logic;                           -- if high, only the lower 8 bits are active (SD 4:2:2)
 		PPUSH : in  STD_LOGIC;                          -- DE
 		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
 		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
@@ -147,6 +148,16 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	);
 	end component;
 	
+	component gearbox8to24 is
+	Port ( 
+		PCLK : in  STD_LOGIC;
+		CE : in  STD_LOGIC;
+		DIN : in  STD_LOGIC_VECTOR (23 downto 0);
+		DE : in  STD_LOGIC;
+		DOUT : out  STD_LOGIC_VECTOR (23 downto 0);
+		DEOUT : out  STD_LOGIC
+	);
+	end component;
 	
 
 	constant ram_addr_width : natural := 9;
@@ -159,7 +170,20 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	signal fifo_push : std_logic := '0';
 	signal fifo_used : std_logic_vector(ram_addr_width-1 downto 0);
 
+
+	signal pdata2 : std_logic_vector(23 downto 0);
+	signal ppush2 : std_logic;
+
 begin
+
+	Inst_gearbox8to24: gearbox8to24 PORT MAP(
+		PCLK => PCLK,
+		CE => P8BIT,
+		DIN => PDATA,
+		DE => PPUSH,
+		DOUT => pdata2,
+		DEOUT => ppush2
+	);
 
 
 
@@ -214,8 +238,8 @@ begin
 			else
 			
 		
-				if(PPUSH = '1') then
-					shifter(31) <= PDATA;
+				if(ppush2 = '1') then
+					shifter(31) <= pdata2;
 					for i in 0 to 30 loop
 						shifter(i) <= shifter(i+1);
 					end loop;

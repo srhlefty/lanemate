@@ -43,6 +43,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
     Port ( 
 		PCLK : in  STD_LOGIC;                           -- pixel clock
 		PDATA : in  STD_LOGIC_VECTOR (23 downto 0);     -- pixel data
+		P8BIT : in  STD_LOGIC;                          -- if high, only the lower 8 bits are active (SD 4:2:2)
 		PPUSH : in  STD_LOGIC;                          -- DE
 		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
 		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
@@ -108,13 +109,17 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
+	signal P8BIT : std_logic := '1';
    signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PPUSH : std_logic := '0';
    signal PNEW_FRAME : std_logic := '0';
    signal PRESET_FIFO : std_logic := '0';
    signal MCLK : std_logic := '0';
-   signal MLIMIT : std_logic_vector(7 downto 0) := x"1e"; -- This must be an integer fraction of the number of fifo elements in a line!
+	-- both HD: 30 elements per transaction, makes 15 ddr bursts
+   --signal MLIMIT : std_logic_vector(7 downto 0) := x"1e"; -- This must be an integer fraction of the number of fifo elements in a line!
+	-- SD: ???
+   signal MLIMIT : std_logic_vector(7 downto 0) := x"10"; -- This must be an integer fraction of the number of fifo elements in a line!
 
 	signal MPOP_W : std_logic := '0';
 	signal MPOP_R : std_logic := '0';
@@ -143,6 +148,7 @@ BEGIN
    uut: pixel_to_ddr_fifo PORT MAP (
           PCLK => PCLK,
           PDATA => PDATA,
+          P8BIT => P8BIT,
           PPUSH => PPUSH,
           PFRAME_ADDR_W => PFRAME_ADDR_W,
           PFRAME_ADDR_R => PFRAME_ADDR_R,
@@ -188,13 +194,15 @@ BEGIN
 	);
 
 	--PCLK <= not PCLK after 3.367 ns; -- 1080p
-	PCLK <= not PCLK after 6.73 ns; -- 720p
+	--PCLK <= not PCLK after 6.73 ns; -- 720p
+	PCLK <= not PCLK after 18.519 ns; -- 480i
 	MCLK <= not MCLK after 5 ns; -- 100MHz
 
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
 		--constant line_length : natural := 1920;
-		constant line_length : natural := 1280;
+		--constant line_length : natural := 1280;
+		constant line_length : natural := 1440;
 		constant readout_delay : natural := line_length/2;
 	begin
 	if(rising_edge(PCLK)) then

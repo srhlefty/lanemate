@@ -11,7 +11,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="32" />
+   <WVObjectSize size="34" />
    <wvobject fp_name="divider32" type="divider">
       <obj_property name="label">input pixel data</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -29,6 +29,14 @@
    <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/ppush" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">ppush</obj_property>
       <obj_property name="ObjectShortName">ppush</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/pdata2" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">pdata2[23:0]</obj_property>
+      <obj_property name="ObjectShortName">pdata2[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/uut/ppush2" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ppush2</obj_property>
+      <obj_property name="ObjectShortName">ppush2</obj_property>
    </wvobject>
    <wvobject fp_name="divider25" type="divider">
       <obj_property name="label">retrieve data to write</obj_property>
