@@ -52,7 +52,7 @@ end bram_true_dual_port;
 architecture Behavioral of bram_true_dual_port is
 
 	type ram_t is array((2**ADDR_WIDTH)-1 downto 0) of std_logic_vector(DATA_WIDTH-1 downto 0);
-	shared variable ram : ram_t;
+	shared variable ram : ram_t := (others => (others => '0'));
 
 	--attribute ram_style : string;
 	--attribute ram_style of ram : signal is "block"; -- "distributed", "block", or "Auto" (default)

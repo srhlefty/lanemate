@@ -113,7 +113,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
-	signal P8BIT : std_logic := '0';
+	signal P8BIT : std_logic := '1';
    signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PPUSH : std_logic := '0';
@@ -121,9 +121,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    signal PRESET_FIFO : std_logic := '0';
    signal MCLK : std_logic := '0';
 	-- both HD: 30 elements per transaction, makes 15 ddr bursts
-   --signal MLIMIT : std_logic_vector(7 downto 0) := x"1e"; -- This must be an integer fraction of the number of fifo elements in a line!
-	-- SD: ???
-   signal MLIMIT : std_logic_vector(7 downto 0) := x"2e";
+   signal MLIMIT : std_logic_vector(7 downto 0) := x"2f";
    signal MAVAIL : std_logic_vector(8 downto 0);
 
 
