@@ -38,13 +38,14 @@
 --   1280px * (24 bits/px) / (64 bits/transfer) / (8 transfers/burst) = 60 bursts = 120 elements
 --   1440ck * ( 8 bits/ck) / (64 bits/transfer) / (8 transfers/burst) = 22.5 bursts = 45 elements
 
--- That last one, 720(1440)x480i, has an even number of lines which means there are an even
--- number of bursts which means we're guaranteed to finish storing the frame before the
--- frame write pointer changes.
-
 -- To allow for different memory access patterns, the MLIMIT input determines how many elements
--- it takes before MREADY is triggered. My notional plan is 30 elements for the HD resolutions
--- so that the fixed delay between incoming and outgoing DE can be about half a line.
+-- it takes before MREADY is triggered. This value does not have to be an integer fraction
+-- of the line length. In the simplest case, where MLIMIT is both an integer fraction of the 
+-- line length and an even number (e.g., 30 elements for both HD resolutions), when the line
+-- is finished all data has been transferred to the MCB. But this need not be true in general,
+-- and in fact for SD it's not possible to choose an appropriate MLIMIT. To handle this case
+-- this module outputs MFLUSH after the full line has been pushed into the output fifo, so
+-- that the MCB can transfer the remaining elements.
 
 -- DDR address management is done through the PFRAME_ADDR_* and PNEW_FRAME controls.
 -- PFRAME_ADDR is the base frame address, set by the micro based on what the application
@@ -96,6 +97,8 @@ entity pixel_to_ddr_fifo is
 
 		-- common interface
 		MLIMIT : in STD_LOGIC_VECTOR (7 downto 0);      -- minimum number of fifo elements for MREADY = 1
+		MAVAIL : out std_logic_vector(8 downto 0);
+		MFLUSH : out std_logic;
 		MREADY : out  STD_LOGIC
 	);
 end pixel_to_ddr_fifo;
@@ -148,6 +151,15 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	);
 	end component;
 	
+	COMPONENT pulse_cross_fast2slow
+	PORT(
+		CLKFAST : IN  std_logic;
+		TRIGIN : IN  std_logic;
+		CLKSLOW : IN  std_logic;
+		TRIGOUT : OUT  std_logic
+	  );
+	END COMPONENT;
+	
 	component gearbox8to24 is
 	Port ( 
 		PCLK : in  STD_LOGIC;
@@ -174,6 +186,10 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	signal pdata2 : std_logic_vector(23 downto 0);
 	signal ppush2 : std_logic;
 
+	-- this goes high when DE is low and we've just pushed
+	-- the last elements into the output fifo
+	signal flush_remainder : std_logic := '0';
+
 begin
 
 	Inst_gearbox8to24: gearbox8to24 PORT MAP(
@@ -184,7 +200,6 @@ begin
 		DOUT => pdata2,
 		DEOUT => ppush2
 	);
-
 
 
 	gearbox : block is
@@ -314,6 +329,11 @@ begin
 					end case;
 				end if;
 			
+				if(PPUSH = '0' and pusher_state = P3) then
+					flush_remainder <= '1';
+				else
+					flush_remainder <= '0';
+				end if;
 			
 			end if;
 		end if;
@@ -321,6 +341,12 @@ begin
 	
 	end block;
 
+	flush_cross : pulse_cross_fast2slow PORT MAP(
+		CLKFAST => PCLK,
+		TRIGIN => flush_remainder,
+		CLKSLOW => MCLK,
+		TRIGOUT => MFLUSH
+	);
 
 	process(MCLK) is
 	begin
@@ -332,6 +358,8 @@ begin
 		end if;
 	end if;
 	end process;
+	
+	MAVAIL <= fifo_used;
 
 	
 	writer_fifo_block : block is

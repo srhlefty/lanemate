@@ -64,6 +64,8 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 
 		-- common interface
 		MLIMIT : in STD_LOGIC_VECTOR (7 downto 0);      -- minimum number of fifo elements for MREADY = 1
+		MAVAIL : out std_logic_vector(8 downto 0);
+		MFLUSH : out  STD_LOGIC;
 		MREADY : out  STD_LOGIC
 	);
     END COMPONENT;
@@ -119,7 +121,9 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 	-- both HD: 30 elements per transaction, makes 15 ddr bursts
    --signal MLIMIT : std_logic_vector(7 downto 0) := x"1e"; -- This must be an integer fraction of the number of fifo elements in a line!
 	-- SD: ???
-   signal MLIMIT : std_logic_vector(7 downto 0) := x"10"; -- This must be an integer fraction of the number of fifo elements in a line!
+   signal MLIMIT : std_logic_vector(7 downto 0) := x"2e";
+   signal MAVAIL : std_logic_vector(8 downto 0);
+
 
 	signal MPOP_W : std_logic := '0';
 	signal MPOP_R : std_logic := '0';
@@ -131,6 +135,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    signal MDVALID_W : std_logic;
    signal MDVALID_R : std_logic;
    signal MREADY : std_logic;
+   signal MFLUSH : std_logic;
 	
 	signal pdata_out : std_logic_vector(23 downto 0);
 	signal ppop : std_logic := '0';
@@ -163,35 +168,37 @@ BEGIN
 			 MADDR_R => MADDR_R,
 			 MDVALID_R => MDVALID_R,
           MLIMIT => MLIMIT,
+			 MAVAIL => MAVAIL,
+			 MFLUSH => MFLUSH,
           MREADY => MREADY
         );
 
-	Inst_internal_mcb: internal_mcb PORT MAP(
-		MCLK => MCLK,
-		TRANSACTION_SIZE => MLIMIT,
-		MREADY => MREADY,
-		MPOP_W => MPOP_W,
-		MDATA_W => MDATA_W,
-		MADDR_W => MADDR_W,
-		MDVALID_W => MDVALID_W,
-		MPOP_R => MPOP_R,
-		MADDR_R => MADDR_R,
-		MDVALID_R => MDVALID_R,
-		MPUSH => mcb_push_out,
-		MDATA_R => mcb_push_data
-	);
-
-	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
-		PCLK => PCLK,
-		PDATA => pdata_out,
-		PPOP => ppop,
-		PDVALID => pdatavalid,
-		PRESET => '0',
-		MCLK => MCLK,
-		MRESET => '0',
-		MPUSH => mcb_push_out,
-		MDATA => mcb_push_data
-	);
+--	Inst_internal_mcb: internal_mcb PORT MAP(
+--		MCLK => MCLK,
+--		TRANSACTION_SIZE => MTRANSACTION_SIZE,
+--		MREADY => MREADY,
+--		MPOP_W => MPOP_W,
+--		MDATA_W => MDATA_W,
+--		MADDR_W => MADDR_W,
+--		MDVALID_W => MDVALID_W,
+--		MPOP_R => MPOP_R,
+--		MADDR_R => MADDR_R,
+--		MDVALID_R => MDVALID_R,
+--		MPUSH => mcb_push_out,
+--		MDATA_R => mcb_push_data
+--	);
+--
+--	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
+--		PCLK => PCLK,
+--		PDATA => pdata_out,
+--		PPOP => ppop,
+--		PDVALID => pdatavalid,
+--		PRESET => '0',
+--		MCLK => MCLK,
+--		MRESET => '0',
+--		MPUSH => mcb_push_out,
+--		MDATA => mcb_push_data
+--	);
 
 	--PCLK <= not PCLK after 3.367 ns; -- 1080p
 	--PCLK <= not PCLK after 6.73 ns; -- 720p
