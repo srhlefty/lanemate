@@ -212,8 +212,8 @@ BEGIN
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
 		--constant line_length : natural := 1920;
-		constant line_length : natural := 1280;
-		--constant line_length : natural := 1440;
+		--constant line_length : natural := 1280;
+		constant line_length : natural := 1440;
 		constant readout_delay : natural := line_length/2;
 	begin
 	if(rising_edge(PCLK)) then

@@ -11,7 +11,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="15" />
+   <WVObjectSize size="17" />
    <wvobject fp_name="divider29" type="divider">
       <obj_property name="label">input</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -68,6 +68,10 @@
       <obj_property name="BkColor">128 128 255</obj_property>
       <obj_property name="TextColor">230 230 230</obj_property>
    </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_internal_mcb/half_burst" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">half_burst</obj_property>
+      <obj_property name="ObjectShortName">half_burst</obj_property>
+   </wvobject>
    <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_internal_mcb/limit" type="other" db_ref_id="1">
       <obj_property name="ElementShortName">limit</obj_property>
       <obj_property name="ObjectShortName">limit</obj_property>
@@ -75,6 +79,10 @@
    <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_internal_mcb/mpop_w" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mpop_w</obj_property>
       <obj_property name="ObjectShortName">mpop_w</obj_property>
+   </wvobject>
+   <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_internal_mcb/ram_we" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ram_we</obj_property>
+      <obj_property name="ObjectShortName">ram_we</obj_property>
    </wvobject>
    <wvobject fp_name="/pixel_to_ddr_fifo_tb/Inst_internal_mcb/mpush" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mpush</obj_property>

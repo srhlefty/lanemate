@@ -97,6 +97,13 @@ architecture Behavioral of internal_mcb is
 
 	signal even : std_logic := '1';
 	signal active : std_logic := '0';
+	
+	-- There are 2 elements per burst since DDR3 burst length is 8.
+	-- TRANSACTION_SIZE / MAVAIL could be odd, in which case I have
+	-- to pad the burst out to the full size on write, and cut off
+	-- the remainder on read. This signal captures whether we're
+	-- in that situation.
+	signal half_burst : std_logic := '0';
 begin
 
 	MPOP_W <= pop_w;
@@ -117,13 +124,25 @@ begin
 				pop_w <= '1';
 				count <= 0;
 				even <= '1';
-				limit <= to_integer(unsigned(TRANSACTION_SIZE));
+				if(TRANSACTION_SIZE(0) = '1') then
+					half_burst <= '1';
+					limit <= to_integer(unsigned(TRANSACTION_SIZE)) + 1;
+				else
+					half_burst <= '0';
+					limit <= to_integer(unsigned(TRANSACTION_SIZE));
+				end if;
 				state <= DELAY1;
 			elsif(MFLUSH = '1' and to_integer(unsigned(MAVAIL)) > 0) then
 				pop_w <= '1';
 				count <= 0;
 				even <= '1';
-				limit <= to_integer(unsigned(MAVAIL));
+				if(MAVAIL(0) = '1') then
+					half_burst <= '1';
+					limit <= to_integer(unsigned(MAVAIL)) + 1;
+				else
+					half_burst <= '0';
+					limit <= to_integer(unsigned(MAVAIL));
+				end if;
 				state <= DELAY1;
 			else
 				pop_w <= '0';
@@ -133,7 +152,11 @@ begin
 			state <= WRITE_STREAM;
 			
 		when WRITE_STREAM =>
-			if(count = limit-2) then
+			-- Turn off popping input data. During a half burst,
+			-- there's one extra cycle but no real fifo element
+			-- to read so I have to shut off pop one clock early
+			if( (half_burst = '0' and count = limit-2) or
+             (half_burst = '1' and count = limit-3)) then
 				pop_w <= '0';
 			end if;
 			
@@ -153,6 +176,8 @@ begin
 				else
 					ram_wdata1(511 downto 256) <= MDATA_W;
 				end if;
+				-- During a hlaf burst the final pop is shut off
+				-- so the same data gets written to both halves
 			end if;
 			
 		
@@ -162,11 +187,13 @@ begin
 			state <= READ_STREAM;
 			
 		when READ_STREAM =>
-			if(count = limit-3) then
+			if( (half_burst = '0' and count = limit-3) or
+			    (half_burst = '1' and count = limit-4)) then
 				pop_r <= '0';
 			end if;
 			
-			if(count = limit) then
+			if( (half_burst = '0' and count = limit) or
+			    (half_burst = '1' and count = limit-1)) then
 				even <= '0';
 				mpush_r <= '0';
 				state <= READFINISH;
