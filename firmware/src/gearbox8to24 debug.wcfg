@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="C:/Users/Steven/Documents/Repositories/lanemate/firmware/gearbox8to24_tb_isim_beh.wdb" id="1" type="auto">
+         <top_modules>
+            <top_module name="gearbox8to24_tb" />
+            <top_module name="numeric_std" />
+            <top_module name="std_logic_1164" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <WVObjectSize size="8" />
+   <wvobject fp_name="/gearbox8to24_tb/pclk" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">pclk</obj_property>
+      <obj_property name="ObjectShortName">pclk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/ce" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ce</obj_property>
+      <obj_property name="ObjectShortName">ce</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/din" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">din[23:0]</obj_property>
+      <obj_property name="ObjectShortName">din[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/de" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">de</obj_property>
+      <obj_property name="ObjectShortName">de</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/uut/count" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">count</obj_property>
+      <obj_property name="ObjectShortName">count</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/uut/shifter" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">shifter[0:2]</obj_property>
+      <obj_property name="ObjectShortName">shifter[0:2]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/dout" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">dout[23:0]</obj_property>
+      <obj_property name="ObjectShortName">dout[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/gearbox8to24_tb/deout" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">deout</obj_property>
+      <obj_property name="ObjectShortName">deout</obj_property>
+   </wvobject>
+</wave_config>

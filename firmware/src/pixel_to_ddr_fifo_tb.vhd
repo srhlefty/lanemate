@@ -90,6 +90,8 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 		
 		-- interface common to both fifos
 		MREADY : in std_logic;
+		MFLUSH : in std_logic;
+		MAVAIL : in std_logic_vector(8 downto 0);
 		
 		-- interface to data-to-write fifo
 		MPOP_W : out std_logic;
@@ -111,7 +113,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
-	signal P8BIT : std_logic := '1';
+	signal P8BIT : std_logic := '0';
    signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := std_logic_vector(to_unsigned(0, 24));
    signal PPUSH : std_logic := '0';
@@ -173,21 +175,23 @@ BEGIN
           MREADY => MREADY
         );
 
---	Inst_internal_mcb: internal_mcb PORT MAP(
---		MCLK => MCLK,
---		TRANSACTION_SIZE => MTRANSACTION_SIZE,
---		MREADY => MREADY,
---		MPOP_W => MPOP_W,
---		MDATA_W => MDATA_W,
---		MADDR_W => MADDR_W,
---		MDVALID_W => MDVALID_W,
---		MPOP_R => MPOP_R,
---		MADDR_R => MADDR_R,
---		MDVALID_R => MDVALID_R,
---		MPUSH => mcb_push_out,
---		MDATA_R => mcb_push_data
---	);
---
+	Inst_internal_mcb: internal_mcb PORT MAP(
+		MCLK => MCLK,
+		TRANSACTION_SIZE => MLIMIT,
+		MREADY => MREADY,
+		MFLUSH => MFLUSH,
+		MAVAIL => MAVAIL,
+		MPOP_W => MPOP_W,
+		MDATA_W => MDATA_W,
+		MADDR_W => MADDR_W,
+		MDVALID_W => MDVALID_W,
+		MPOP_R => MPOP_R,
+		MADDR_R => MADDR_R,
+		MDVALID_R => MDVALID_R,
+		MPUSH => mcb_push_out,
+		MDATA_R => mcb_push_data
+	);
+
 --	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
 --		PCLK => PCLK,
 --		PDATA => pdata_out,
@@ -201,15 +205,15 @@ BEGIN
 --	);
 
 	--PCLK <= not PCLK after 3.367 ns; -- 1080p
-	--PCLK <= not PCLK after 6.73 ns; -- 720p
-	PCLK <= not PCLK after 18.519 ns; -- 480i
+	PCLK <= not PCLK after 6.73 ns; -- 720p
+	--PCLK <= not PCLK after 18.519 ns; -- 480i
 	MCLK <= not MCLK after 5 ns; -- 100MHz
 
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
 		--constant line_length : natural := 1920;
-		--constant line_length : natural := 1280;
-		constant line_length : natural := 1440;
+		constant line_length : natural := 1280;
+		--constant line_length : natural := 1440;
 		constant readout_delay : natural := line_length/2;
 	begin
 	if(rising_edge(PCLK)) then

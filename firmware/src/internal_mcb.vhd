@@ -36,6 +36,8 @@ entity internal_mcb is
 		
 		-- interface common to both fifos
 		MREADY : in std_logic;
+		MFLUSH : in std_logic;
+		MAVAIL : in std_logic_vector(8 downto 0);
 		
 		-- interface to data-to-write fifo
 		MPOP_W : out std_logic;
@@ -116,6 +118,12 @@ begin
 				count <= 0;
 				even <= '1';
 				limit <= to_integer(unsigned(TRANSACTION_SIZE));
+				state <= DELAY1;
+			elsif(MFLUSH = '1' and to_integer(unsigned(MAVAIL)) > 0) then
+				pop_w <= '1';
+				count <= 0;
+				even <= '1';
+				limit <= to_integer(unsigned(MAVAIL));
 				state <= DELAY1;
 			else
 				pop_w <= '0';

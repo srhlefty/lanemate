@@ -189,6 +189,7 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	-- this goes high when DE is low and we've just pushed
 	-- the last elements into the output fifo
 	signal flush_remainder : std_logic := '0';
+	signal flush_d : std_logic := '0';
 
 begin
 
@@ -330,10 +331,11 @@ begin
 				end if;
 			
 				if(PPUSH = '0' and pusher_state = P3) then
-					flush_remainder <= '1';
+					flush_d <= '1';
 				else
-					flush_remainder <= '0';
+					flush_d <= '0';
 				end if;
+				flush_remainder <= flush_d;
 			
 			end if;
 		end if;
