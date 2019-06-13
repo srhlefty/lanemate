@@ -191,6 +191,7 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	signal flush_remainder : std_logic := '0';
 	signal flush_d : std_logic := '0';
 
+	signal mready_i : std_logic := '0';
 begin
 
 	Inst_gearbox8to24: gearbox8to24 PORT MAP(
@@ -354,13 +355,13 @@ begin
 	begin
 	if(rising_edge(MCLK)) then
 		if(to_integer(unsigned(fifo_used)) >= to_integer(unsigned(MLIMIT)) and to_integer(unsigned(MLIMIT)) > 0) then
-			MREADY <= '1';
+			mready_i <= '1';
 		else
-			MREADY <= '0';
+			mready_i <= '0';
 		end if;
 	end if;
 	end process;
-	
+	MREADY <= mready_i;
 	MAVAIL <= fifo_used;
 
 	

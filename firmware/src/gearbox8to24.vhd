@@ -46,6 +46,8 @@ architecture Behavioral of gearbox8to24 is
 	signal shifter : shift_t(0 to 2) := (others => (others => '0'));
 	signal count : natural range 0 to 3 := 3;
 	
+	signal dout_i : std_logic_vector(23 downto 0) := (others => '0');
+	signal deout_i : std_logic := '0';
 begin
 
 	process(PCLK) is
@@ -70,19 +72,22 @@ begin
 			end if;
 			
 			if(count = 0) then
-				DOUT <= shifter(2) & shifter(1) & shifter(0);
-				DEOUT <= '1';
+				dout_i <= shifter(2) & shifter(1) & shifter(0);
+				deout_i <= '1';
 			else
-				DEOUT <= '0';
+				deout_i <= '0';
 			end if;
 			
 		else
 			count <= 3;
-			DOUT <= DIN;
-			DEOUT <= DE;
+			dout_i <= DIN;
+			deout_i <= DE;
 		end if;
 	end if;
 	end process;
+	
+	DOUT <= dout_i;
+	DEOUT <= deout_i;
 	
 end Behavioral;
 

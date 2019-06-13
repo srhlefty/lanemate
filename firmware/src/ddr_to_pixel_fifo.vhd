@@ -35,6 +35,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity ddr_to_pixel_fifo is
     Port ( PCLK : in  STD_LOGIC;
            PDATA : out  STD_LOGIC_VECTOR (23 downto 0);
+			  P8BIT : in std_logic;                           -- if high, only the lower 8 bits are active (SD 4:2:2)
            PPOP : in  STD_LOGIC;
 			  PDVALID : out STD_LOGIC;
 			  PRESET : in STD_LOGIC;
@@ -150,7 +151,7 @@ architecture Behavioral of ddr_to_pixel_fifo is
 	signal pram_rdata2 : std_logic_vector(pram_data_width-1 downto 0);
 	signal pram_we : std_logic;
 	
-	signal pfifo_data : std_logic_vector(pram_data_width-1 downto 0);
+	signal pfifo_data : std_logic_vector(pram_data_width-1 downto 0) := (others => '0');
 	signal pfifo_push : std_logic := '0';
 	signal pfifo_full : std_logic;
 	signal pfifo_empty : std_logic;
@@ -218,6 +219,7 @@ begin
 		type state_t is (S1, S2, S3, S4, S5, S6);
 		signal state : state_t := S1;
 		signal count : natural range 0 to 32 := 0;
+		signal subcount : natural range 0 to 2 := 0;
 	begin
 		process(PCLK) is
 		begin
@@ -285,18 +287,40 @@ begin
 				shifter(31) <= fifo_data(10*24-1+16 downto 9*24+16);
 				
 				count <= 32;
+				subcount <= 0;
 				state <= S6;
 				
 			when S6 =>
 				-- push the shift register content into the fifo as space becomes available
 				if(count > 0 and pfifo_full = '0') then
-					count <= count - 1;
-					pfifo_data <= shifter(0);
-					pfifo_push <= '1';
+					if(P8BIT = '1') then
+						if(subcount = 0) then
+							pfifo_data <= x"0000" & shifter(0)(7 downto 0);
+							pfifo_push <= '1';
+							subcount <= 1;
+						elsif(subcount = 1) then
+							pfifo_data <= x"0000" & shifter(0)(15 downto 8);
+							pfifo_push <= '1';
+							subcount <= 2;
+						elsif(subcount = 2) then
+							pfifo_data <= x"0000" & shifter(0)(23 downto 16);
+							pfifo_push <= '1';
+							subcount <= 0;
+						
+							count <= count - 1;
+							for i in 1 to 31 loop
+								shifter(i-1) <= shifter(i);
+							end loop;
+						end if;
+					else
+						pfifo_data <= shifter(0);
+						pfifo_push <= '1';
 					
-					for i in 1 to 31 loop
-						shifter(i-1) <= shifter(i);
-					end loop;
+						count <= count - 1;
+						for i in 1 to 31 loop
+							shifter(i-1) <= shifter(i);
+						end loop;
+					end if;
 				else
 					pfifo_push <= '0';
 				end if;

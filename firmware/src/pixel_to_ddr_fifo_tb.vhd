@@ -73,6 +73,7 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
 	component ddr_to_pixel_fifo is
     Port ( PCLK : in  STD_LOGIC;
            PDATA : out  STD_LOGIC_VECTOR (23 downto 0);
+			  P8BIT : in std_logic;
            PPOP : in  STD_LOGIC;
 			  PDVALID : out STD_LOGIC;
 			  PRESET : in STD_LOGIC;
@@ -173,26 +174,27 @@ BEGIN
           MREADY => MREADY
         );
 
-	Inst_internal_mcb: internal_mcb PORT MAP(
-		MCLK => MCLK,
-		TRANSACTION_SIZE => MLIMIT,
-		MREADY => MREADY,
-		MFLUSH => MFLUSH,
-		MAVAIL => MAVAIL,
-		MPOP_W => MPOP_W,
-		MDATA_W => MDATA_W,
-		MADDR_W => MADDR_W,
-		MDVALID_W => MDVALID_W,
-		MPOP_R => MPOP_R,
-		MADDR_R => MADDR_R,
-		MDVALID_R => MDVALID_R,
-		MPUSH => mcb_push_out,
-		MDATA_R => mcb_push_data
-	);
+--	Inst_internal_mcb: internal_mcb PORT MAP(
+--		MCLK => MCLK,
+--		TRANSACTION_SIZE => MLIMIT,
+--		MREADY => MREADY,
+--		MFLUSH => MFLUSH,
+--		MAVAIL => MAVAIL,
+--		MPOP_W => MPOP_W,
+--		MDATA_W => MDATA_W,
+--		MADDR_W => MADDR_W,
+--		MDVALID_W => MDVALID_W,
+--		MPOP_R => MPOP_R,
+--		MADDR_R => MADDR_R,
+--		MDVALID_R => MDVALID_R,
+--		MPUSH => mcb_push_out,
+--		MDATA_R => mcb_push_data
+--	);
 
 --	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
 --		PCLK => PCLK,
 --		PDATA => pdata_out,
+--		P8BIT => P8BIT,
 --		PPOP => ppop,
 --		PDVALID => pdatavalid,
 --		PRESET => '0',
@@ -231,11 +233,11 @@ BEGIN
 			PPUSH <= '0';
 		end if;
 		
-		if(count >= 10+readout_delay and count < 10+readout_delay+line_length) then
-			ppop <= '1';
-		else
-			ppop <= '0';
-		end if;
+--		if(count >= 10+readout_delay and count < 10+readout_delay+line_length) then
+--			ppop <= '1';
+--		else
+--			ppop <= '0';
+--		end if;
 		
 	end if;
 	end process;

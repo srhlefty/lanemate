@@ -98,16 +98,16 @@ architecture Behavioral of fifo_2clk is
 	signal push_addr_r : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '0');
 	signal pop_addr_w : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '0');
 	signal pop_addr_r : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '0');
-	signal reset_r : std_logic;
+	signal reset_r : std_logic := '0';
 
-	signal int_free : std_logic_vector(ADDR_WIDTH-1 downto 0);
-	signal int_used : std_logic_vector(ADDR_WIDTH-1 downto 0);
+	signal int_free : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '0');
+	signal int_used : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '0');
 	
 	constant zero : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '0');
 	constant maxsize : std_logic_vector(ADDR_WIDTH-1 downto 0) := (others => '1');
 	
-	signal resetmask_w : std_logic;
-	signal resetmask_r : std_logic;
+	signal resetmask_w : std_logic := '0';
+	signal resetmask_r : std_logic := '0';
 begin
 
 	RAM_WADDR <= push_addr_w;

@@ -75,13 +75,13 @@ architecture Behavioral of internal_mcb is
 	);
 	end component;
 
-	constant ram_addr_width : natural := 9;
+	constant ram_addr_width : natural := 8;
 	constant ram_data_width : natural := 512;
 	signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0) := (others => '0');
-	signal ram_wdata1 : std_logic_vector(ram_data_width-1 downto 0);
+	signal ram_wdata1 : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
 	signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0) := (others => '0');
 	signal ram_rdata2 : std_logic_vector(ram_data_width-1 downto 0);
-	signal ram_we : std_logic;
+	signal ram_we : std_logic := '0';
 
 	
 	type state_t is (WAITING_FOR_DATA, DELAY1, WRITE_STREAM, DELAY1R, DELAY2R, READ_STREAM, READFINISH);
@@ -93,6 +93,7 @@ architecture Behavioral of internal_mcb is
 	signal mpush_r : std_logic := '0';
 	
 	signal wdata : std_logic_vector(255 downto 0) := (others => '0');
+	signal data_just_read : std_logic_vector(255 downto 0) := (others => '0');
 	signal we_d : std_logic := '0';
 
 	signal even : std_logic := '1';
@@ -109,7 +110,7 @@ begin
 	MPOP_W <= pop_w;
 	MPOP_R <= pop_r;
 	MPUSH <= mpush_r;
-	ram_raddr2 <= MADDR_R(8 downto 0);
+	ram_raddr2 <= MADDR_R(7 downto 0);
 
 	process(MCLK) is
 	begin
@@ -202,9 +203,9 @@ begin
 				mpush_r <= '1';
 				even <= not even;
 				if(even = '1') then
-					MDATA_R <= ram_rdata2(255 downto 0);
+					data_just_read <= ram_rdata2(255 downto 0);
 				else
-					MDATA_R <= ram_rdata2(511 downto 256);
+					data_just_read <= ram_rdata2(511 downto 256);
 				end if;
 			end if;
 			
@@ -217,11 +218,12 @@ begin
 	end process;
 	
 	ram_we <= active and even;
+	MDATA_R <= data_just_read;
 	
 	process(MCLK) is
 	begin
 	if(rising_edge(MCLK)) then
-		ram_waddr1 <= MADDR_W(8 downto 0);
+		ram_waddr1 <= MADDR_W(7 downto 0);
 	end if;
 	end process;
 	
