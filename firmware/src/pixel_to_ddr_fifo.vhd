@@ -161,23 +161,67 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	  );
 	END COMPONENT;
 	
+	component synchronizer_2ff is
+	Generic ( 
+		DATA_WIDTH : natural;
+		EXTRA_INPUT_REGISTER : boolean := false;
+		USE_GRAY_CODE : boolean := true
+	);
+	Port ( 
+		CLKA   : in std_logic;
+		DA     : in std_logic_vector(DATA_WIDTH-1 downto 0);
+		CLKB   : in  std_logic;
+		DB     : out std_logic_vector(DATA_WIDTH-1 downto 0);
+		RESETB : in std_logic
+	);
+	end component;
+	
 	constant ram_addr_width : natural := 9;
 	constant ram_data_width_w : natural := 256 + 24; -- 256 for data, 24 for address
 	constant ram_data_width_r : natural := 24; -- just address
 	
 	signal flush_remainder : std_logic := '0';
-
+	signal crossin : std_logic_vector(0 downto 0);
+	signal crossout : std_logic_vector(0 downto 0);
 begin
 
-	flush_remainder <= (not PDE) and PPUSHED;
-
-	flush_cross : pulse_cross_fast2slow PORT MAP(
-		CLKFAST => PCLK,
-		TRIGIN => flush_remainder,
-		CLKSLOW => MCLK,
-		TRIGOUT => MFLUSH
+--	flush_remainder <= (not PDE) and PPUSHED;
+--
+--	flush_cross : pulse_cross_fast2slow PORT MAP(
+--		CLKFAST => PCLK,
+--		TRIGIN => flush_remainder,
+--		CLKSLOW => MCLK,
+--		TRIGOUT => MFLUSH
+--	);
+	process(PCLK) is
+	begin
+	if(rising_edge(PCLK)) then
+		if(PDE = '1') then
+			flush_remainder <= '0';
+		else
+			if(PPUSHED = '1') then
+				flush_remainder <= '1';
+			end if;
+		end if;
+	end if;
+	end process;
+			
+	flush_cross : synchronizer_2ff
+	generic map (
+		DATA_WIDTH => 1,
+		EXTRA_INPUT_REGISTER => false,
+		USE_GRAY_CODE => false
+	)
+	port map (
+		CLKA => PCLK,
+		DA => crossin,
+		CLKB => MCLK,
+		DB => crossout,
+		RESETB => '0'
 	);
-
+	
+	crossin(0) <= flush_remainder;
+	MFLUSH <= crossout(0);
 	
 	writer_fifo_block : block is
 		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);

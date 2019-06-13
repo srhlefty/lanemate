@@ -182,13 +182,14 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
  
 BEGIN
  
-	PCLK <= not PCLK after 6.73 ns; -- 720p
+	--PCLK <= not PCLK after 6.73 ns; -- 720p
+	PCLK <= not PCLK after 3.367 ns; -- 1080p
 	MCLK <= not MCLK after 5 ns;
 	
-	line_length <= 1280;
-	p8bit <= '0';
-	--line_length <= 64*3;
-	--p8bit <= '1';
+	--line_length <= 1280;
+	--p8bit <= '0';
+	line_length <= 1440;
+	p8bit <= '1';
 		  
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
@@ -282,7 +283,7 @@ BEGIN
 	
 	Inst_trivial_mcb: trivial_mcb PORT MAP(
 		MCLK => MCLK,
-		MTRANSACTION_SIZE => x"1e",
+		MTRANSACTION_SIZE => x"1f",
 		MAVAIL => MAVAIL,
 		MFLUSH => MFLUSH,
 		MPOP_W => MPOP_W,

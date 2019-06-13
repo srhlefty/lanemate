@@ -77,6 +77,10 @@ begin
 				limit <= to_integer(unsigned(MTRANSACTION_SIZE));
 				popcount <= 0;
 				state <= POPW;
+			elsif(MFLUSH = '1' and to_integer(unsigned(MAVAIL)) > 0) then
+				limit <= to_integer(unsigned(MAVAIL));
+				popcount <= 0;
+				state <= POPW;
 			end if;
 		
 		when POPW =>
