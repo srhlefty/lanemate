@@ -136,6 +136,20 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 	);
 	end component;
 
+	component ddr_to_pixel_fifo is
+    Port ( PCLK : in  STD_LOGIC;
+           PDATA : out  STD_LOGIC_VECTOR (23 downto 0);
+			  P8BIT : in std_logic;                           -- if high, only the lower 8 bits are active (SD 4:2:2)
+           PPOP : in  STD_LOGIC;
+			  PDVALID : out STD_LOGIC;
+			  PRESET : in STD_LOGIC;
+           MCLK : in  STD_LOGIC;
+			  MRESET : in STD_LOGIC;
+           MPUSH : in  STD_LOGIC;
+           MDATA : in  STD_LOGIC_VECTOR (255 downto 0)
+           );
+	end component;
+
 
    --Inputs
    signal PCLK : std_logic := '0';
@@ -179,7 +193,12 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 	signal MPOP_R : std_logic;
 	signal MPUSH_R : std_logic;
 	signal MDATA_R : std_logic_vector(255 downto 0);
- 
+
+
+	signal PDATA_FINAL : std_logic_vector(23 downto 0);
+	signal PDE_FINAL : std_logic := '0';
+	signal PDVALID_FINAL : std_logic;
+
 BEGIN
  
 	--PCLK <= not PCLK after 6.73 ns; -- 720p
@@ -208,6 +227,13 @@ BEGIN
 		else
 			DIN <= (others => '0');
 			DE <= '0';
+		end if;
+		
+		
+		if(count >= line_length+150 and count < line_length+150+line_length) then
+			PDE_FINAL <= '1';
+		else
+			PDE_FINAL <= '0';
 		end if;
 		
 	end if;
@@ -295,6 +321,21 @@ BEGIN
 		MDVALID_R => MDVALID_R,
 		MPUSH_R => MPUSH_R,
 		MDATA_R => MDATA_R
+	);
+
+	
+	-- stage 5: inverse gearbox back to pixels
+	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
+		PCLK => PCLK,
+		PDATA => PDATA_FINAL,
+		P8BIT => p8bit,
+		PPOP => PDE_FINAL,
+		PDVALID => PDVALID_FINAL,
+		PRESET => '0',
+		MCLK => MCLK,
+		MRESET => '0',
+		MPUSH => MPUSH_R,
+		MDATA => MDATA_R
 	);
 	
 END;

@@ -10,15 +10,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1555000000fs"></ZoomStartTime>
-      <ZoomEndTime time="3289000001fs"></ZoomEndTime>
+      <ZoomStartTime time="0fs"></ZoomStartTime>
+      <ZoomEndTime time="15980000001fs"></ZoomEndTime>
       <Cursor1Time time="3000000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="191"></NameColumnWidth>
       <ValueColumnWidth column_width="216"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="28" />
+   <WVObjectSize size="26" />
    <wvobject fp_name="/all_memory_structure_tb/PCLK" type="logic">
       <obj_property name="ElementShortName">PCLK</obj_property>
       <obj_property name="ObjectShortName">PCLK</obj_property>
@@ -95,29 +95,9 @@
       <obj_property name="ElementShortName">MPOP_W</obj_property>
       <obj_property name="ObjectShortName">MPOP_W</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/MADDR_W" type="array">
-      <obj_property name="ElementShortName">MADDR_W[23:0]</obj_property>
-      <obj_property name="ObjectShortName">MADDR_W[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/MDATA_W" type="array">
-      <obj_property name="ElementShortName">MDATA_W[255:0]</obj_property>
-      <obj_property name="ObjectShortName">MDATA_W[255:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/MDVALID_W" type="logic">
-      <obj_property name="ElementShortName">MDVALID_W</obj_property>
-      <obj_property name="ObjectShortName">MDVALID_W</obj_property>
-   </wvobject>
    <wvobject fp_name="/all_memory_structure_tb/MPOP_R" type="logic">
       <obj_property name="ElementShortName">MPOP_R</obj_property>
       <obj_property name="ObjectShortName">MPOP_R</obj_property>
-   </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/MADDR_R" type="array">
-      <obj_property name="ElementShortName">MADDR_R[23:0]</obj_property>
-      <obj_property name="ObjectShortName">MADDR_R[23:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/MDVALID_R" type="logic">
-      <obj_property name="ElementShortName">MDVALID_R</obj_property>
-      <obj_property name="ObjectShortName">MDVALID_R</obj_property>
    </wvobject>
    <wvobject fp_name="/all_memory_structure_tb/MPUSH_R" type="logic">
       <obj_property name="ElementShortName">MPUSH_R</obj_property>
@@ -127,8 +107,20 @@
       <obj_property name="ElementShortName">MDATA_R[255:0]</obj_property>
       <obj_property name="ObjectShortName">MDATA_R[255:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/state" type="other">
-      <obj_property name="ElementShortName">state</obj_property>
-      <obj_property name="ObjectShortName">state</obj_property>
+   <wvobject type="divider" fp_name="divider87">
+      <obj_property name="label">ddr to pixels fifo</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+   </wvobject>
+   <wvobject fp_name="/all_memory_structure_tb/PDE_FINAL" type="logic">
+      <obj_property name="ElementShortName">PDE_FINAL</obj_property>
+      <obj_property name="ObjectShortName">PDE_FINAL</obj_property>
+   </wvobject>
+   <wvobject fp_name="/all_memory_structure_tb/PDATA_FINAL" type="array">
+      <obj_property name="ElementShortName">PDATA_FINAL[23:0]</obj_property>
+      <obj_property name="ObjectShortName">PDATA_FINAL[23:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/all_memory_structure_tb/PDVALID_FINAL" type="logic">
+      <obj_property name="ElementShortName">PDVALID_FINAL</obj_property>
+      <obj_property name="ObjectShortName">PDVALID_FINAL</obj_property>
    </wvobject>
 </wave_config>
