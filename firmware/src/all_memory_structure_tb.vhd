@@ -185,6 +185,7 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 
 	signal count : natural := 0;
 	signal line_length : natural := 0;
+	signal hblank : natural := 0;
 	signal p8bit : std_logic := '0';
 
 
@@ -228,10 +229,13 @@ BEGIN
 	MCLK <= not MCLK after 5 ns;
 	
 	line_length <= 1920;
+	hblank <= 88+148+44;
 	p8bit <= '0';
 	--line_length <= 1280;
+	--hblank <= 110+220+40;
 	--p8bit <= '0';
 	--line_length <= 1440;
+	--hblank <= 38+114+124;
 	--p8bit <= '1';
 		  
 	process(PCLK) is
@@ -240,7 +244,8 @@ BEGIN
 	if(rising_edge(PCLK)) then
 		count <= count + 1;
 
-		if((count >= 10 and count < 10+line_length)) then
+		if((count >= 10 and count < 10+line_length) or
+		   (count >= 10+line_length+hblank and count < 10+line_length+hblank+line_length)) then
 			n := std_logic_vector(to_unsigned(count-10, 8));
 			if(p8bit = '1') then
 				DIN <= x"0000" & n;
@@ -254,7 +259,8 @@ BEGIN
 		end if;
 		
 		
-		if(count >= line_length+150 and count < line_length+150+line_length) then
+		if((count >= line_length+150 and count < line_length+150+line_length) or
+		   (count >= line_length+150+line_length+hblank and count < line_length+150+line_length+hblank+line_length)) then
 			PDE_FINAL <= '1';
 		else
 			PDE_FINAL <= '0';
@@ -331,8 +337,8 @@ BEGIN
 
 	-- stage 4: mcb
 	
---	Inst_trivial_mcb: trivial_mcb PORT MAP(
-	Inst_trivial_mcb: internal_mcb PORT MAP(
+	Inst_trivial_mcb: trivial_mcb PORT MAP(
+--	Inst_trivial_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
 		MTRANSACTION_SIZE => x"1e",
 		MAVAIL => MAVAIL,
