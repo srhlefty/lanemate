@@ -22,7 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
@@ -33,7 +33,7 @@ entity trivial_mcb is
 	Port ( 
 		MCLK : in std_logic;
 		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0);
-		MAVAIL : out std_logic_vector(8 downto 0);
+		MAVAIL : in std_logic_vector(8 downto 0);
 		MFLUSH : in std_logic;
 		
 		-- input side
