@@ -337,8 +337,8 @@ BEGIN
 
 	-- stage 4: mcb
 	
-	Inst_trivial_mcb: trivial_mcb PORT MAP(
---	Inst_trivial_mcb: internal_mcb PORT MAP(
+--	Inst_trivial_mcb: trivial_mcb PORT MAP(
+	Inst_trivial_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
 		MTRANSACTION_SIZE => x"1e",
 		MAVAIL => MAVAIL,

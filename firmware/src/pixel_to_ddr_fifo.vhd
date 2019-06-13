@@ -181,6 +181,10 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	constant ram_data_width_r : natural := 24; -- just address
 	
 	signal flush_remainder : std_logic := '0';
+	signal flushd1 : std_logic := '0';
+	signal flushd2 : std_logic := '0';
+	signal flushd3 : std_logic := '0';
+	signal flushd4 : std_logic := '0';
 	signal crossin : std_logic_vector(0 downto 0);
 	signal crossout : std_logic_vector(0 downto 0);
 begin
@@ -203,6 +207,11 @@ begin
 				flush_remainder <= '1';
 			end if;
 		end if;
+		
+		flushd4 <= flushd3;
+		flushd3 <= flushd2;
+		flushd2 <= flushd1;
+		flushd1 <= flush_remainder;
 	end if;
 	end process;
 			
@@ -220,7 +229,7 @@ begin
 		RESETB => '0'
 	);
 	
-	crossin(0) <= flush_remainder;
+	crossin(0) <= flushd4;
 	MFLUSH <= crossout(0);
 	
 	writer_fifo_block : block is
