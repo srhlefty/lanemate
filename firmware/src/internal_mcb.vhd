@@ -32,17 +32,14 @@ use IEEE.NUMERIC_STD.ALL;
 entity internal_mcb is
 	Port ( 
 		MCLK : in std_logic;
-		TRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
-		
-		-- interface common to both fifos
-		MREADY : in std_logic;
-		MFLUSH : in std_logic;
+		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
 		MAVAIL : in std_logic_vector(8 downto 0);
+		MFLUSH : in std_logic;
 		
 		-- interface to data-to-write fifo
 		MPOP_W : out std_logic;
-		MDATA_W : in std_logic_vector(255 downto 0);  -- half-burst data (4 high speed clocks worth of data)
 		MADDR_W : in std_logic_vector(23 downto 0);   -- ddr address, high 24 bits
+		MDATA_W : in std_logic_vector(255 downto 0);  -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;                      -- data valid
 		
 		-- interface to data-to-read fifo
@@ -51,7 +48,7 @@ entity internal_mcb is
 		MDVALID_R : in std_logic;
 		
 		-- interface to data-just-read fifo
-		MPUSH : out std_logic;
+		MPUSH_R : out std_logic;
 		MDATA_R : out std_logic_vector(255 downto 0)
 	);
 end internal_mcb;
@@ -90,7 +87,7 @@ architecture Behavioral of internal_mcb is
 	signal limit : natural range 0 to 255 := 0;
 	signal pop_w : std_logic := '0';
 	signal pop_r : std_logic := '0';
-	signal mpush_r : std_logic := '0';
+	signal mpush : std_logic := '0';
 	
 	signal wdata : std_logic_vector(255 downto 0) := (others => '0');
 	signal data_just_read : std_logic_vector(255 downto 0) := (others => '0');
@@ -100,7 +97,7 @@ architecture Behavioral of internal_mcb is
 	signal active : std_logic := '0';
 	
 	-- There are 2 elements per burst since DDR3 burst length is 8.
-	-- TRANSACTION_SIZE / MAVAIL could be odd, in which case I have
+	-- MTRANSACTION_SIZE / MAVAIL could be odd, in which case I have
 	-- to pad the burst out to the full size on write, and cut off
 	-- the remainder on read. This signal captures whether we're
 	-- in that situation.
@@ -109,40 +106,45 @@ begin
 
 	MPOP_W <= pop_w;
 	MPOP_R <= pop_r;
-	MPUSH <= mpush_r;
+	MPUSH_R <= mpush;
 	ram_raddr2 <= MADDR_R(7 downto 0);
 
 	process(MCLK) is
+		variable transaction : natural;
+		variable available : natural;
 	begin
 	if(rising_edge(MCLK)) then
 	case state is
 		when WAITING_FOR_DATA =>
 			active <= '0';
-			mpush_r <= '0';
-			if(MREADY = '1') then
-				-- This indicates that it is safe to read out TRANSACTION_SIZE elements
+			mpush <= '0';
+			transaction := to_integer(unsigned(MTRANSACTION_SIZE));
+			available := to_integer(unsigned(MAVAIL));
+			
+			if(available >= transaction) then
+				-- This indicates that it is safe to read out MTRANSACTION_SIZE elements
 				-- from the two fifos
 				pop_w <= '1';
 				count <= 0;
 				even <= '1';
-				if(TRANSACTION_SIZE(0) = '1') then
+				if(MTRANSACTION_SIZE(0) = '1') then
 					half_burst <= '1';
-					limit <= to_integer(unsigned(TRANSACTION_SIZE)) + 1;
+					limit <= transaction + 1;
 				else
 					half_burst <= '0';
-					limit <= to_integer(unsigned(TRANSACTION_SIZE));
+					limit <= transaction;
 				end if;
 				state <= DELAY1;
-			elsif(MFLUSH = '1' and to_integer(unsigned(MAVAIL)) > 0) then
+			elsif(MFLUSH = '1' and available > 0) then
 				pop_w <= '1';
 				count <= 0;
 				even <= '1';
 				if(MAVAIL(0) = '1') then
 					half_burst <= '1';
-					limit <= to_integer(unsigned(MAVAIL)) + 1;
+					limit <= available + 1;
 				else
 					half_burst <= '0';
-					limit <= to_integer(unsigned(MAVAIL));
+					limit <= available;
 				end if;
 				state <= DELAY1;
 			else
@@ -196,11 +198,11 @@ begin
 			if( (half_burst = '0' and count = limit) or
 			    (half_burst = '1' and count = limit-1)) then
 				even <= '0';
-				mpush_r <= '0';
+				mpush <= '0';
 				state <= READFINISH;
 			else
 				count <= count + 1;
-				mpush_r <= '1';
+				mpush <= '1';
 				even <= not even;
 				if(even = '1') then
 					data_just_read <= ram_rdata2(255 downto 0);

@@ -116,8 +116,6 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 		MAVAIL : in std_logic_vector(8 downto 0);
 		MFLUSH : in std_logic;
 		
-		-- input side
-		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
 		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
@@ -129,6 +127,29 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : in std_logic;
 		
+		-- output side
+		MPUSH_R : out std_logic;
+		MDATA_R : out std_logic_vector(255 downto 0)
+	);
+	end component;
+
+	component internal_mcb is
+	Port ( 
+		MCLK : in std_logic;
+		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0);
+		MAVAIL : in std_logic_vector(8 downto 0);
+		MFLUSH : in std_logic;
+		
+		-- write-transaction fifo
+		MPOP_W : out std_logic;
+		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MDVALID_W : in std_logic;
+		
+		-- read-transaction fifo
+		MPOP_R : out std_logic;
+		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MDVALID_R : in std_logic;
 		
 		-- output side
 		MPUSH_R : out std_logic;
@@ -201,14 +222,17 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 
 BEGIN
  
+	--PCLK <= not PCLK after 18.519 ns; -- 480i
 	--PCLK <= not PCLK after 6.73 ns; -- 720p
 	PCLK <= not PCLK after 3.367 ns; -- 1080p
 	MCLK <= not MCLK after 5 ns;
 	
+	line_length <= 1920;
+	p8bit <= '0';
 	--line_length <= 1280;
 	--p8bit <= '0';
-	line_length <= 1440;
-	p8bit <= '1';
+	--line_length <= 1440;
+	--p8bit <= '1';
 		  
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
@@ -307,9 +331,10 @@ BEGIN
 
 	-- stage 4: mcb
 	
-	Inst_trivial_mcb: trivial_mcb PORT MAP(
+--	Inst_trivial_mcb: trivial_mcb PORT MAP(
+	Inst_trivial_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
-		MTRANSACTION_SIZE => x"1f",
+		MTRANSACTION_SIZE => x"1e",
 		MAVAIL => MAVAIL,
 		MFLUSH => MFLUSH,
 		MPOP_W => MPOP_W,

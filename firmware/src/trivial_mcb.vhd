@@ -36,8 +36,6 @@ entity trivial_mcb is
 		MAVAIL : in std_logic_vector(8 downto 0);
 		MFLUSH : in std_logic;
 		
-		-- input side
-		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
 		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
@@ -48,7 +46,6 @@ entity trivial_mcb is
 		MPOP_R : out std_logic;
 		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : in std_logic;
-		
 		
 		-- output side
 		MPUSH_R : out std_logic;
