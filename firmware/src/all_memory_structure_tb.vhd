@@ -222,7 +222,7 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 	signal transaction_size : std_logic_vector(7 downto 0) := (others => '0');
 	signal readout_delay : natural := 0;
 
-	constant source : natural := 2;
+	constant source : natural := 1;
 	
 BEGIN
 
@@ -251,7 +251,7 @@ BEGIN
 	begin
 		PCLK <= not PCLK after 18.519 ns; -- 480i
 		line_length <= 1440;
-		readout_delay <= 1440;
+		readout_delay <= 1440/2;
 		hblank <= 38+114+124;
 		p8bit <= '1';
 		transaction_size <= x"08";

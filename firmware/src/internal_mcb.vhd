@@ -72,8 +72,8 @@ architecture Behavioral of internal_mcb is
 	);
 	end component;
 
-	constant ram_addr_width : natural := 8;
-	constant ram_data_width : natural := 512;
+	constant ram_addr_width : natural := 9;
+	constant ram_data_width : natural := 256;
 	signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0) := (others => '0');
 	signal ram_wdata1 : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
 	signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0) := (others => '0');
@@ -81,8 +81,8 @@ architecture Behavioral of internal_mcb is
 	signal ram_we : std_logic := '0';
 
 	
-	type state_t is (WAITING_FOR_DATA, DELAY1, WRITE_STREAM, DELAY1R, DELAY2R, READ_STREAM, READFINISH);
-	signal state : state_t := WAITING_FOR_DATA;
+	type state_t is (NOP, OPEN_ROW_W, DELAY1W, WRITE_STREAM, CLOSE_ROW_W, OPEN_ROW_R, CLOSE_ROW_R, DELAY1R, READ_STREAM);
+	signal state : state_t := NOP;
 	signal count : natural range 0 to 255 := 0;
 	signal limit : natural range 0 to 255 := 0;
 	signal pop_w : std_logic := '0';
@@ -90,24 +90,23 @@ architecture Behavioral of internal_mcb is
 	signal mpush : std_logic := '0';
 	
 	signal wdata : std_logic_vector(255 downto 0) := (others => '0');
-	signal data_just_read : std_logic_vector(255 downto 0) := (others => '0');
+	signal waddr : std_logic_vector(23 downto 0) := (others => '0');
+	signal raddr : std_logic_vector(23 downto 0) := (others => '0');
+	signal data_just_read : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
 	signal we_d : std_logic := '0';
 
-	signal even : std_logic := '1';
-	signal active : std_logic := '0';
-	
 	-- There are 2 elements per burst since DDR3 burst length is 8.
 	-- MTRANSACTION_SIZE / MAVAIL could be odd, in which case I have
 	-- to pad the burst out to the full size on write, and cut off
 	-- the remainder on read. This signal captures whether we're
 	-- in that situation.
 	signal half_burst : std_logic := '0';
+	signal burst_addr : std_logic := '0';
 begin
 
 	MPOP_W <= pop_w;
 	MPOP_R <= pop_r;
 	MPUSH_R <= mpush;
-	ram_raddr2 <= MADDR_R(7 downto 0);
 
 	process(MCLK) is
 		variable transaction : natural;
@@ -115,18 +114,23 @@ begin
 	begin
 	if(rising_edge(MCLK)) then
 	case state is
-		when WAITING_FOR_DATA =>
-			active <= '0';
+		when NOP =>
 			mpush <= '0';
+			pop_w <= '0';
+			pop_r <= '0';
+			burst_addr <= '0';
+			count <= 0;
 			transaction := to_integer(unsigned(MTRANSACTION_SIZE));
 			available := to_integer(unsigned(MAVAIL));
-			
+
+			-- Determine whether to start a transaction. This can happen
+			-- automatically, in the case where the fifo contains more
+			-- elements than MTRANSACTION_SIZE, or manually if MFLUSH
+			-- is pulled high. Normal operation is for the transaction
+			-- to contain an even number of fifo elements. If the count
+			-- is odd, the burst is not full and so I have to forcibly
+			-- fill it with junk data.
 			if(available >= transaction) then
-				-- This indicates that it is safe to read out MTRANSACTION_SIZE elements
-				-- from the two fifos
-				pop_w <= '1';
-				count <= 0;
-				even <= '1';
 				if(MTRANSACTION_SIZE(0) = '1') then
 					half_burst <= '1';
 					limit <= transaction + 1;
@@ -134,11 +138,8 @@ begin
 					half_burst <= '0';
 					limit <= transaction;
 				end if;
-				state <= DELAY1;
+				state <= OPEN_ROW_W;
 			elsif(MFLUSH = '1' and available > 0) then
-				pop_w <= '1';
-				count <= 0;
-				even <= '1';
 				if(MAVAIL(0) = '1') then
 					half_burst <= '1';
 					limit <= available + 1;
@@ -146,12 +147,14 @@ begin
 					half_burst <= '0';
 					limit <= available;
 				end if;
-				state <= DELAY1;
-			else
-				pop_w <= '0';
+				state <= OPEN_ROW_W;
 			end if;
 			
-		when DELAY1 =>
+		when OPEN_ROW_W =>
+			pop_w <= '1';
+			state <= DELAY1W;
+			
+		when DELAY1W =>
 			state <= WRITE_STREAM;
 			
 		when WRITE_STREAM =>
@@ -163,72 +166,80 @@ begin
 				pop_w <= '0';
 			end if;
 			
-			
-			if(count = limit) then
-				even <= '1';
-				active <= '0';
-				pop_r <= '1';
-				count <= 0;
-				state <= DELAY1R;
-			else
-				active <= '1';
+			if(count = 0) then
+				wdata <= MDATA_W;
+				waddr <= MADDR_W;
 				count <= count + 1;
-				even <= not even;
-				if(even = '1') then
-					ram_wdata1(255 downto 0) <= MDATA_W;
-				else
-					ram_wdata1(511 downto 256) <= MDATA_W;
+			elsif(count = limit+1) then
+				ram_we <= '0';
+				count <= 0;
+				state <= CLOSE_ROW_W;
+			else
+				-- in a half burst the last data is repeated
+				if((half_burst = '1' and count < limit-1) or half_burst = '0') then
+					wdata <= MDATA_W;
+					waddr <= MADDR_W;
 				end if;
-				-- During a hlaf burst the final pop is shut off
-				-- so the same data gets written to both halves
+				ram_wdata1(255 downto 0) <= wdata;
+				ram_waddr1 <= waddr(7 downto 0) & burst_addr;
+				ram_we <= '1';
+				count <= count + 1;
+				burst_addr <= not burst_addr;
 			end if;
 			
+		when CLOSE_ROW_W =>
+			state <= OPEN_ROW_R;
+			
+		when OPEN_ROW_R =>
+			pop_r <= '1';
+			burst_addr <= '0';
+			count <= 0;
+			state <= DELAY1R;
+		
 		
 		when DELAY1R =>
-			state <= DELAY2R;
-		when DELAY2R =>
 			state <= READ_STREAM;
 			
 		when READ_STREAM =>
-			if( (half_burst = '0' and count = limit-3) or
-			    (half_burst = '1' and count = limit-4)) then
+			-- Turn off popping input data. During a half burst,
+			-- there's one extra cycle but no real fifo element
+			-- to read so I have to shut off pop one clock early
+			if( (half_burst = '0' and count = limit-2) or
+             (half_burst = '1' and count = limit-3)) then
 				pop_r <= '0';
 			end if;
 			
-			if( (half_burst = '0' and count = limit) or
-			    (half_burst = '1' and count = limit-1)) then
-				even <= '0';
-				mpush <= '0';
-				state <= READFINISH;
-			else
+			if(count = 0) then
+				raddr <= MADDR_R;
 				count <= count + 1;
-				mpush <= '1';
-				even <= not even;
-				if(even = '1') then
-					data_just_read <= ram_rdata2(255 downto 0);
-				else
-					data_just_read <= ram_rdata2(511 downto 256);
+			elsif((half_burst = '0' and count = limit+3) or 
+			      (half_burst = '1' and count = limit+2)) then
+				mpush <= '0';
+				count <= 0;
+				state <= CLOSE_ROW_R;
+			else
+				-- in a half burst the last data is repeated
+				if((half_burst = '1' and count < limit-1) or half_burst = '0') then
+					raddr <= MADDR_R;
 				end if;
+				ram_raddr2 <= raddr(7 downto 0) & burst_addr;
+				if(count > 2) then
+					data_just_read <= ram_rdata2; -- note the data is 2 clocks behind the address change
+					mpush <= '1';
+				end if;
+				count <= count + 1;
+				burst_addr <= not burst_addr;
 			end if;
 			
+		when CLOSE_ROW_R =>
+			state <= NOP;
 			
-		when READFINISH =>
-			state <= WAITING_FOR_DATA;
 			
 	end case;
 	end if;
 	end process;
 	
-	ram_we <= active and even;
 	MDATA_R <= data_just_read;
-	
-	process(MCLK) is
-	begin
-	if(rising_edge(MCLK)) then
-		ram_waddr1 <= MADDR_W(7 downto 0);
-	end if;
-	end process;
-	
 	
 	bram_inst: bram_simple_dual_port 
 	generic map(
