@@ -183,12 +183,6 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
    signal DOUT : std_logic_vector(23 downto 0);
    signal DEOUT : std_logic;
 
-	signal count : natural := 0;
-	signal line_length : natural := 0;
-	signal hblank : natural := 0;
-	signal p8bit : std_logic := '0';
-
-
    signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
    signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
    signal PNEW_FRAME : std_logic := '0';
@@ -221,22 +215,53 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 	signal PDE_FINAL : std_logic := '0';
 	signal PDVALID_FINAL : std_logic;
 
+	signal count : natural := 0;
+	signal line_length : natural := 0;
+	signal hblank : natural := 0;
+	signal p8bit : std_logic := '0';
+	signal transaction_size : std_logic_vector(7 downto 0) := (others => '0');
+	signal readout_delay : natural := 0;
+
+	constant source : natural := 2;
+	
 BEGIN
- 
-	--PCLK <= not PCLK after 18.519 ns; -- 480i
-	--PCLK <= not PCLK after 6.73 ns; -- 720p
-	PCLK <= not PCLK after 3.367 ns; -- 1080p
+
+	
+	gen_1080p : if(source = 0) generate
+	begin
+		PCLK <= not PCLK after 3.367 ns; -- 1080p
+		line_length <= 1920;
+		readout_delay <= 1920/2;
+		hblank <= 88+148+44;
+		p8bit <= '0';
+		transaction_size <= x"1e";
+	end generate;
+
+	gen_720p : if(source = 1) generate
+	begin
+		PCLK <= not PCLK after 6.73 ns; -- 720p
+		line_length <= 1280;
+		readout_delay <= 1280/2;
+		hblank <= 110+220+40;
+		p8bit <= '0';
+		transaction_size <= x"14";
+	end generate;
+	
+	gen_480i : if(source = 2) generate
+	begin
+		PCLK <= not PCLK after 18.519 ns; -- 480i
+		line_length <= 1440;
+		readout_delay <= 1440;
+		hblank <= 38+114+124;
+		p8bit <= '1';
+		transaction_size <= x"08";
+	end generate;
+
+
 	MCLK <= not MCLK after 5 ns;
 	
-	line_length <= 1920;
-	hblank <= 88+148+44;
-	p8bit <= '0';
-	--line_length <= 1280;
-	--hblank <= 110+220+40;
-	--p8bit <= '0';
-	--line_length <= 1440;
-	--hblank <= 38+114+124;
-	--p8bit <= '1';
+	
+	
 		  
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
@@ -259,8 +284,8 @@ BEGIN
 		end if;
 		
 		
-		if((count >= line_length+150 and count < line_length+150+line_length) or
-		   (count >= line_length+150+line_length+hblank and count < line_length+150+line_length+hblank+line_length)) then
+		if((count >= 10+readout_delay and count < 10+readout_delay+line_length) or
+		   (count >= 10+readout_delay+line_length+hblank and count < 10+readout_delay+line_length+hblank+line_length)) then
 			PDE_FINAL <= '1';
 		else
 			PDE_FINAL <= '0';
@@ -340,7 +365,7 @@ BEGIN
 --	Inst_trivial_mcb: trivial_mcb PORT MAP(
 	Inst_trivial_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
-		MTRANSACTION_SIZE => x"1e",
+		MTRANSACTION_SIZE => transaction_size,
 		MAVAIL => MAVAIL,
 		MFLUSH => MFLUSH,
 		MPOP_W => MPOP_W,
