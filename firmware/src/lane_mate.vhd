@@ -421,8 +421,8 @@ begin
 			stage1_d(23 downto 8) <= (others => '0');
 			stage1_d(7 downto 0)  <= decoded_sd_d;
 		else
-			stage1_vs <= '0';
-			stage1_hs <= '0';
+			stage1_vs <= '1';
+			stage1_hs <= '1';
 			stage1_de <= '0';
 			stage1_d  <= (others => '0');
 		end if;
