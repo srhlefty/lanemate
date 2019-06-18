@@ -43,12 +43,15 @@ ARCHITECTURE behavior OF delay_application_tb IS
     PORT(
          PCLK : IN  std_logic;
          VS : IN  std_logic;
+         HS : IN  std_logic;
          DE : IN  std_logic;
          PDATA : IN  std_logic_vector(23 downto 0);
          IS422 : IN  std_logic;
+			READOUT_DELAY : in std_logic_vector(9 downto 0);
          FRAME_ADDR_W : IN  std_logic_vector(23 downto 0);
          FRAME_ADDR_R : IN  std_logic_vector(23 downto 0);
-         DE_DELAYED : IN  std_logic;
+         VS_OUT : OUT  std_logic;
+         HS_OUT : OUT  std_logic;
          DE_OUT : OUT  std_logic;
          PDATA_OUT : OUT  std_logic_vector(23 downto 0);
          MCLK : IN  std_logic;
@@ -119,12 +122,13 @@ ARCHITECTURE behavior OF delay_application_tb IS
    --Inputs
    signal PCLK : std_logic := '0';
    signal VS : std_logic := '1';
+   signal HS : std_logic := '1';
    signal DE : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
    signal IS422 : std_logic := '0';
+	signal READOUT_DELAY : std_logic_vector(9 downto 0) := (others => '0');
    signal FRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
    signal FRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
-   signal DE_DELAYED : std_logic := '0';
    signal MCLK : std_logic := '0';
    signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := (others => '0');
    signal MPOP_W : std_logic := '0';
@@ -133,6 +137,8 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal MDATA : std_logic_vector(255 downto 0) := (others => '0');
 
  	--Outputs
+   signal VS_OUT : std_logic;
+   signal HS_OUT : std_logic;
    signal DE_OUT : std_logic;
    signal PDATA_OUT : std_logic_vector(23 downto 0);
    signal MAVAIL : std_logic_vector(8 downto 0);
@@ -146,7 +152,6 @@ ARCHITECTURE behavior OF delay_application_tb IS
 	signal count : natural := 0;
 	signal line_length : natural := 0;
 	signal hblank : natural := 0;
-	signal readout_delay : natural := 0;
 
 	constant source : natural := 1;
 
@@ -156,12 +161,15 @@ BEGIN
    uut: delay_application PORT MAP (
           PCLK => PCLK,
           VS => VS,
+          HS => HS,
           DE => DE,
           PDATA => PDATA,
           IS422 => IS422,
+			 READOUT_DELAY => READOUT_DELAY,
           FRAME_ADDR_W => FRAME_ADDR_W,
           FRAME_ADDR_R => FRAME_ADDR_R,
-          DE_DELAYED => DE_DELAYED,
+          VS_OUT => VS_OUT,
+          HS_OUT => HS_OUT,
           DE_OUT => DE_OUT,
           PDATA_OUT => PDATA_OUT,
           MCLK => MCLK,
@@ -200,7 +208,7 @@ BEGIN
 	begin
 		PCLK <= not PCLK after 3.367 ns; -- 1080p
 		line_length <= 1920;
-		readout_delay <= 1920/2;
+		READOUT_DELAY <= std_logic_vector(to_unsigned(1920/2, READOUT_DELAY'length));
 		hblank <= 88+148+44;
 		IS422 <= '0';
 		MTRANSACTION_SIZE <= x"1e";
@@ -210,7 +218,7 @@ BEGIN
 	begin
 		PCLK <= not PCLK after 6.73 ns; -- 720p
 		line_length <= 1280;
-		readout_delay <= 1280/2;
+		READOUT_DELAY <= std_logic_vector(to_unsigned(1280/2, READOUT_DELAY'length));
 		hblank <= 110+220+40;
 		IS422 <= '0';
 		MTRANSACTION_SIZE <= x"14";
@@ -220,7 +228,7 @@ BEGIN
 	begin
 		PCLK <= not PCLK after 18.519 ns; -- 480i
 		line_length <= 1440;
-		readout_delay <= 1440/2;
+		READOUT_DELAY <= std_logic_vector(to_unsigned(1440/2, READOUT_DELAY'length));
 		hblank <= 38+114+124;
 		IS422 <= '1';
 		MTRANSACTION_SIZE <= x"08";
@@ -234,6 +242,7 @@ BEGIN
 		  
 	process(PCLK) is
 		variable n : std_logic_vector(7 downto 0);
+		variable de1start, de1end, de2start, de2end : natural;
 	begin
 	if(rising_edge(PCLK)) then
 		count <= count + 1;
@@ -243,7 +252,13 @@ BEGIN
 		else
 			VS <= '1';
 		end if;
-
+		
+		if(count = 6) then
+			HS <= '0';
+		else
+			HS <= '1';
+		end if;
+		
 		if((count >= 10 and count < 10+line_length) or
 		   (count >= 10+line_length+hblank and count < 10+line_length+hblank+line_length)) then
 			n := std_logic_vector(to_unsigned(count-10, 8));
@@ -258,13 +273,29 @@ BEGIN
 			DE <= '0';
 		end if;
 		
-		
-		if((count >= 10+readout_delay and count < 10+readout_delay+line_length) or
-		   (count >= 10+readout_delay+line_length+hblank and count < 10+readout_delay+line_length+hblank+line_length)) then
-			DE_DELAYED <= '1';
-		else
-			DE_DELAYED <= '0';
-		end if;
+--		de1start := 10+readout_delay;
+--		de1end   := 10+readout_delay+line_length;
+--		de2start := 10+readout_delay+line_length+hblank;
+--		de2end   := 10+readout_delay+line_length+hblank+line_length;
+--		
+--		if(count = de1start - 2) then
+--			VS_DELAYED <= '0';
+--		else
+--			VS_DELAYED <= '1';
+--		end if;
+--		
+--		if(count = de1start - 1 or count = de2start - 1) then
+--			HS_DELAYED <= '0';
+--		else
+--			HS_DELAYED <= '1';
+--		end if;
+--		
+--		if((count >= de1start and count < de1end) or
+--		   (count >= de2start and count < de2end)) then
+--			DE_DELAYED <= '1';
+--		else
+--			DE_DELAYED <= '0';
+--		end if;
 		
 	end if;
 	end process;

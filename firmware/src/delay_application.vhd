@@ -34,16 +34,19 @@ entity delay_application is
 		-- Video input
 		PCLK : in std_logic;
 		VS   : in std_logic;
+		HS   : in std_logic;
 		DE   : in std_logic;
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
+		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
 		
 		-- R/W settings
 		FRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer. Captured on VS.
 		FRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer. Captured on VS.
 		
 		-- Video output
-		DE_DELAYED : in std_logic; -- needs to be about half a line, long enough so that a few transactions have occurred
+		VS_OUT : out std_logic;
+		HS_OUT : out std_logic;
 		DE_OUT : out std_logic;
 		PDATA_OUT  : out std_logic_vector(23 downto 0);
 
@@ -165,6 +168,17 @@ architecture Behavioral of delay_application is
 	end component;
 
 
+	component pulse_delay is
+	Port ( 
+		CLK : in  STD_LOGIC;
+		D : in  STD_LOGIC_VECTOR(2 downto 0);
+		RST : in STD_LOGIC;
+		D_RST : in  STD_LOGIC_VECTOR(2 downto 0);
+		DELAY : in  STD_LOGIC_VECTOR (14 downto 0);
+		DOUT : out  STD_LOGIC_VECTOR(2 downto 0);
+		OVERFLOW : out  STD_LOGIC);
+	end component;
+
 	signal de_post_gearbox : std_logic;
 	signal data_post_gearbox : std_logic_vector(23 downto 0);
 
@@ -176,6 +190,8 @@ architecture Behavioral of delay_application is
 	signal paddr_r : std_logic_vector(23 downto 0);
 	signal ppush_r : std_logic;
 	signal ppushed : std_logic;
+
+	signal de_delayed : std_logic := '0';
 	
 begin
 
@@ -251,6 +267,7 @@ begin
 
 
 	-- stage 5: inverse gearbox back to pixels
+	-- DE_OUT is 2 clocks behind DE_DELAYED
 	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
 		MCLK => MCLK,
 		MRESET => '0',
@@ -259,10 +276,63 @@ begin
 		PCLK => PCLK,
 		PDATA => PDATA_OUT,
 		P8BIT => IS422,
-		PPOP => DE_DELAYED,
+		PPOP => de_delayed,
 		PDVALID => DE_OUT,
 		PRESET => '0'
 	);
+	
+	sync_delay : block is
+		signal vsd : std_logic := '1';
+		signal hsd : std_logic := '1';
+		signal sbus_in : std_logic_vector(2 downto 0);
+		signal sbus_out : std_logic_vector(2 downto 0);
+		signal delay_old : std_logic_vector(READOUT_DELAY'high downto 0) := (others => '0');
+		signal delay_rst : std_logic := '0';
+		signal vs_delayed : std_logic := '1';
+		signal hs_delayed : std_logic := '1';
+		signal delay_in : std_logic_vector(14 downto 0);
+	begin
+		process(PCLK) is
+		begin
+		if(rising_edge(PCLK)) then
+			delay_old <= READOUT_DELAY;
+			if(delay_old /= READOUT_DELAY) then
+				delay_rst <= '1';
+			else
+				delay_rst <= '0';
+			end if;
+		end if;
+		end process;
+		
+	
+		sbus_in <= VS & HS & DE;
+		delay_in <= "00000" & READOUT_DELAY;
+		
+		Inst_pulse_delay: pulse_delay PORT MAP(
+			CLK => PCLK,
+			D => sbus_in,
+			RST => delay_rst,
+			D_RST => "110", -- during reset, output 1 for VS and HS
+			DELAY => delay_in,
+			DOUT => sbus_out,
+			OVERFLOW => open
+		);
+		
+		vs_delayed <= sbus_out(2);
+		hs_delayed <= sbus_out(1);
+		de_delayed <= sbus_out(0);
+		
+		-- ddr_to_pixel_fifo delays de by 2 more
+		process(PCLK) is
+		begin
+		if(rising_edge(PCLK)) then
+			vsd <= vs_delayed;
+			hsd <= hs_delayed;
+			VS_OUT <= vsd;
+			HS_OUT <= hsd;
+		end if;
+		end process;
+	end block;
 
 
 end Behavioral;

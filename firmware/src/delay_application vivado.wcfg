@@ -11,14 +11,14 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="92792792793fs"></ZoomEndTime>
-      <Cursor1Time time="103000000000fs"></Cursor1Time>
+      <ZoomEndTime time="800000001fs"></ZoomEndTime>
+      <Cursor1Time time="8701890000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="191"></NameColumnWidth>
       <ValueColumnWidth column_width="212"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="13" />
+   <WVObjectSize size="16" />
    <wvobject type="divider" fp_name="divider208">
       <obj_property name="label">pixel input</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -30,6 +30,10 @@
    <wvobject fp_name="/delay_application_tb/VS" type="logic">
       <obj_property name="ElementShortName">VS</obj_property>
       <obj_property name="ObjectShortName">VS</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/HS" type="logic">
+      <obj_property name="ElementShortName">HS</obj_property>
+      <obj_property name="ObjectShortName">HS</obj_property>
    </wvobject>
    <wvobject fp_name="/delay_application_tb/DE" type="logic">
       <obj_property name="ElementShortName">DE</obj_property>
@@ -62,6 +66,14 @@
    <wvobject type="divider" fp_name="divider218">
       <obj_property name="label">pixel output</obj_property>
       <obj_property name="DisplayName">label</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/VS_OUT" type="logic">
+      <obj_property name="ElementShortName">VS_OUT</obj_property>
+      <obj_property name="ObjectShortName">VS_OUT</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/HS_OUT" type="logic">
+      <obj_property name="ElementShortName">HS_OUT</obj_property>
+      <obj_property name="ObjectShortName">HS_OUT</obj_property>
    </wvobject>
    <wvobject fp_name="/delay_application_tb/DE_OUT" type="logic">
       <obj_property name="ElementShortName">DE_OUT</obj_property>

@@ -18,7 +18,7 @@
 --
 -- This module is designed to delay an arbitrary pulse train (on each of 3 lines)
 -- by up to 32767 clocks. It does this by simply pushing the bus data into a FIFO
--- and popping it out again. After a RST, the output will be zero until the delay
+-- and popping it out again. After a RST, the output will be D_RST until the delay
 -- time has been reached, at which point the data after the RST will begin to appear.
 -- The actual delay is 4 clocks more than that provided by DELAY.
 -- DELAY is only sampled on startup and after RST.
@@ -40,6 +40,7 @@ entity pulse_delay is
 		CLK : in  STD_LOGIC;
 		D : in  STD_LOGIC_VECTOR(2 downto 0);
 		RST : in STD_LOGIC;
+		D_RST : in std_logic_vector(2 downto 0);
 		DELAY : in  STD_LOGIC_VECTOR (14 downto 0);
 		DOUT : out  STD_LOGIC_VECTOR(2 downto 0);
 		OVERFLOW : out  STD_LOGIC);
@@ -164,7 +165,7 @@ begin
 		when FILLING =>
 			fifo_push <= '1';
 			fifo_pop <= '0';
-			DOUT <= (others => '0');
+			DOUT <= D_RST;
 			count <= count + 1;
 			if(count = to_integer(unsigned(DELAY))) then
 				state <= ACTIVE;
