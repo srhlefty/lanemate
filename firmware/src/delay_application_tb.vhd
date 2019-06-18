@@ -48,8 +48,8 @@ ARCHITECTURE behavior OF delay_application_tb IS
          PDATA : IN  std_logic_vector(23 downto 0);
          IS422 : IN  std_logic;
 			READOUT_DELAY : in std_logic_vector(9 downto 0);
-         FRAME_ADDR_W : IN  std_logic_vector(23 downto 0);
-         FRAME_ADDR_R : IN  std_logic_vector(23 downto 0);
+         FRAME_ADDR_W : IN  std_logic_vector(26 downto 0);
+         FRAME_ADDR_R : IN  std_logic_vector(26 downto 0);
          VS_OUT : OUT  std_logic;
          HS_OUT : OUT  std_logic;
          DE_OUT : OUT  std_logic;
@@ -59,11 +59,11 @@ ARCHITECTURE behavior OF delay_application_tb IS
          MAVAIL : OUT  std_logic_vector(8 downto 0);
          MFLUSH : OUT  std_logic;
          MPOP_W : IN  std_logic;
-         MADDR_W : OUT  std_logic_vector(23 downto 0);
+         MADDR_W : OUT  std_logic_vector(26 downto 0);
          MDATA_W : OUT  std_logic_vector(255 downto 0);
          MDVALID_W : OUT  std_logic;
          MPOP_R : IN  std_logic;
-         MADDR_R : OUT  std_logic_vector(23 downto 0);
+         MADDR_R : OUT  std_logic_vector(26 downto 0);
          MDVALID_R : OUT  std_logic;
          MPUSH : IN  std_logic;
          MDATA : IN  std_logic_vector(255 downto 0)
@@ -79,13 +79,13 @@ ARCHITECTURE behavior OF delay_application_tb IS
 		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
-		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;
 		
 		-- read-transaction fifo
 		MPOP_R : out std_logic;
-		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDVALID_R : in std_logic;
 		
 		-- output side
@@ -103,13 +103,13 @@ ARCHITECTURE behavior OF delay_application_tb IS
 		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
-		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;
 		
 		-- read-transaction fifo
 		MPOP_R : out std_logic;
-		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDVALID_R : in std_logic;
 		
 		-- output side
@@ -127,8 +127,8 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
    signal IS422 : std_logic := '0';
 	signal READOUT_DELAY : std_logic_vector(9 downto 0) := (others => '0');
-   signal FRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
-   signal FRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
+   signal FRAME_ADDR_W : std_logic_vector(26 downto 0) := (others => '0');
+   signal FRAME_ADDR_R : std_logic_vector(26 downto 0) := (others => '0');
    signal MCLK : std_logic := '0';
    signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := (others => '0');
    signal MPOP_W : std_logic := '0';
@@ -143,10 +143,10 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal PDATA_OUT : std_logic_vector(23 downto 0);
    signal MAVAIL : std_logic_vector(8 downto 0);
    signal MFLUSH : std_logic;
-   signal MADDR_W : std_logic_vector(23 downto 0);
+   signal MADDR_W : std_logic_vector(26 downto 0);
    signal MDATA_W : std_logic_vector(255 downto 0);
    signal MDVALID_W : std_logic;
-   signal MADDR_R : std_logic_vector(23 downto 0);
+   signal MADDR_R : std_logic_vector(26 downto 0);
    signal MDVALID_R : std_logic;
 
 	signal count : natural := 0;

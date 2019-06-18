@@ -44,13 +44,13 @@ ARCHITECTURE behavior OF gearbox24to256_tb IS
          PCLK : IN  std_logic;
          PDATA : IN  std_logic_vector(23 downto 0);
          PPUSH : IN  std_logic;
-         PFRAME_ADDR_W : IN  std_logic_vector(23 downto 0);
-         PFRAME_ADDR_R : IN  std_logic_vector(23 downto 0);
+         PFRAME_ADDR_W : IN  std_logic_vector(26 downto 0);
+         PFRAME_ADDR_R : IN  std_logic_vector(26 downto 0);
          PNEW_FRAME : IN  std_logic;
-         PADDR_W : OUT  std_logic_vector(23 downto 0);
+         PADDR_W : OUT  std_logic_vector(26 downto 0);
          PDATA_W : OUT  std_logic_vector(255 downto 0);
          PPUSH_W : OUT  std_logic;
-         PADDR_R : OUT  std_logic_vector(23 downto 0);
+         PADDR_R : OUT  std_logic_vector(26 downto 0);
          PPUSH_R : OUT  std_logic;
          PPUSHED : OUT  std_logic
         );
@@ -71,15 +71,15 @@ ARCHITECTURE behavior OF gearbox24to256_tb IS
    signal PCLK : std_logic := '0';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
    signal PPUSH : std_logic := '0';
-   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
-   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
+   signal PFRAME_ADDR_W : std_logic_vector(26 downto 0) := (others => '0');
+   signal PFRAME_ADDR_R : std_logic_vector(26 downto 0) := (others => '0');
    signal PNEW_FRAME : std_logic := '0';
 
  	--Outputs
-   signal PADDR_W : std_logic_vector(23 downto 0);
+   signal PADDR_W : std_logic_vector(26 downto 0);
    signal PDATA_W : std_logic_vector(255 downto 0);
    signal PPUSH_W : std_logic;
-   signal PADDR_R : std_logic_vector(23 downto 0);
+   signal PADDR_R : std_logic_vector(26 downto 0);
    signal PPUSH_R : std_logic;
    signal PPUSHED : std_logic;
 

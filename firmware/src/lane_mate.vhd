@@ -155,6 +155,83 @@ architecture Behavioral of lane_mate is
 	);
 	end component;
 	
+	component delay_application is
+	Port ( 
+		-- Video input
+		PCLK : in std_logic;
+		VS   : in std_logic;
+		HS   : in std_logic;
+		DE   : in std_logic;
+		PDATA : in std_logic_vector(23 downto 0);
+		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
+		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		
+		-- R/W settings
+		FRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer. Captured on VS.
+		FRAME_ADDR_R : in std_logic_vector(26 downto 0); -- DDR read pointer. Captured on VS.
+		
+		-- Video output
+		VS_OUT : out std_logic;
+		HS_OUT : out std_logic;
+		DE_OUT : out std_logic;
+		PDATA_OUT  : out std_logic_vector(23 downto 0);
+
+		-------------------------------------------------------------------------
+		-- MCB interface
+		MCLK : in std_logic;
+		
+		-- fifo status and control
+		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0);
+		MAVAIL : out std_logic_vector(8 downto 0);
+		MFLUSH : out std_logic;
+		
+		-- write-transaction fifo, output side
+		MPOP_W : in std_logic;
+		MADDR_W : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
+		MDATA_W : out std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MDVALID_W : out std_logic;
+		
+		-- read-transaction fifo, output side
+		MPOP_R : in std_logic;
+		MADDR_R : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
+		MDVALID_R : out std_logic;
+
+		-- read-transaction results
+		MPUSH : in std_logic;
+		MDATA : in std_logic_vector(255 downto 0)
+		
+		--
+		-------------------------------------------------------------------------
+	);
+	end component;
+	
+	component internal_mcb is
+	Port ( 
+		MCLK : in std_logic;
+		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0);
+		MAVAIL : in std_logic_vector(8 downto 0);
+		MFLUSH : in std_logic;
+		
+		-- write-transaction fifo
+		MPOP_W : out std_logic;
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
+		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MDVALID_W : in std_logic;
+		
+		-- read-transaction fifo
+		MPOP_R : out std_logic;
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
+		MDVALID_R : in std_logic;
+		
+		-- output side
+		MPUSH_R : out std_logic;
+		MDATA_R : out std_logic_vector(255 downto 0)
+	);
+	end component;
+	
+	
+	
+	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
 	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
@@ -207,6 +284,11 @@ architecture Behavioral of lane_mate is
 	signal stage2_de : std_logic;
 	signal stage2_d : std_logic_vector(23 downto 0);
 	
+	signal stage3_hs : std_logic;
+	signal stage3_vs : std_logic;
+	signal stage3_de : std_logic;
+	signal stage3_d : std_logic_vector(23 downto 0);
+	
 	signal clk : std_logic;
 	signal ibufg_to_bufgs : std_logic;
 	
@@ -219,6 +301,13 @@ architecture Behavioral of lane_mate is
 	signal enable_test_pattern : std_logic := '0';
 	
 	signal rgbmask : std_logic_vector(23 downto 0);
+
+	signal is422 : std_logic;
+	
+	signal readout_delay : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(1920/2, 10));
+	signal frame_addr_w : std_logic_vector(26 downto 0) := (others => '0');
+	signal frame_addr_r : std_logic_vector(26 downto 0) := (others => '0');
+	signal mtransaction_size : std_logic_vector(7 downto 0) := x"1e";
 	
 begin
 
@@ -429,6 +518,10 @@ begin
 	end if;
 	end process;
 	
+	with register_map(1) select is422 <=
+		'1' when x"01",
+		'0' when others;
+	
 	----------------------------------------------------------------------------
 
 
@@ -437,38 +530,126 @@ begin
 
 	-- Test pattern (overwrites source data) -----------------------------------
 
-	pat : block is
-		signal is422 : std_logic;
-	begin
-
-		with register_map(1) select is422 <=
-			'1' when x"01",
-			'0' when others;
-
-		with register_map(2) select enable_test_pattern <=
-			'1' when x"01",
-			'0' when others;
-		
-		Inst_test_pattern: test_pattern PORT MAP(
-			PCLK => video_clock,
-			VS => stage1_vs,
-			HS => stage1_hs,
-			DE => stage1_de,
-			CE => enable_test_pattern,
-			IS422 => is422,
-			D => stage1_d,
-			VSOUT => stage2_vs,
-			HSOUT => stage2_hs,
-			DEOUT => stage2_de,
-			DOUT => stage2_d
-		);
+	with register_map(2) select enable_test_pattern <=
+		'1' when x"01",
+		'0' when others;
 	
-	end block;
+	Inst_test_pattern: test_pattern PORT MAP(
+		PCLK => video_clock,
+		VS => stage1_vs,
+		HS => stage1_hs,
+		DE => stage1_de,
+		CE => enable_test_pattern,
+		IS422 => is422,
+		D => stage1_d,
+		VSOUT => stage2_vs,
+		HSOUT => stage2_hs,
+		DEOUT => stage2_de,
+		DOUT => stage2_d
+	);
 	
 	----------------------------------------------------------------------------
 	
 	
+	-- Main application --------------------------------------------------------
+	-- External parameters: readout_delay, mtransaction_size, frame_addr_w, frame_addr_r
+	-- Of those, all are on the pixel clock domain except mtransaction_size.
 	
+	app : block is
+		signal MPOP_W : std_logic;
+		signal MPOP_R : std_logic;
+		signal MPUSH : std_logic;
+		signal MDATA : std_logic_vector(255 downto 0);
+		signal MAVAIL : std_logic_vector(8 downto 0);
+		signal MFLUSH : std_logic;
+		signal MADDR_W : std_logic_vector(26 downto 0);
+		signal MDATA_W : std_logic_vector(255 downto 0);
+		signal MDVALID_W : std_logic;
+		signal MADDR_R : std_logic_vector(26 downto 0);
+		signal MDVALID_R : std_logic;
+		signal preadout_delay : std_logic_vector(9 downto 0);
+		signal pframe_addr_w : std_logic_vector(26 downto 0);
+		signal pframe_addr_r : std_logic_vector(26 downto 0);
+	begin
+	
+		cross_delay : synchronizer_2ff 
+		generic map( DATA_WIDTH => 10, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
+		PORT MAP(
+			CLKA => clk,
+			DA => readout_delay,
+			CLKB => video_clock,
+			DB => preadout_delay,
+			RESETB => '0'
+		);
+		cross_addrw : synchronizer_2ff 
+		generic map( DATA_WIDTH => 27, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
+		PORT MAP(
+			CLKA => clk,
+			DA => frame_addr_w,
+			CLKB => video_clock,
+			DB => pframe_addr_w,
+			RESETB => '0'
+		);
+		cross_addrr : synchronizer_2ff 
+		generic map( DATA_WIDTH => 27, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
+		PORT MAP(
+			CLKA => clk,
+			DA => frame_addr_r,
+			CLKB => video_clock,
+			DB => pframe_addr_r,
+			RESETB => '0'
+		);
+	
+		inst_delay_application: delay_application PORT MAP (
+			 PCLK => video_clock,
+			 VS => stage2_vs,
+			 HS => stage2_hs,
+			 DE => stage2_de,
+			 PDATA => stage2_d,
+			 IS422 => is422,
+			 READOUT_DELAY => preadout_delay, -- pclk
+			 FRAME_ADDR_W => pframe_addr_w, -- pclk
+			 FRAME_ADDR_R => pframe_addr_r, -- pclk
+			 VS_OUT => stage3_vs,
+			 HS_OUT => stage3_hs,
+			 DE_OUT => stage3_de,
+			 PDATA_OUT => stage3_d,
+			 MCLK => clk,
+			 MTRANSACTION_SIZE => mtransaction_size, -- mclk
+			 MAVAIL => MAVAIL,
+			 MFLUSH => MFLUSH,
+			 MPOP_W => MPOP_W,
+			 MADDR_W => MADDR_W,
+			 MDATA_W => MDATA_W,
+			 MDVALID_W => MDVALID_W,
+			 MPOP_R => MPOP_R,
+			 MADDR_R => MADDR_R,
+			 MDVALID_R => MDVALID_R,
+			 MPUSH => MPUSH,
+			 MDATA => MDATA
+		  );
+
+	--	Inst_trivial_mcb: trivial_mcb PORT MAP(
+		Inst_trivial_mcb: internal_mcb PORT MAP(
+			MCLK => clk,
+			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
+			MAVAIL => MAVAIL,
+			MFLUSH => MFLUSH,
+			MPOP_W => MPOP_W,
+			MADDR_W => MADDR_W,
+			MDATA_W => MDATA_W,
+			MDVALID_W => MDVALID_W,
+			MPOP_R => MPOP_R,
+			MADDR_R => MADDR_R,
+			MDVALID_R => MDVALID_R,
+			MPUSH_R => MPUSH,
+			MDATA_R => MDATA
+		);
+	
+	end block;
+	
+	
+	----------------------------------------------------------------------------
 	
 	
 
@@ -480,10 +661,10 @@ begin
 	process(video_clock) is
 	begin
 	if(rising_edge(video_clock)) then
-		HDO_VS <= stage2_vs;
-		HDO_HS <= stage2_hs;
-		HDO_DE <= stage2_de;
-		RGB_OUT <= stage2_d;
+		HDO_VS <= stage3_vs;
+		HDO_HS <= stage3_hs;
+		HDO_DE <= stage3_de;
+		RGB_OUT <= stage3_d;
 	end if;
 	end process;
 	

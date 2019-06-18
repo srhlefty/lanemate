@@ -49,7 +49,7 @@
 
 -- DDR address management is done through the PFRAME_ADDR_* and PNEW_FRAME controls.
 -- PFRAME_ADDR is the base frame address, set by the micro based on what the application
--- wants to do. Even though the DDR3 address bus is 27 bits wide, it is only 24 bits
+-- wants to do. Even though the DDR3 address bus is 30 bits wide, it is only 27 bits
 -- because I always read or write a complete burst, which is 8 locations, thus the last
 -- 3 bits of the actual DDR address will always be zero. To compute the DDR address,
 -- this module has an internal accumulator that it adds to PFRAME_ADDR_*. Obviously this
@@ -81,21 +81,21 @@ entity pixel_to_ddr_fifo is
 		PPUSHED : in std_logic;
 		
 		-- write-transaction fifo, input side
-		PADDR_W : in std_logic_vector(23 downto 0);
+		PADDR_W : in std_logic_vector(26 downto 0);
 		PDATA_W : in std_logic_vector(255 downto 0);
 		PPUSH_W : in std_logic;
 		-- write-transaction fifo, output side
 		MPOP_W : in std_logic;
-		MADDR_W : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDATA_W : out std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : out std_logic;
 
 		-- read-transaction fifo, input side
-		PADDR_R : in std_logic_vector(23 downto 0);
+		PADDR_R : in std_logic_vector(26 downto 0);
 		PPUSH_R : in std_logic;
 		-- read-transaction fifo, output side
 		MPOP_R : in std_logic;
-		MADDR_R : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : out std_logic;
 
 		-- mcb signals
@@ -177,8 +177,8 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	end component;
 	
 	constant ram_addr_width : natural := 9;
-	constant ram_data_width_w : natural := 256 + 24; -- 256 for data, 24 for address
-	constant ram_data_width_r : natural := 24; -- just address
+	constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
+	constant ram_data_width_r : natural := 27; -- just address
 	
 	signal flush_remainder : std_logic := '0';
 	signal flushd1 : std_logic := '0';
@@ -257,8 +257,8 @@ begin
 			RDATA2 => ram_rdata2
 		);
 		
-		bus_in(ram_data_width_w-1 downto ram_data_width_w-24) <= PADDR_W;
-		bus_in(ram_data_width_w-24-1 downto 0)                <= PDATA_W;
+		bus_in(ram_data_width_w-1 downto ram_data_width_w-27) <= PADDR_W;
+		bus_in(ram_data_width_w-27-1 downto 0)                <= PDATA_W;
 	
 		write_fifo: fifo_2clk 
 		generic map(
@@ -284,8 +284,8 @@ begin
 			RAM_RDATA => ram_rdata2
 		);
 		
-		MADDR_W <= bus_out(ram_data_width_w-1 downto ram_data_width_w-24); -- 24 bits wide
-		MDATA_W <= bus_out(ram_data_width_w-24-1 downto 0);                -- 256 bits wide
+		MADDR_W <= bus_out(ram_data_width_w-1 downto ram_data_width_w-27); -- 27 bits wide
+		MDATA_W <= bus_out(ram_data_width_w-27-1 downto 0);                -- 256 bits wide
 		
 	end block;
 

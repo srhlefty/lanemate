@@ -45,17 +45,17 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
          MCLK : IN  std_logic;
          PDE : IN  std_logic;
          PPUSHED : IN  std_logic;
-         PADDR_W : IN  std_logic_vector(23 downto 0);
+         PADDR_W : IN  std_logic_vector(26 downto 0);
          PDATA_W : IN  std_logic_vector(255 downto 0);
          PPUSH_W : IN  std_logic;
          MPOP_W : IN  std_logic;
-         MADDR_W : OUT  std_logic_vector(23 downto 0);
+         MADDR_W : OUT  std_logic_vector(26 downto 0);
          MDATA_W : OUT  std_logic_vector(255 downto 0);
          MDVALID_W : OUT  std_logic;
-         PADDR_R : IN  std_logic_vector(23 downto 0);
+         PADDR_R : IN  std_logic_vector(26 downto 0);
          PPUSH_R : IN  std_logic;
          MPOP_R : IN  std_logic;
-         MADDR_R : OUT  std_logic_vector(23 downto 0);
+         MADDR_R : OUT  std_logic_vector(26 downto 0);
          MDVALID_R : OUT  std_logic;
          MAVAIL : OUT  std_logic_vector(8 downto 0);
          MFLUSH : OUT  std_logic
@@ -68,19 +68,19 @@ ARCHITECTURE behavior OF pixel_to_ddr_fifo_tb IS
    signal MCLK : std_logic := '0';
    signal PDE : std_logic := '0';
    signal PPUSHED : std_logic := '0';
-   signal PADDR_W : std_logic_vector(23 downto 0) := (others => '0');
+   signal PADDR_W : std_logic_vector(26 downto 0) := (others => '0');
    signal PDATA_W : std_logic_vector(255 downto 0) := (others => '0');
    signal PPUSH_W : std_logic := '0';
    signal MPOP_W : std_logic := '0';
-   signal PADDR_R : std_logic_vector(23 downto 0) := (others => '0');
+   signal PADDR_R : std_logic_vector(26 downto 0) := (others => '0');
    signal PPUSH_R : std_logic := '0';
    signal MPOP_R : std_logic := '0';
 
  	--Outputs
-   signal MADDR_W : std_logic_vector(23 downto 0);
+   signal MADDR_W : std_logic_vector(26 downto 0);
    signal MDATA_W : std_logic_vector(255 downto 0);
    signal MDVALID_W : std_logic;
-   signal MADDR_R : std_logic_vector(23 downto 0);
+   signal MADDR_R : std_logic_vector(26 downto 0);
    signal MDVALID_R : std_logic;
    signal MAVAIL : std_logic_vector(8 downto 0);
    signal MFLUSH : std_logic;

@@ -41,8 +41,8 @@ entity delay_application is
 		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
 		
 		-- R/W settings
-		FRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer. Captured on VS.
-		FRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer. Captured on VS.
+		FRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer. Captured on VS.
+		FRAME_ADDR_R : in std_logic_vector(26 downto 0); -- DDR read pointer. Captured on VS.
 		
 		-- Video output
 		VS_OUT : out std_logic;
@@ -61,13 +61,13 @@ entity delay_application is
 		
 		-- write-transaction fifo, output side
 		MPOP_W : in std_logic;
-		MADDR_W : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : out std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDATA_W : out std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : out std_logic;
 		
 		-- read-transaction fifo, output side
 		MPOP_R : in std_logic;
-		MADDR_R : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : out std_logic;
 
 		-- read-transaction results
@@ -101,17 +101,17 @@ architecture Behavioral of delay_application is
 		PPUSH : in std_logic;                             -- DE
 		
 		-- address management
-		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
-		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
+		PFRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer
+		PFRAME_ADDR_R : in std_logic_vector(26 downto 0); -- DDR read pointer
 		PNEW_FRAME : in std_logic;                        -- pulse to capture write/read pointers
 		
 		-- output to write-transaction address & data fifos
-		PADDR_W : out std_logic_vector(23 downto 0);
+		PADDR_W : out std_logic_vector(26 downto 0);
 		PDATA_W : out std_logic_vector(255 downto 0);
 		PPUSH_W : out std_logic;
 		
 		-- output to read-transaction address fifo
-		PADDR_R : out std_logic_vector(23 downto 0);
+		PADDR_R : out std_logic_vector(26 downto 0);
 		PPUSH_R : out std_logic;
 		
 		-- signal that a group of 3 pushes has just completed
@@ -129,21 +129,21 @@ architecture Behavioral of delay_application is
 		PPUSHED : in std_logic;
 		
 		-- write-transaction fifo, input side
-		PADDR_W : in std_logic_vector(23 downto 0);
+		PADDR_W : in std_logic_vector(26 downto 0);
 		PDATA_W : in std_logic_vector(255 downto 0);
 		PPUSH_W : in std_logic;
 		-- write-transaction fifo, output side
 		MPOP_W : in std_logic;
-		MADDR_W : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDATA_W : out std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : out std_logic;
 
 		-- read-transaction fifo, input side
-		PADDR_R : in std_logic_vector(23 downto 0);
+		PADDR_R : in std_logic_vector(26 downto 0);
 		PPUSH_R : in std_logic;
 		-- read-transaction fifo, output side
 		MPOP_R : in std_logic;
-		MADDR_R : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : out std_logic;
 
 		-- mcb signals
@@ -184,10 +184,10 @@ architecture Behavioral of delay_application is
 
 	signal newframe : std_logic := '0';
 
-	signal paddr_w : std_logic_vector(23 downto 0);
+	signal paddr_w : std_logic_vector(26 downto 0);
 	signal pdata_w : std_logic_vector(255 downto 0);
 	signal ppush_w : std_logic;
-	signal paddr_r : std_logic_vector(23 downto 0);
+	signal paddr_r : std_logic_vector(26 downto 0);
 	signal ppush_r : std_logic;
 	signal ppushed : std_logic;
 

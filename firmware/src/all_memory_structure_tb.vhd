@@ -58,17 +58,17 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 		PPUSH : in std_logic;                             -- DE
 		
 		-- address management
-		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
-		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
+		PFRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer
+		PFRAME_ADDR_R : in std_logic_vector(26 downto 0); -- DDR read pointer
 		PNEW_FRAME : in std_logic;                        -- pulse to capture write/read pointers
 		
 		-- output to write-transaction address & data fifos
-		PADDR_W : out std_logic_vector(23 downto 0);
+		PADDR_W : out std_logic_vector(26 downto 0);
 		PDATA_W : out std_logic_vector(255 downto 0);
 		PPUSH_W : out std_logic;
 		
 		-- output to read-transaction address fifo
-		PADDR_R : out std_logic_vector(23 downto 0);
+		PADDR_R : out std_logic_vector(26 downto 0);
 		PPUSH_R : out std_logic;
 		
 		-- signal that a group of 3 pushes has just completed
@@ -86,21 +86,21 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 		PPUSHED : in std_logic;
 		
 		-- write-transaction fifo, input side
-		PADDR_W : in std_logic_vector(23 downto 0);
+		PADDR_W : in std_logic_vector(26 downto 0);
 		PDATA_W : in std_logic_vector(255 downto 0);
 		PPUSH_W : in std_logic;
 		-- write-transaction fifo, output side
 		MPOP_W : in std_logic;
-		MADDR_W : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDATA_W : out std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : out std_logic;
 
 		-- read-transaction fifo, input side
-		PADDR_R : in std_logic_vector(23 downto 0);
+		PADDR_R : in std_logic_vector(26 downto 0);
 		PPUSH_R : in std_logic;
 		-- read-transaction fifo, output side
 		MPOP_R : in std_logic;
-		MADDR_R : out std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : out std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : out std_logic;
 
 		-- mcb signals
@@ -118,13 +118,13 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
-		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;
 		
 		-- read-transaction fifo
 		MPOP_R : out std_logic;
-		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : in std_logic;
 		
 		-- output side
@@ -142,13 +142,13 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
 		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
-		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;
 		
 		-- read-transaction fifo
 		MPOP_R : out std_logic;
-		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 24 bits
 		MDVALID_R : in std_logic;
 		
 		-- output side
@@ -183,22 +183,22 @@ ARCHITECTURE behavior OF all_memory_structure_tb IS
    signal DOUT : std_logic_vector(23 downto 0);
    signal DEOUT : std_logic;
 
-   signal PFRAME_ADDR_W : std_logic_vector(23 downto 0) := (others => '0');
-   signal PFRAME_ADDR_R : std_logic_vector(23 downto 0) := (others => '0');
+   signal PFRAME_ADDR_W : std_logic_vector(26 downto 0) := (others => '0');
+   signal PFRAME_ADDR_R : std_logic_vector(26 downto 0) := (others => '0');
    signal PNEW_FRAME : std_logic := '0';
-   signal PADDR_W : std_logic_vector(23 downto 0);
+   signal PADDR_W : std_logic_vector(26 downto 0);
    signal PDATA_W : std_logic_vector(255 downto 0);
    signal PPUSH_W : std_logic;
-   signal PADDR_R : std_logic_vector(23 downto 0);
+   signal PADDR_R : std_logic_vector(26 downto 0);
    signal PPUSH_R : std_logic;
    signal PPUSHED : std_logic;
 
 
 
-   signal MADDR_W : std_logic_vector(23 downto 0);
+   signal MADDR_W : std_logic_vector(26 downto 0);
    signal MDATA_W : std_logic_vector(255 downto 0);
    signal MDVALID_W : std_logic;
-   signal MADDR_R : std_logic_vector(23 downto 0);
+   signal MADDR_R : std_logic_vector(26 downto 0);
    signal MDVALID_R : std_logic;
    signal MAVAIL : std_logic_vector(8 downto 0);
    signal MFLUSH : std_logic;

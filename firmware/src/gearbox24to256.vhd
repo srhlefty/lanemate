@@ -37,17 +37,17 @@ entity gearbox24to256 is
 		PPUSH : in std_logic;                             -- DE
 		
 		-- address management
-		PFRAME_ADDR_W : in std_logic_vector(23 downto 0); -- DDR write pointer
-		PFRAME_ADDR_R : in std_logic_vector(23 downto 0); -- DDR read pointer
+		PFRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer
+		PFRAME_ADDR_R : in std_logic_vector(26 downto 0); -- DDR read pointer
 		PNEW_FRAME : in std_logic;                        -- pulse to capture write/read pointers
 		
 		-- output to write-transaction address & data fifos
-		PADDR_W : out std_logic_vector(23 downto 0);
+		PADDR_W : out std_logic_vector(26 downto 0);
 		PDATA_W : out std_logic_vector(255 downto 0);
 		PPUSH_W : out std_logic;
 		
 		-- output to read-transaction address fifo
-		PADDR_R : out std_logic_vector(23 downto 0);
+		PADDR_R : out std_logic_vector(26 downto 0);
 		PPUSH_R : out std_logic;
 		
 		-- signal that a group of 3 pushes has just completed
@@ -67,16 +67,16 @@ architecture Behavioral of gearbox24to256 is
 		type pusher_state_t is (IDLE, P1, P2, P3);
 		signal pusher_state : pusher_state_t := IDLE;
 		
-		signal base_addr_w : std_logic_vector(23 downto 0) := (others => '0');
-		signal base_addr_r : std_logic_vector(23 downto 0) := (others => '0');
+		signal base_addr_w : std_logic_vector(26 downto 0) := (others => '0');
+		signal base_addr_r : std_logic_vector(26 downto 0) := (others => '0');
 		-- 1080p has 1080 lines, 180 elements per line, so max address offset is 1080*180/2 = 97,200
 		-- with the /2 because it takes 2 elements to do one burst at the same address. Thus a 17-bit number.
 		signal addr_offset_w : std_logic_vector(16 downto 0) := (others => '0');
 		signal addr_offset_r : std_logic_vector(16 downto 0) := (others => '0');
 		
-		signal addr_out_w : std_logic_vector(23 downto 0) := (others => '0');
+		signal addr_out_w : std_logic_vector(26 downto 0) := (others => '0');
 		signal data_out_w : std_logic_vector(255 downto 0) := (others => '0');
-		signal addr_out_r : std_logic_vector(23 downto 0) := (others => '0');
+		signal addr_out_r : std_logic_vector(26 downto 0) := (others => '0');
 		signal fifo_push : std_logic := '0';
 		
 		signal done_d : std_logic := '0';
@@ -85,10 +85,10 @@ architecture Behavioral of gearbox24to256 is
 		type offset_mode_t is (EVEN, ODD);
 		signal offset_mode : offset_mode_t := EVEN;
 		
-		signal waddr_plus_0 : std_logic_vector(23 downto 0) := (others => '0');
-		signal raddr_plus_0 : std_logic_vector(23 downto 0) := (others => '0');
-		signal waddr_plus_1 : std_logic_vector(23 downto 0) := (others => '0');
-		signal raddr_plus_1 : std_logic_vector(23 downto 0) := (others => '0');
+		signal waddr_plus_0 : std_logic_vector(26 downto 0) := (others => '0');
+		signal raddr_plus_0 : std_logic_vector(26 downto 0) := (others => '0');
+		signal waddr_plus_1 : std_logic_vector(26 downto 0) := (others => '0');
+		signal raddr_plus_1 : std_logic_vector(26 downto 0) := (others => '0');
 		signal woffset_plus_1 : std_logic_vector(16 downto 0) := (others => '0');
 		signal roffset_plus_1 : std_logic_vector(16 downto 0) := (others => '0');
 		signal woffset_plus_2 : std_logic_vector(16 downto 0) := (others => '0');

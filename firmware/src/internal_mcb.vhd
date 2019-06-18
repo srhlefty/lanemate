@@ -38,13 +38,13 @@ entity internal_mcb is
 		
 		-- interface to data-to-write fifo
 		MPOP_W : out std_logic;
-		MADDR_W : in std_logic_vector(23 downto 0);   -- ddr address, high 24 bits
+		MADDR_W : in std_logic_vector(26 downto 0);   -- ddr address, high 27 bits
 		MDATA_W : in std_logic_vector(255 downto 0);  -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;                      -- data valid
 		
 		-- interface to data-to-read fifo
 		MPOP_R : out std_logic;
-		MADDR_R : in std_logic_vector(23 downto 0);   -- ddr address, high 24 bits
+		MADDR_R : in std_logic_vector(26 downto 0);   -- ddr address, high 27 bits
 		MDVALID_R : in std_logic;
 		
 		-- interface to data-just-read fifo
@@ -90,8 +90,8 @@ architecture Behavioral of internal_mcb is
 	signal mpush : std_logic := '0';
 	
 	signal wdata : std_logic_vector(255 downto 0) := (others => '0');
-	signal waddr : std_logic_vector(23 downto 0) := (others => '0');
-	signal raddr : std_logic_vector(23 downto 0) := (others => '0');
+	signal waddr : std_logic_vector(26 downto 0) := (others => '0');
+	signal raddr : std_logic_vector(26 downto 0) := (others => '0');
 	signal data_just_read : std_logic_vector(ram_data_width-1 downto 0) := (others => '0');
 	signal we_d : std_logic := '0';
 

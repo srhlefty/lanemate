@@ -38,13 +38,13 @@ entity trivial_mcb is
 		
 		-- write-transaction fifo
 		MPOP_W : out std_logic;
-		MADDR_W : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
 		MDVALID_W : in std_logic;
 		
 		-- read-transaction fifo
 		MPOP_R : out std_logic;
-		MADDR_R : in std_logic_vector(23 downto 0);    -- ddr address, high 24 bits
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
 		MDVALID_R : in std_logic;
 		
 		-- output side
