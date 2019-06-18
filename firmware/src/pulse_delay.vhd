@@ -174,10 +174,12 @@ begin
 		when ACTIVE =>
 			fifo_push <= '1';
 			fifo_pop <= '1';
-			DOUT <= fifo_dout;
 			if(RST = '1') then
 				count <= 0;
 				state <= FILLING;
+				DOUT <= D_RST;
+			else
+				DOUT <= fifo_dout;
 			end if;
 	end case;
 	end if;

@@ -153,7 +153,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
 	signal line_length : natural := 0;
 	signal hblank : natural := 0;
 
-	constant source : natural := 1;
+	constant source : natural := 2;
 
 BEGIN
  
@@ -253,7 +253,7 @@ BEGIN
 			VS <= '1';
 		end if;
 		
-		if(count = 6) then
+		if(count = 6 or count = 6+line_length+hblank) then
 			HS <= '0';
 		else
 			HS <= '1';
@@ -272,30 +272,6 @@ BEGIN
 			PDATA <= (others => '0');
 			DE <= '0';
 		end if;
-		
---		de1start := 10+readout_delay;
---		de1end   := 10+readout_delay+line_length;
---		de2start := 10+readout_delay+line_length+hblank;
---		de2end   := 10+readout_delay+line_length+hblank+line_length;
---		
---		if(count = de1start - 2) then
---			VS_DELAYED <= '0';
---		else
---			VS_DELAYED <= '1';
---		end if;
---		
---		if(count = de1start - 1 or count = de2start - 1) then
---			HS_DELAYED <= '0';
---		else
---			HS_DELAYED <= '1';
---		end if;
---		
---		if((count >= de1start and count < de1end) or
---		   (count >= de2start and count < de2end)) then
---			DE_DELAYED <= '1';
---		else
---			DE_DELAYED <= '0';
---		end if;
 		
 	end if;
 	end process;
