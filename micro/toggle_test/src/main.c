@@ -273,14 +273,41 @@ int main (void)
 	configure_hdmi_rx();
 	hdmi_rx_set_freerun_to_1080p60();
 	configure_sd_rx();
-	configure_hdmi_tx_for_sd_input();
+	configure_hdmi_tx_for_hd_input();
 
 	
 
-	uint8_t source = 1; // 0=hd, 1=sd
-	uint8_t testpattern = 0; // 0=off, 1=on
+	uint8_t source = 0; // 0=hd, 1=sd
+	uint8_t testpattern = 1; // 0=off, 1=on
+	uint8_t readout_delay_hi;
+	uint8_t readout_delay_lo;
+	uint8_t transaction_size;
+	uint8_t delay_enabled = 0x00;
+	if(source == 0)
+	{
+		bool full = true;
+		if(full)
+		{
+			// 1080p: readout delay = 1920/2 = 960 = 0x3C0, transaction size = 0x1e
+			readout_delay_hi = 0x03;
+			readout_delay_lo = 0xC0;
+			transaction_size = 0x1e;
+		}else
+		{
+			// 720p: readout delay = 1280/2 = 960 = 0x280, transaction size = 0x14
+			readout_delay_hi = 0x02;
+			readout_delay_lo = 0x80;
+			transaction_size = 0x14;
+		}
+	}
 	i2c_write_reg(lanemate_address, 0x01, source);
 	i2c_write_reg(lanemate_address, 0x02, testpattern);
+	i2c_write_reg(lanemate_address, 0x03, readout_delay_hi);
+	i2c_write_reg(lanemate_address, 0x04, readout_delay_lo);
+	i2c_write_reg(lanemate_address, 0x05, transaction_size);
+	i2c_write_reg(lanemate_address, 0x06, delay_enabled);
+
+
 	uint8_t res = 0;
 
 
@@ -315,6 +342,7 @@ int main (void)
 				i2c_write_reg(lanemate_address, 0x01, source);
 				*/
 
+				/*
 				if(source == 1)
 				{
 					source = 0;
@@ -326,6 +354,9 @@ int main (void)
 					configure_hdmi_tx_for_sd_input();
 				}
 				i2c_write_reg(lanemate_address, 0x01, source);
+				*/
+				delay_enabled = (delay_enabled > 0)? 0 : 1;
+				i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 
 				cycle_count = 0;
 			}else

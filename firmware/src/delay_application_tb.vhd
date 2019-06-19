@@ -48,6 +48,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
          PDATA : IN  std_logic_vector(23 downto 0);
          IS422 : IN  std_logic;
 			READOUT_DELAY : in std_logic_vector(9 downto 0);
+			CE : in std_logic;
          FRAME_ADDR_W : IN  std_logic_vector(26 downto 0);
          FRAME_ADDR_R : IN  std_logic_vector(26 downto 0);
          VS_OUT : OUT  std_logic;
@@ -124,6 +125,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal VS : std_logic := '1';
    signal HS : std_logic := '1';
    signal DE : std_logic := '0';
+   signal CE : std_logic := '1';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
    signal IS422 : std_logic := '0';
 	signal READOUT_DELAY : std_logic_vector(9 downto 0) := (others => '0');
@@ -166,6 +168,7 @@ BEGIN
           PDATA => PDATA,
           IS422 => IS422,
 			 READOUT_DELAY => READOUT_DELAY,
+			 CE => CE,
           FRAME_ADDR_W => FRAME_ADDR_W,
           FRAME_ADDR_R => FRAME_ADDR_R,
           VS_OUT => VS_OUT,

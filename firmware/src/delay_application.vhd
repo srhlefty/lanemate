@@ -39,6 +39,7 @@ entity delay_application is
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
 		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		CE : in std_logic;
 		
 		-- R/W settings
 		FRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer. Captured on VS.
@@ -192,7 +193,10 @@ architecture Behavioral of delay_application is
 	signal ppushed : std_logic;
 
 	signal de_delayed : std_logic := '0';
-	
+	signal de_new : std_logic;
+	signal pdata_new : std_logic_vector(23 downto 0);
+	signal vs_new : std_logic;
+	signal hs_new : std_logic;
 begin
 
 
@@ -274,10 +278,10 @@ begin
 		MPUSH => MPUSH,
 		MDATA => MDATA,
 		PCLK => PCLK,
-		PDATA => PDATA_OUT,
+		PDATA => pdata_new,
 		P8BIT => IS422,
 		PPOP => de_delayed,
-		PDVALID => DE_OUT,
+		PDVALID => de_new,
 		PRESET => '0'
 	);
 	
@@ -328,11 +332,28 @@ begin
 		if(rising_edge(PCLK)) then
 			vsd <= vs_delayed;
 			hsd <= hs_delayed;
-			VS_OUT <= vsd;
-			HS_OUT <= hsd;
+			vs_new <= vsd;
+			hs_new <= hsd;
 		end if;
 		end process;
 	end block;
+	
+	process(PCLK) is
+	begin
+	if(rising_edge(PCLK)) then
+		if(CE = '1') then
+			VS_OUT <= vs_new;
+			HS_OUT <= hs_new;
+			DE_OUT <= de_new;
+			PDATA_OUT <= pdata_new;
+		else
+			VS_OUT <= VS;
+			HS_OUT <= HS;
+			DE_OUT <= DE;
+			PDATA_OUT <= PDATA;
+		end if;
+	end if;
+	end process;
 
 
 end Behavioral;

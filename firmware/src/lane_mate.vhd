@@ -165,6 +165,7 @@ architecture Behavioral of lane_mate is
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
 		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		CE : in std_logic;
 		
 		-- R/W settings
 		FRAME_ADDR_W : in std_logic_vector(26 downto 0); -- DDR write pointer. Captured on VS.
@@ -237,13 +238,13 @@ architecture Behavioral of lane_mate is
 	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
 	signal register_map : ram_t :=
 	(
-		0 => x"01", -- Register table version
+		0 => x"02", -- Register table version
 		1 => x"00", -- video source, HD (0x00) or SD (0x01)
 		2 => x"00", -- test pattern, off (0x00) or on (0x01)
-		3 => x"78",
-		4 => x"33",
-		5 => x"FF",
-		6 => x"AB",
+		3 => x"03", -- readout_delay(9 downto 8)
+		4 => x"C0", -- readout_delay(7 downto 0)
+		5 => x"1e", -- mtransaction_size(7 downto 0)
+		6 => x"00", -- delay_enabled
 		7 => x"CD",
 		others => x"00"
 	);
@@ -251,6 +252,7 @@ architecture Behavioral of lane_mate is
 	signal ram_wdata : std_logic_vector(7 downto 0);
 	signal ram_rdata : std_logic_vector(7 downto 0);
 	signal ram_we : std_logic;
+	signal i2c_register_write : std_logic;
 	
 
 	signal testpat_vs : std_logic;
@@ -432,7 +434,7 @@ begin
 		if(rising_edge(clk)) then
 		case state is
 			when IDLE =>
-				if(ram_addr = x"01" and ram_we = '1') then
+				if(ram_addr = x"01" and i2c_register_write = '1') then
 					dcm_rst <= '1';
 					count <= 12; -- 100MHz is 3.7x faster than 27MHz, and resets must be >3 input clocks long
 					state <= RESETTING;
@@ -570,7 +572,20 @@ begin
 		signal preadout_delay : std_logic_vector(9 downto 0);
 		signal pframe_addr_w : std_logic_vector(26 downto 0);
 		signal pframe_addr_r : std_logic_vector(26 downto 0);
+		signal delay_enabled : std_logic_vector(7 downto 0);
 	begin
+	
+		process(clk) is
+		begin
+		if(rising_edge(clk)) then
+			-- writing to low byte triggers acceptance of new value
+			if(i2c_register_write = '1' and to_integer(unsigned(ram_addr)) = 4) then
+				readout_delay(9 downto 8) <= register_map(3)(1 downto 0);
+				readout_delay(7 downto 0) <= register_map(4)(7 downto 0);
+			end if;
+			mtransaction_size <= register_map(5);
+		end if;
+		end process;
 	
 		cross_delay : synchronizer_2ff 
 		generic map( DATA_WIDTH => 10, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
@@ -599,6 +614,15 @@ begin
 			DB => pframe_addr_r,
 			RESETB => '0'
 		);
+		cross_ce : synchronizer_2ff 
+		generic map( DATA_WIDTH => 8, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
+		PORT MAP(
+			CLKA => clk,
+			DA => register_map(6),
+			CLKB => video_clock,
+			DB => delay_enabled,
+			RESETB => '0'
+		);
 	
 		inst_delay_application: delay_application PORT MAP (
 			 PCLK => video_clock,
@@ -608,6 +632,7 @@ begin
 			 PDATA => stage2_d,
 			 IS422 => is422,
 			 READOUT_DELAY => preadout_delay, -- pclk
+			 CE => delay_enabled(0),
 			 FRAME_ADDR_W => pframe_addr_w, -- pclk
 			 FRAME_ADDR_R => pframe_addr_r, -- pclk
 			 VS_OUT => stage3_vs,
@@ -708,6 +733,7 @@ begin
 		process(clk) is
 		begin
 		if(rising_edge(clk)) then
+			i2c_register_write <= ram_we;
 			if(ram_we = '1') then
 				register_map(to_integer(unsigned(ram_addr))) <= ram_wdata;
 			end if;
