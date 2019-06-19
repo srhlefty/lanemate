@@ -11,14 +11,17 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="160000001fs"></ZoomEndTime>
-      <Cursor1Time time="1000000000fs"></Cursor1Time>
+      <ZoomEndTime time="40200000001fs"></ZoomEndTime>
+      <Cursor1Time time="27808053000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="191"></NameColumnWidth>
-      <ValueColumnWidth column_width="212"></ValueColumnWidth>
+      <ValueColumnWidth column_width="208"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="16" />
+   <WVObjectSize size="17" />
+   <wave_markers>
+      <marker time="53760657000" label="" />
+   </wave_markers>
    <wvobject type="divider" fp_name="divider208">
       <obj_property name="label">pixel input</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -50,6 +53,10 @@
    <wvobject fp_name="/delay_application_tb/Inst_trivial_mcb/MAVAIL" type="array">
       <obj_property name="ElementShortName">MAVAIL[8:0]</obj_property>
       <obj_property name="ObjectShortName">MAVAIL[8:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/uut/ppush_w" type="logic">
+      <obj_property name="ElementShortName">ppush_w</obj_property>
+      <obj_property name="ObjectShortName">ppush_w</obj_property>
    </wvobject>
    <wvobject fp_name="/delay_application_tb/Inst_trivial_mcb/MPOP_W" type="logic">
       <obj_property name="ElementShortName">MPOP_W</obj_property>

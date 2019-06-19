@@ -38,7 +38,7 @@ entity delay_application is
 		DE   : in std_logic;
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
-		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		READOUT_DELAY : in std_logic_vector(10 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
 		CE : in std_logic;
 		
 		-- R/W settings
@@ -51,6 +51,7 @@ entity delay_application is
 		DE_OUT : out std_logic;
 		PDATA_OUT  : out std_logic_vector(23 downto 0);
 
+		DEBUG : out std_logic;
 		-------------------------------------------------------------------------
 		-- MCB interface
 		MCLK : in std_logic;
@@ -129,6 +130,8 @@ architecture Behavioral of delay_application is
 		PDE : in std_logic;
 		PPUSHED : in std_logic;
 		
+		PRESET_FIFOS : in std_logic;
+		
 		-- write-transaction fifo, input side
 		PADDR_W : in std_logic_vector(26 downto 0);
 		PDATA_W : in std_logic_vector(255 downto 0);
@@ -179,6 +182,16 @@ architecture Behavioral of delay_application is
 		DOUT : out  STD_LOGIC_VECTOR(2 downto 0);
 		OVERFLOW : out  STD_LOGIC);
 	end component;
+
+	component pulse_delay_shiftreg is
+	Port ( 
+		CLK : in  STD_LOGIC;
+		D : in  STD_LOGIC_VECTOR(2 downto 0);
+		DELAY : in  STD_LOGIC_VECTOR (10 downto 0);
+		DOUT : out  STD_LOGIC_VECTOR(2 downto 0)
+	);
+	end component;
+	
 
 	signal de_post_gearbox : std_logic;
 	signal data_post_gearbox : std_logic_vector(23 downto 0);
@@ -247,12 +260,32 @@ begin
 
 
 	-- stage 3: fill transaction fifos
+	inputfifos : block is
+		signal preset : std_logic := '0';
+		signal hs_old : std_logic := '1';
+	begin
+	-- Reset input fifos on rising edge of HS.
+	-- If everything is working, this should do nothing
+	-- since there isn't supposed to be any remainder
+	-- after the mcb has seen all of the line's data
+	process(PCLK) is
+	begin
+	if(rising_edge(PCLK)) then
+		hs_old <= HS;
+		if(hs_old = '0' and HS = '1') then
+			preset <= '1';
+		else
+			preset <= '0';
+		end if;
+	end if;
+	end process;
 	
    inst_pixel_to_ddr_fifo: pixel_to_ddr_fifo PORT MAP (
           PCLK => PCLK,
           MCLK => MCLK,
           PDE => de_post_gearbox,
           PPUSHED => ppushed,
+			 PRESET_FIFOS => preset,
           PADDR_W => paddr_w,
           PDATA_W => pdata_w,
           PPUSH_W => ppush_w,
@@ -268,7 +301,7 @@ begin
           MAVAIL => MAVAIL,
           MFLUSH => MFLUSH
         );
-
+	end block;
 
 	-- stage 5: inverse gearbox back to pixels
 	-- DE_OUT is 2 clocks behind DE_DELAYED
@@ -284,6 +317,7 @@ begin
 		PDVALID => de_new,
 		PRESET => '0'
 	);
+	DEBUG <= ppush_w;
 	
 	sync_delay : block is
 		signal vsd : std_logic := '1';
@@ -310,16 +344,22 @@ begin
 		
 	
 		sbus_in <= VS & HS & DE;
-		delay_in <= "00000" & READOUT_DELAY;
+--		delay_in <= "00000" & READOUT_DELAY;
 		
-		Inst_pulse_delay: pulse_delay PORT MAP(
+--		Inst_pulse_delay: pulse_delay PORT MAP(
+--			CLK => PCLK,
+--			D => sbus_in,
+--			RST => delay_rst,
+--			D_RST => "110", -- during reset, output 1 for VS and HS
+--			DELAY => delay_in,
+--			DOUT => sbus_out,
+--			OVERFLOW => open
+--		);
+		Inst_pulse_delay_shiftreg: pulse_delay_shiftreg PORT MAP(
 			CLK => PCLK,
 			D => sbus_in,
-			RST => delay_rst,
-			D_RST => "110", -- during reset, output 1 for VS and HS
-			DELAY => delay_in,
-			DOUT => sbus_out,
-			OVERFLOW => open
+			DELAY => READOUT_DELAY,
+			DOUT => sbus_out
 		);
 		
 		vs_delayed <= sbus_out(2);

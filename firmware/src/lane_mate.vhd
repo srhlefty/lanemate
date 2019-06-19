@@ -164,7 +164,7 @@ architecture Behavioral of lane_mate is
 		DE   : in std_logic;
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
-		READOUT_DELAY : in std_logic_vector(9 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		READOUT_DELAY : in std_logic_vector(10 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
 		CE : in std_logic;
 		
 		-- R/W settings
@@ -177,6 +177,7 @@ architecture Behavioral of lane_mate is
 		DE_OUT : out std_logic;
 		PDATA_OUT  : out std_logic_vector(23 downto 0);
 
+		DEBUG : out std_logic;
 		-------------------------------------------------------------------------
 		-- MCB interface
 		MCLK : in std_logic;
@@ -230,6 +231,29 @@ architecture Behavioral of lane_mate is
 	);
 	end component;
 	
+	component trivial_mcb is
+	Port ( 
+		MCLK : in std_logic;
+		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0);
+		MAVAIL : in std_logic_vector(8 downto 0);
+		MFLUSH : in std_logic;
+		
+		-- write-transaction fifo
+		MPOP_W : out std_logic;
+		MADDR_W : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
+		MDATA_W : in std_logic_vector(255 downto 0);   -- half-burst data (4 high speed clocks worth of data)
+		MDVALID_W : in std_logic;
+		
+		-- read-transaction fifo
+		MPOP_R : out std_logic;
+		MADDR_R : in std_logic_vector(26 downto 0);    -- ddr address, high 27 bits
+		MDVALID_R : in std_logic;
+		
+		-- output side
+		MPUSH_R : out std_logic;
+		MDATA_R : out std_logic_vector(255 downto 0)
+	);
+	end component;
 	
 	
 	
@@ -241,7 +265,7 @@ architecture Behavioral of lane_mate is
 		0 => x"02", -- Register table version
 		1 => x"00", -- video source, HD (0x00) or SD (0x01)
 		2 => x"00", -- test pattern, off (0x00) or on (0x01)
-		3 => x"03", -- readout_delay(9 downto 8)
+		3 => x"03", -- readout_delay(10 downto 8)
 		4 => x"C0", -- readout_delay(7 downto 0)
 		5 => x"1e", -- mtransaction_size(7 downto 0)
 		6 => x"00", -- delay_enabled
@@ -306,10 +330,12 @@ architecture Behavioral of lane_mate is
 
 	signal is422 : std_logic;
 	
-	signal readout_delay : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(1920/2, 10));
+	signal readout_delay : std_logic_vector(10 downto 0) := std_logic_vector(to_unsigned(1920/2, 11));
 	signal frame_addr_w : std_logic_vector(26 downto 0) := (others => '0');
 	signal frame_addr_r : std_logic_vector(26 downto 0) := (others => '0');
 	signal mtransaction_size : std_logic_vector(7 downto 0) := x"1e";
+	
+	signal delay_debug : std_logic;
 	
 begin
 
@@ -569,7 +595,7 @@ begin
 		signal MDVALID_W : std_logic;
 		signal MADDR_R : std_logic_vector(26 downto 0);
 		signal MDVALID_R : std_logic;
-		signal preadout_delay : std_logic_vector(9 downto 0);
+		signal preadout_delay : std_logic_vector(10 downto 0);
 		signal pframe_addr_w : std_logic_vector(26 downto 0);
 		signal pframe_addr_r : std_logic_vector(26 downto 0);
 		signal delay_enabled : std_logic_vector(7 downto 0);
@@ -580,7 +606,7 @@ begin
 		if(rising_edge(clk)) then
 			-- writing to low byte triggers acceptance of new value
 			if(i2c_register_write = '1' and to_integer(unsigned(ram_addr)) = 4) then
-				readout_delay(9 downto 8) <= register_map(3)(1 downto 0);
+				readout_delay(10 downto 8) <= register_map(3)(2 downto 0);
 				readout_delay(7 downto 0) <= register_map(4)(7 downto 0);
 			end if;
 			mtransaction_size <= register_map(5);
@@ -588,7 +614,7 @@ begin
 		end process;
 	
 		cross_delay : synchronizer_2ff 
-		generic map( DATA_WIDTH => 10, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
+		generic map( DATA_WIDTH => 11, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
 		PORT MAP(
 			CLKA => clk,
 			DA => readout_delay,
@@ -639,6 +665,7 @@ begin
 			 HS_OUT => stage3_hs,
 			 DE_OUT => stage3_de,
 			 PDATA_OUT => stage3_d,
+			 DEBUG => delay_debug,
 			 MCLK => clk,
 			 MTRANSACTION_SIZE => mtransaction_size, -- mclk
 			 MAVAIL => MAVAIL,
@@ -654,8 +681,8 @@ begin
 			 MDATA => MDATA
 		  );
 
-	--	Inst_trivial_mcb: trivial_mcb PORT MAP(
-		Inst_trivial_mcb: internal_mcb PORT MAP(
+		Inst_trivial_mcb: trivial_mcb PORT MAP(
+--		Inst_trivial_mcb: internal_mcb PORT MAP(
 			MCLK => clk,
 			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 			MAVAIL => MAVAIL,
@@ -671,13 +698,41 @@ begin
 			MDATA_R => MDATA
 		);
 	
+	dbg_trig : block is
+		signal de_old : std_logic := '0';
+		signal rising : std_logic := '0';
+	begin
+		process(video_clock) is
+		begin
+		if(rising_edge(video_clock)) then
+			de_old <= stage2_de;
+			if(de_old = '0' and stage2_de = '1') then
+				rising <= '1';
+			else
+				rising <= '0';
+			end if;
+		end if;
+		end process;
+		
+		process(MAVAIL, rising) is
+		begin
+			if(to_integer(unsigned(MAVAIL)) > 0 and rising = '1') then
+				B1_GPIO13 <= '1';
+			else
+				B1_GPIO13 <= '0';
+			end if;
+		end process;
+	end block;
+	
+	B1_GPIO14 <= MPOP_W;	
+	B1_GPIO15 <= MAVAIL(8);
+	RGB_OUT(7 downto 0) <= MAVAIL(7 downto 0);
 	end block;
 	
 	
 	----------------------------------------------------------------------------
 	
 	
-
 
 
 
@@ -689,7 +744,7 @@ begin
 		HDO_VS <= stage3_vs;
 		HDO_HS <= stage3_hs;
 		HDO_DE <= stage3_de;
-		RGB_OUT <= stage3_d;
+		RGB_OUT(23 downto 8) <= stage3_d(23 downto 8);
 	end if;
 	end process;
 	
@@ -786,9 +841,9 @@ begin
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
 		B1_GPIO12 <= register_map(1)(0);
-		B1_GPIO13 <= register_map(1)(1);
-		B1_GPIO14 <= register_map(1)(2);
-		B1_GPIO15 <= SDI_VS;
+		--B1_GPIO13 <= register_map(1)(1);
+		--B1_GPIO14 <= register_map(1)(2);
+		--B1_GPIO15 <= de_debug;
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';

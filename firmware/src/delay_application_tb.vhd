@@ -47,7 +47,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
          DE : IN  std_logic;
          PDATA : IN  std_logic_vector(23 downto 0);
          IS422 : IN  std_logic;
-			READOUT_DELAY : in std_logic_vector(9 downto 0);
+			READOUT_DELAY : in std_logic_vector(10 downto 0);
 			CE : in std_logic;
          FRAME_ADDR_W : IN  std_logic_vector(26 downto 0);
          FRAME_ADDR_R : IN  std_logic_vector(26 downto 0);
@@ -55,6 +55,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
          HS_OUT : OUT  std_logic;
          DE_OUT : OUT  std_logic;
          PDATA_OUT : OUT  std_logic_vector(23 downto 0);
+			DEBUG : out std_logic;
          MCLK : IN  std_logic;
          MTRANSACTION_SIZE : IN  std_logic_vector(7 downto 0);
          MAVAIL : OUT  std_logic_vector(8 downto 0);
@@ -128,7 +129,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal CE : std_logic := '1';
    signal PDATA : std_logic_vector(23 downto 0) := (others => '0');
    signal IS422 : std_logic := '0';
-	signal READOUT_DELAY : std_logic_vector(9 downto 0) := (others => '0');
+	signal READOUT_DELAY : std_logic_vector(10 downto 0) := (others => '0');
    signal FRAME_ADDR_W : std_logic_vector(26 downto 0) := (others => '0');
    signal FRAME_ADDR_R : std_logic_vector(26 downto 0) := (others => '0');
    signal MCLK : std_logic := '0';
@@ -143,6 +144,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal HS_OUT : std_logic;
    signal DE_OUT : std_logic;
    signal PDATA_OUT : std_logic_vector(23 downto 0);
+	signal DEBUG : std_logic;
    signal MAVAIL : std_logic_vector(8 downto 0);
    signal MFLUSH : std_logic;
    signal MADDR_W : std_logic_vector(26 downto 0);
@@ -155,7 +157,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
 	signal line_length : natural := 0;
 	signal hblank : natural := 0;
 
-	constant source : natural := 2;
+	constant source : natural := 0;
 
 BEGIN
  
@@ -175,6 +177,7 @@ BEGIN
           HS_OUT => HS_OUT,
           DE_OUT => DE_OUT,
           PDATA_OUT => PDATA_OUT,
+			 DEBUG => DEBUG,
           MCLK => MCLK,
           MTRANSACTION_SIZE => MTRANSACTION_SIZE,
           MAVAIL => MAVAIL,

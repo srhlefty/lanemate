@@ -80,6 +80,8 @@ entity pixel_to_ddr_fifo is
 		PDE : in std_logic;
 		PPUSHED : in std_logic;
 		
+		PRESET_FIFOS : in std_logic;
+		
 		-- write-transaction fifo, input side
 		PADDR_W : in std_logic_vector(26 downto 0);
 		PDATA_W : in std_logic_vector(255 downto 0);
@@ -230,7 +232,8 @@ begin
 	);
 	
 	crossin(0) <= flushd4;
-	MFLUSH <= crossout(0);
+--	MFLUSH <= crossout(0);
+	MFLUSH <= '0';
 	
 	writer_fifo_block : block is
 		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
@@ -267,7 +270,7 @@ begin
 		)
 		PORT MAP(
 			WRITE_CLK => PCLK,
-			RESET => '0',
+			RESET => PRESET_FIFOS,
 			FREE => open,
 			DIN => bus_in,
 			PUSH => PPUSH_W,
@@ -323,7 +326,7 @@ begin
 		)
 		PORT MAP(
 			WRITE_CLK => PCLK,
-			RESET => '0',
+			RESET => PRESET_FIFOS,
 			FREE => open,
 			DIN => bus_in,
 			PUSH => PPUSH_R,
