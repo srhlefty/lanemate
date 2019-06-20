@@ -698,32 +698,32 @@ begin
 			MDATA_R => MDATA
 		);
 	
-	dbg_trig : block is
-		signal de_old : std_logic := '0';
-		signal rising : std_logic := '0';
-	begin
-		process(video_clock) is
-		begin
-		if(rising_edge(video_clock)) then
-			de_old <= stage2_de;
-			if(de_old = '0' and stage2_de = '1') then
-				rising <= '1';
-			else
-				rising <= '0';
-			end if;
-		end if;
-		end process;
-		
-		process(MAVAIL, rising) is
-		begin
-			if(to_integer(unsigned(MAVAIL)) > 0 and rising = '1') then
-				B1_GPIO13 <= '1';
-			else
-				B1_GPIO13 <= '0';
-			end if;
-		end process;
-	end block;
-	
+--	dbg_trig : block is
+--		signal de_old : std_logic := '0';
+--		signal rising : std_logic := '0';
+--	begin
+--		process(video_clock) is
+--		begin
+--		if(rising_edge(video_clock)) then
+--			de_old <= stage2_de;
+--			if(de_old = '0' and stage2_de = '1') then
+--				rising <= '1';
+--			else
+--				rising <= '0';
+--			end if;
+--		end if;
+--		end process;
+--		
+--		process(MAVAIL, rising) is
+--		begin
+--			if(to_integer(unsigned(MAVAIL)) > 0 and rising = '1') then
+--				B1_GPIO13 <= '1';
+--			else
+--				B1_GPIO13 <= '0';
+--			end if;
+--		end process;
+--	end block;
+	B1_GPIO13 <= MPUSH;
 	B1_GPIO14 <= MPOP_W;	
 	B1_GPIO15 <= MAVAIL(8);
 	RGB_OUT(7 downto 0) <= MAVAIL(7 downto 0);

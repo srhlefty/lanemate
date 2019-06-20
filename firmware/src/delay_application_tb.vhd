@@ -193,8 +193,8 @@ BEGIN
           MDATA => MDATA
         );
 
---	Inst_trivial_mcb: trivial_mcb PORT MAP(
-	Inst_trivial_mcb: internal_mcb PORT MAP(
+	Inst_trivial_mcb: trivial_mcb PORT MAP(
+--	Inst_trivial_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
 		MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 		MAVAIL => MAVAIL,

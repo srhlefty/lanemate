@@ -59,10 +59,12 @@ architecture Behavioral of trivial_mcb is
 	signal state : state_t := WAITING;
 	signal popcount : natural := 0;
 	signal limit : natural := 0;
-
+	signal passcount : natural range 0 to 4 := 0;
 begin
 
 	process(MCLK) is
+		variable available : natural;
+		variable transaction : natural;
 	begin
 	if(rising_edge(MCLK)) then
 	
@@ -70,14 +72,24 @@ begin
 		when WAITING =>
 			MPOP_W <= '0';
 			MPOP_R <= '0';
-			if(to_integer(unsigned(MAVAIL)) >= to_integer(unsigned(MTRANSACTION_SIZE))) then
-				limit <= to_integer(unsigned(MTRANSACTION_SIZE));
-				popcount <= 0;
-				state <= POPW;
-			elsif(MFLUSH = '1' and to_integer(unsigned(MAVAIL)) > 0) then
-				limit <= to_integer(unsigned(MAVAIL));
-				popcount <= 0;
-				state <= POPW;
+			available := to_integer(unsigned(MAVAIL));
+			transaction := to_integer(unsigned(MTRANSACTION_SIZE));
+			-- requite MAVAIL to pass for 4 clocks in a row to guard against temporary
+			-- changes due to clock domain shenanigains
+			if(available >= transaction) then
+				if(passcount = 4) then
+					limit <= transaction;
+					popcount <= 0;
+					state <= POPW;
+				else
+					passcount <= passcount + 1;
+				end if;
+--			elsif(MFLUSH = '1' and avail > 0) then
+--				limit <= avail;
+--				popcount <= 0;
+--				state <= POPW;
+			else
+				passcount <= 0;
 			end if;
 		
 		when POPW =>
@@ -103,6 +115,7 @@ begin
 			end if;
 			
 		when REST2 =>
+			passcount <= 0;
 			state <= WAITING;
 			
 		end case;
