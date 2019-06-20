@@ -11,7 +11,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="23" />
+   <WVObjectSize size="27" />
    <wvobject fp_name="/ddr_to_pixel_fifo_tb/mclk" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mclk</obj_property>
       <obj_property name="ObjectShortName">mclk</obj_property>
@@ -54,10 +54,6 @@
       <obj_property name="ElementShortName">fifo_pop</obj_property>
       <obj_property name="ObjectShortName">fifo_pop</obj_property>
    </wvobject>
-   <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/words_ready" type="logic" db_ref_id="1">
-      <obj_property name="ElementShortName">words_ready</obj_property>
-      <obj_property name="ObjectShortName">words_ready</obj_property>
-   </wvobject>
    <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/word1" type="array" db_ref_id="1">
       <obj_property name="ElementShortName">word1[255:0]</obj_property>
       <obj_property name="ObjectShortName">word1[255:0]</obj_property>
@@ -84,6 +80,18 @@
       <obj_property name="ElementShortName">cmd_output_rgb</obj_property>
       <obj_property name="ObjectShortName">cmd_output_rgb</obj_property>
    </wvobject>
+   <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/cmd_output_l" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">cmd_output_l</obj_property>
+      <obj_property name="ObjectShortName">cmd_output_l</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/cmd_output_m" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">cmd_output_m</obj_property>
+      <obj_property name="ObjectShortName">cmd_output_m</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/cmd_output_h" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">cmd_output_h</obj_property>
+      <obj_property name="ObjectShortName">cmd_output_h</obj_property>
+   </wvobject>
    <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/cmd_shift" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">cmd_shift</obj_property>
       <obj_property name="ObjectShortName">cmd_shift</obj_property>
@@ -106,8 +114,16 @@
       <obj_property name="ElementShortName">shiftcount</obj_property>
       <obj_property name="ObjectShortName">shiftcount</obj_property>
    </wvobject>
+   <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/main_fsm/cycle" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">cycle</obj_property>
+      <obj_property name="ObjectShortName">cycle</obj_property>
+   </wvobject>
    <wvobject fp_name="/ddr_to_pixel_fifo_tb/uut/de_delay[0]" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">[0]</obj_property>
       <obj_property name="ObjectShortName">de_delay[0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_to_pixel_fifo_tb/pcount" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">pcount</obj_property>
+      <obj_property name="ObjectShortName">pcount</obj_property>
    </wvobject>
 </wave_config>

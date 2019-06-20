@@ -158,17 +158,23 @@ architecture Behavioral of delay_application is
 
 
 	component ddr_to_pixel_fifo is
-    Port ( PCLK : in  STD_LOGIC;
-           PDATA : out  STD_LOGIC_VECTOR (23 downto 0);
-			  P8BIT : in std_logic;                           -- if high, only the lower 8 bits are active (SD 4:2:2)
-           PPOP : in  STD_LOGIC;
-			  PDVALID : out STD_LOGIC;
-			  PRESET : in STD_LOGIC;
-           MCLK : in  STD_LOGIC;
-			  MRESET : in STD_LOGIC;
-           MPUSH : in  STD_LOGIC;
-           MDATA : in  STD_LOGIC_VECTOR (255 downto 0)
-           );
+	Port ( 
+		MCLK   : in  STD_LOGIC;
+		MRESET : in STD_LOGIC;
+		MPUSH  : in  STD_LOGIC;
+		MDATA  : in  STD_LOGIC_VECTOR (255 downto 0);
+		
+		PCLK : in  STD_LOGIC;
+		PRESET : in STD_LOGIC;
+		P8BIT : in std_logic; -- if high, only the lower 8 bits are active (SD 4:2:2)
+		VS : in  STD_LOGIC;
+		HS : in  STD_LOGIC;
+		DE : in  STD_LOGIC;
+		VS_OUT : out STD_LOGIC;
+		HS_OUT : out STD_LOGIC;
+		DE_OUT : out STD_LOGIC;
+		D_OUT : out  STD_LOGIC_VECTOR (23 downto 0)
+	);
 	end component;
 
 
@@ -205,11 +211,13 @@ architecture Behavioral of delay_application is
 	signal ppush_r : std_logic;
 	signal ppushed : std_logic;
 
-	signal de_delayed : std_logic := '0';
-	signal de_new : std_logic;
-	signal pdata_new : std_logic_vector(23 downto 0);
+	signal vs_delayed : std_logic;
+	signal hs_delayed : std_logic;
+	signal de_delayed : std_logic;
 	signal vs_new : std_logic;
 	signal hs_new : std_logic;
+	signal de_new : std_logic;
+	signal pdata_new : std_logic_vector(23 downto 0);
 begin
 
 
@@ -303,58 +311,16 @@ begin
         );
 	end block;
 
-	-- stage 5: inverse gearbox back to pixels
-	-- DE_OUT is 2 clocks behind DE_DELAYED
-	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
-		MCLK => MCLK,
-		MRESET => '0',
-		MPUSH => MPUSH,
-		MDATA => MDATA,
-		PCLK => PCLK,
-		PDATA => pdata_new,
-		P8BIT => IS422,
-		PPOP => de_delayed,
-		PDVALID => de_new,
-		PRESET => '0'
-	);
 	DEBUG <= ppush_w;
-	
+
+	-- stage 4: generate delayed sync signals to give the MCB time to operate
 	sync_delay : block is
-		signal vsd : std_logic := '1';
-		signal hsd : std_logic := '1';
 		signal sbus_in : std_logic_vector(2 downto 0);
 		signal sbus_out : std_logic_vector(2 downto 0);
-		signal delay_old : std_logic_vector(READOUT_DELAY'high downto 0) := (others => '0');
-		signal delay_rst : std_logic := '0';
-		signal vs_delayed : std_logic := '1';
-		signal hs_delayed : std_logic := '1';
-		signal delay_in : std_logic_vector(14 downto 0);
 	begin
-		process(PCLK) is
-		begin
-		if(rising_edge(PCLK)) then
-			delay_old <= READOUT_DELAY;
-			if(delay_old /= READOUT_DELAY) then
-				delay_rst <= '1';
-			else
-				delay_rst <= '0';
-			end if;
-		end if;
-		end process;
-		
 	
 		sbus_in <= VS & HS & DE;
---		delay_in <= "00000" & READOUT_DELAY;
 		
---		Inst_pulse_delay: pulse_delay PORT MAP(
---			CLK => PCLK,
---			D => sbus_in,
---			RST => delay_rst,
---			D_RST => "110", -- during reset, output 1 for VS and HS
---			DELAY => delay_in,
---			DOUT => sbus_out,
---			OVERFLOW => open
---		);
 		Inst_pulse_delay_shiftreg: pulse_delay_shiftreg PORT MAP(
 			CLK => PCLK,
 			D => sbus_in,
@@ -366,17 +332,33 @@ begin
 		hs_delayed <= sbus_out(1);
 		de_delayed <= sbus_out(0);
 		
-		-- ddr_to_pixel_fifo delays de by 2 more
-		process(PCLK) is
-		begin
-		if(rising_edge(PCLK)) then
-			vsd <= vs_delayed;
-			hsd <= hs_delayed;
-			vs_new <= vsd;
-			hs_new <= hsd;
-		end if;
-		end process;
 	end block;
+	
+	
+	
+
+	-- stage 5: inverse gearbox back to pixels
+	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
+		MCLK => MCLK,
+		MRESET => '0',
+		MPUSH => MPUSH,
+		MDATA => MDATA,
+		PCLK => PCLK,
+		PRESET => '0',
+		P8BIT => IS422,
+		VS => vs_delayed,
+		HS => hs_delayed,
+		DE => de_delayed,
+		VS_OUT => vs_new,
+		HS_OUT => hs_new,
+		DE_OUT => de_new,
+		D_OUT => pdata_new
+	);
+	
+	
+	
+	
+	
 	
 	process(PCLK) is
 	begin

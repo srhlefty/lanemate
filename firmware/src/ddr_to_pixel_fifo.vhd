@@ -127,11 +127,15 @@ architecture Behavioral of ddr_to_pixel_fifo is
 	signal cmd_shift : std_logic := '0';
 	signal cmd_load : std_logic := '0';
 	
+	-- The magnitude of the sync delay is determined by de_proc_delay
+	-- needing to be long enough that DE is low by the time the final
+	-- fifo_pop would take place. This way I don't attempt to load the
+	-- next line's data at the end of this one.
 	type bit_delay_t is array(natural range <>) of std_logic;
-	signal de_proc_delay : bit_delay_t(0 to 6) := (others => '0');
-	signal vs_delay : bit_delay_t(0 to 7) := (others => '0');
-	signal hs_delay : bit_delay_t(0 to 7) := (others => '0');
-	signal de_delay : bit_delay_t(0 to 7) := (others => '0');
+	signal de_proc_delay : bit_delay_t(0 to 16) := (others => '0');
+	signal vs_delay : bit_delay_t(0 to 17) := (others => '0');
+	signal hs_delay : bit_delay_t(0 to 17) := (others => '0');
+	signal de_delay : bit_delay_t(0 to 17) := (others => '0');
 begin
 
 	process(PCLK) is
@@ -211,8 +215,8 @@ begin
 			case state is
 		
 			when MONITOR =>
+				words_ready <= '0';
 				if(cmd_pop3 = '1') then
-					words_ready <= '0';
 					fifo_pop <= '1';
 					state <= DELAY;
 				end if;
@@ -319,9 +323,9 @@ begin
 	main_fsm : block is
 		type state_t is (WAIT_FOR_DE, STARTUP, NORMAL);
 		signal state : state_t := WAIT_FOR_DE;
-		
 		signal de_old : std_logic := '0';
 		signal shiftcount : natural range 0 to 32 := 0;
+		signal cycle : natural range 0 to 2 := 0; -- for 4:2:2 readout
 	begin
 		process(PCLK) is
 		begin
@@ -337,6 +341,7 @@ begin
 			cmd_shift <= '0';
 			cmd_load <= '0';
 			shiftcount <= 0;
+			cycle <= 0;
 			
 			if(de_old = '0' and DE = '1') then
 				cmd_pop3 <= '1';
@@ -345,7 +350,7 @@ begin
 			
 		when STARTUP =>
 			cmd_pop3 <= '0';
-			if(words_ready = '1') then
+			if(de_proc_delay(1) = '1') then
 				cmd_load <= '1';
 				state <= NORMAL;
 			end if;
@@ -353,28 +358,58 @@ begin
 		when NORMAL =>
 			if(de_proc_delay(0) = '1') then
 				
-				cmd_output_RGB <= '1';
+				if(P8BIT = '1') then
+					if(cycle = 0) then
+						cmd_output_L <= '1';
+						cmd_output_M <= '0';
+						cmd_output_H <= '0';
+						cycle <= 1;
+					elsif(cycle = 1) then
+						cmd_output_L <= '0';
+						cmd_output_M <= '1';
+						cmd_output_H <= '0';
+						cycle <= 2;
+					elsif(cycle = 2) then
+						cmd_output_L <= '0';
+						cmd_output_M <= '0';
+						cmd_output_H <= '1';
+						cycle <= 0;
+					end if;
+				else
+					cmd_output_RGB <= '1';
+				end if;
 				
-				-- The DE condition prevents fifo popping at the end of the line.
-				-- This works because the startup delay is long enough that DE is
-				-- low by the time a pop would take place.
-				if(shiftcount = 31-5 and DE = '1') then
-					cmd_pop3 <= '1';
+				if(P8BIT = '0' or (P8BIT = '1' and cycle = 2)) then
+					-- The DE condition prevents fifo popping at the end of the line.
+					-- This works because the startup delay is long enough that DE is
+					-- low by the time a pop would take place.
+					if(shiftcount = 31-5 and DE = '1') then
+						cmd_pop3 <= '1';
+					else
+						cmd_pop3 <= '0';
+					end if;
+					
+					if(shiftcount = 31) then
+						cmd_shift <= '0';
+						cmd_load <= '1';
+						shiftcount <= 0;
+					else
+						cmd_shift <= '1';
+						cmd_load <= '0';
+						shiftcount <= shiftcount + 1;
+					end if;
 				else
 					cmd_pop3 <= '0';
-				end if;
-				
-				if(shiftcount = 31) then
 					cmd_shift <= '0';
-					cmd_load <= '1';
-					shiftcount <= 0;
-				else
-					cmd_shift <= '1';
 					cmd_load <= '0';
-					shiftcount <= shiftcount + 1;
 				end if;
 			else
+				cmd_pop3 <= '0';
 				cmd_output_RGB <= '0';
+				cmd_output_L <= '0';
+				cmd_output_M <= '0';
+				cmd_output_H <= '0';
+				cmd_shift <= '0';
 				cmd_load <= '0';
 				state <= WAIT_FOR_DE;
 			end if;

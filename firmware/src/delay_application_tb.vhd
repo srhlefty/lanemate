@@ -157,7 +157,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
 	signal line_length : natural := 0;
 	signal hblank : natural := 0;
 
-	constant source : natural := 0;
+	constant source : natural := 2;
 
 BEGIN
  
