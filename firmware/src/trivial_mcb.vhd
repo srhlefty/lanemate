@@ -84,10 +84,14 @@ begin
 				else
 					passcount <= passcount + 1;
 				end if;
---			elsif(MFLUSH = '1' and avail > 0) then
---				limit <= avail;
---				popcount <= 0;
---				state <= POPW;
+			elsif(MFLUSH = '1' and available > 0) then
+				if(passcount = 4) then
+					limit <= available;
+					popcount <= 0;
+					state <= POPW;
+				else
+					passcount <= passcount + 1;
+				end if;
 			else
 				passcount <= 0;
 			end if;

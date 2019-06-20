@@ -232,8 +232,8 @@ begin
 	);
 	
 	crossin(0) <= flushd4;
---	MFLUSH <= crossout(0);
-	MFLUSH <= '0';
+	MFLUSH <= crossout(0);
+--	MFLUSH <= '0';
 	
 	writer_fifo_block : block is
 		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
