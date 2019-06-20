@@ -33,17 +33,23 @@ use IEEE.NUMERIC_STD.ALL;
 --use UNISIM.VComponents.all;
 
 entity ddr_to_pixel_fifo is
-    Port ( PCLK : in  STD_LOGIC;
-           PDATA : out  STD_LOGIC_VECTOR (23 downto 0);
-			  P8BIT : in std_logic;                           -- if high, only the lower 8 bits are active (SD 4:2:2)
-           PPOP : in  STD_LOGIC;
-			  PDVALID : out STD_LOGIC;
-			  PRESET : in STD_LOGIC;
-           MCLK : in  STD_LOGIC;
-			  MRESET : in STD_LOGIC;
-           MPUSH : in  STD_LOGIC;
-           MDATA : in  STD_LOGIC_VECTOR (255 downto 0)
-           );
+	Port ( 
+		MCLK   : in  STD_LOGIC;
+		MRESET : in STD_LOGIC;
+		MPUSH  : in  STD_LOGIC;
+		MDATA  : in  STD_LOGIC_VECTOR (255 downto 0);
+		
+		PCLK : in  STD_LOGIC;
+		PRESET : in STD_LOGIC;
+		P8BIT : in std_logic; -- if high, only the lower 8 bits are active (SD 4:2:2)
+		VS : in  STD_LOGIC;
+		HS : in  STD_LOGIC;
+		DE : in  STD_LOGIC;
+		VS_OUT : out STD_LOGIC;
+		HS_OUT : out STD_LOGIC;
+		DE_OUT : out STD_LOGIC;
+		D_OUT : out  STD_LOGIC_VECTOR (23 downto 0)
+	);
 end ddr_to_pixel_fifo;
 
 architecture Behavioral of ddr_to_pixel_fifo is
@@ -94,37 +100,6 @@ architecture Behavioral of ddr_to_pixel_fifo is
 	);
 	end component;
 	
-	component fifo_1clk is
-	generic (
-		ADDR_WIDTH : natural;
-		DATA_WIDTH : natural
-	);
-    Port ( 
-		CLK : in std_logic;
-		
-		DIN  : in std_logic_vector (DATA_WIDTH-1 downto 0);
-		PUSH : in std_logic;
-		
-		POP  : in std_logic;
-		DOUT : out  std_logic_vector (DATA_WIDTH-1 downto 0);
-		DVALID : out std_logic;
-		
-		RESET : in std_logic;
-		
-		EMPTY : out std_logic;
-		FULL : out std_logic;
-		OVERFLOW : out std_logic;
-		
-		-- dual port ram interface
-		
-		RAM_WADDR1 : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-		RAM_WDATA1 : out std_logic_vector(DATA_WIDTH-1 downto 0);
-		RAM_WE1    : out std_logic;
-		
-		RAM_RADDR2 : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-		RAM_RDATA2 : in std_logic_vector(DATA_WIDTH-1 downto 0)
-	);
-	end component;
 	
 
 	constant ram_addr_width : natural := 9;
@@ -137,37 +112,49 @@ architecture Behavioral of ddr_to_pixel_fifo is
 	signal ram_we : std_logic;
 	
 	signal fifo_data : std_logic_vector(ram_data_width-1 downto 0);
-	signal fifo_dvalid : std_logic;
 	signal fifo_pop : std_logic := '0';
-	signal fifo_used : std_logic_vector(ram_addr_width-1 downto 0);
 	
+	signal word1 : std_logic_vector(255 downto 0) := (others => '0');
+	signal word2 : std_logic_vector(255 downto 0) := (others => '0');
+	signal word3 : std_logic_vector(255 downto 0) := (others => '0');
+	signal words_ready : std_logic := '0';
 	
-	constant pram_addr_width : natural := 11;
-	constant pram_data_width : natural := 24;
-
-	signal pram_waddr1 : std_logic_vector(pram_addr_width-1 downto 0);
-	signal pram_wdata1 : std_logic_vector(pram_data_width-1 downto 0);
-	signal pram_raddr2 : std_logic_vector(pram_addr_width-1 downto 0);
-	signal pram_rdata2 : std_logic_vector(pram_data_width-1 downto 0);
-	signal pram_we : std_logic;
+	signal cmd_pop3 : std_logic := '0';
+	signal cmd_output_RGB : std_logic := '0';
+	signal cmd_output_L : std_logic := '0';
+	signal cmd_output_M : std_logic := '0';
+	signal cmd_output_H : std_logic := '0';
+	signal cmd_shift : std_logic := '0';
+	signal cmd_load : std_logic := '0';
 	
-	signal pfifo_data : std_logic_vector(pram_data_width-1 downto 0) := (others => '0');
-	signal pfifo_push : std_logic := '0';
-	signal pfifo_full : std_logic;
-	signal pfifo_empty : std_logic;
-	
-	
-	
-	
-	
-
+	type bit_delay_t is array(natural range <>) of std_logic;
+	signal de_proc_delay : bit_delay_t(0 to 6) := (others => '0');
+	signal vs_delay : bit_delay_t(0 to 7) := (others => '0');
+	signal hs_delay : bit_delay_t(0 to 7) := (others => '0');
+	signal de_delay : bit_delay_t(0 to 7) := (others => '0');
 begin
 
+	process(PCLK) is
+	begin
+	if(rising_edge(PCLK)) then
+		vs_delay(vs_delay'high) <= VS;
+		hs_delay(vs_delay'high) <= HS;
+		de_delay(vs_delay'high) <= DE;
+		
+		for i in 0 to vs_delay'high-1 loop
+			vs_delay(i) <= vs_delay(i+1);
+			hs_delay(i) <= hs_delay(i+1);
+			de_delay(i) <= de_delay(i+1);
+		end loop;
+		
+		VS_OUT <= vs_delay(0);
+		HS_OUT <= hs_delay(0);
+		DE_OUT <= de_delay(0);
+	end if;
+	end process;
 
-	-- This is the FIFO that receives data from the MCB. Thus the write side runs at
+	-- This is the FIFO that receives data from the MCB. The the write side runs at
 	-- MCLK (100MHz) and the read side runs at PCLK (up to 150MHz for 1080p).
-	-- In normal operation the MCB will dump about 90 elements into the ram before
-	-- being quiet for a while.
 
 	wide_bram: bram_simple_dual_port 
 	generic map(
@@ -196,9 +183,9 @@ begin
 		DIN => MDATA,
 		PUSH => MPUSH,
 		READ_CLK => PCLK,
-		USED => fifo_used,
+		USED => open,
 		DOUT => fifo_data,
-		DVALID => fifo_dvalid,
+		DVALID => open,
 		POP => fifo_pop,
 		RAM_WADDR => ram_waddr1,
 		RAM_WDATA => ram_wdata1,
@@ -209,173 +196,194 @@ begin
 	);
 
 	-- Attached to the read side is some translation logic to convert the 256-bit words
-	-- into a stream of 24-bit words. This logic tries to keep the 24-bit FIFO filled
-	-- by reading out 3 256-bit words at a time and shifting them into the FIFO. It takes
-	-- 3 256-bit words to make an integer number of 24-bit words.
+	-- into a stream of 24-bit words. Like pixel_to_ddr_fifo, 3 256-bit words are handled
+	-- at a time and used to fill a 32x24-bit shift register whose shifting is controlled
+	-- by DE.
+	
 
-	width_translator : block is
-		type shift_t is array(integer range <>) of std_logic_vector(23 downto 0);
-		signal shifter : shift_t(0 to 31) := (others => (others => '0'));
-		type state_t is (S1, S2, S3, S4, S5, S6);
-		signal state : state_t := S1;
-		signal count : natural range 0 to 32 := 0;
-		signal subcount : natural range 0 to 2 := 0;
+	fifo_manager : block is
+		type state_t is (MONITOR, DELAY, SAVE1, SAVE2, SAVE3);
+		signal state : state_t := MONITOR;
 	begin
 		process(PCLK) is
 		begin
 		if(rising_edge(PCLK)) then
-		case state is
+			case state is
 		
-			when S1 =>
-				-- pop 3 words if they're available and I'm ready for them
-				if(count = 0 and to_integer(unsigned(fifo_used)) >= 3) then
+			when MONITOR =>
+				if(cmd_pop3 = '1') then
+					words_ready <= '0';
 					fifo_pop <= '1';
-					state <= S2;
+					state <= DELAY;
 				end if;
-				
-			when S2 =>
-				fifo_pop <= '1';
-				state <= S3;
-				
-			when S3 =>
-				-- first word ready
-				shifter(0) <= fifo_data(1*24-1 downto 0*24);
-				shifter(1) <= fifo_data(2*24-1 downto 1*24);
-				shifter(2) <= fifo_data(3*24-1 downto 2*24);
-				shifter(3) <= fifo_data(4*24-1 downto 3*24);
-				shifter(4) <= fifo_data(5*24-1 downto 4*24);
-				shifter(5) <= fifo_data(6*24-1 downto 5*24);
-				shifter(6) <= fifo_data(7*24-1 downto 6*24);
-				shifter(7) <= fifo_data(8*24-1 downto 7*24);
-				shifter(8) <= fifo_data(9*24-1 downto 8*24);
-				shifter(9) <= fifo_data(10*24-1 downto 9*24);
-				shifter(10)(15 downto 0) <= fifo_data(255 downto 10*24);
-				
-				fifo_pop <= '1';
-				state <= S4;
-				
-			when S4 =>
-				-- second word ready
-				shifter(10)(23 downto 16) <= fifo_data(7 downto 0);
-				shifter(11) <= fifo_data(1*24-1+8 downto 0*24+8);
-				shifter(12) <= fifo_data(2*24-1+8 downto 1*24+8);
-				shifter(13) <= fifo_data(3*24-1+8 downto 2*24+8);
-				shifter(14) <= fifo_data(4*24-1+8 downto 3*24+8);
-				shifter(15) <= fifo_data(5*24-1+8 downto 4*24+8);
-				shifter(16) <= fifo_data(6*24-1+8 downto 5*24+8);
-				shifter(17) <= fifo_data(7*24-1+8 downto 6*24+8);
-				shifter(18) <= fifo_data(8*24-1+8 downto 7*24+8);
-				shifter(19) <= fifo_data(9*24-1+8 downto 8*24+8);
-				shifter(20) <= fifo_data(10*24-1+8 downto 9*24+8);
-				shifter(21)(7 downto 0) <= fifo_data(255 downto 248);
-
-				fifo_pop <= '0';
-				state <= S5;
-			
-			when S5 =>
-				-- third word ready
-				shifter(21)(23 downto 8) <= fifo_data(15 downto 0);
-				shifter(22) <= fifo_data(1*24-1+16 downto 0*24+16);
-				shifter(23) <= fifo_data(2*24-1+16 downto 1*24+16);
-				shifter(24) <= fifo_data(3*24-1+16 downto 2*24+16);
-				shifter(25) <= fifo_data(4*24-1+16 downto 3*24+16);
-				shifter(26) <= fifo_data(5*24-1+16 downto 4*24+16);
-				shifter(27) <= fifo_data(6*24-1+16 downto 5*24+16);
-				shifter(28) <= fifo_data(7*24-1+16 downto 6*24+16);
-				shifter(29) <= fifo_data(8*24-1+16 downto 7*24+16);
-				shifter(30) <= fifo_data(9*24-1+16 downto 8*24+16);
-				shifter(31) <= fifo_data(10*24-1+16 downto 9*24+16);
-				
-				count <= 32;
-				subcount <= 0;
-				state <= S6;
-				
-			when S6 =>
-				-- push the shift register content into the fifo as space becomes available
-				if(count > 0 and pfifo_full = '0') then
-					if(P8BIT = '1') then
-						if(subcount = 0) then
-							pfifo_data <= x"0000" & shifter(0)(7 downto 0);
-							pfifo_push <= '1';
-							subcount <= 1;
-						elsif(subcount = 1) then
-							pfifo_data <= x"0000" & shifter(0)(15 downto 8);
-							pfifo_push <= '1';
-							subcount <= 2;
-						elsif(subcount = 2) then
-							pfifo_data <= x"0000" & shifter(0)(23 downto 16);
-							pfifo_push <= '1';
-							subcount <= 0;
-						
-							count <= count - 1;
-							for i in 1 to 31 loop
-								shifter(i-1) <= shifter(i);
-							end loop;
-						end if;
-					else
-						pfifo_data <= shifter(0);
-						pfifo_push <= '1';
 					
-						count <= count - 1;
-						for i in 1 to 31 loop
-							shifter(i-1) <= shifter(i);
-						end loop;
-					end if;
-				else
-					pfifo_push <= '0';
-				end if;
+			when DELAY =>
+				fifo_pop <= '1';
+				state <= SAVE1;
 				
-				if(count = 0) then
-					state <= S1;
-				end if;
-		end case;
+			when SAVE1 =>
+				fifo_pop <= '1';
+				word1 <= fifo_data;
+				state <= SAVE2;
+				
+			when SAVE2 =>
+				fifo_pop <= '0';
+				word2 <= fifo_data;
+				state <= SAVE3;
+			
+			when SAVE3 =>
+				word3 <= fifo_data;
+				words_ready <= '1';
+				state <= MONITOR;
+				
+			end case;
+		end if;
+		end process;
+	end block;
+	
+	shift_manager : block is
+		type shift_t is array(integer range <>) of std_logic_vector(23 downto 0);
+		signal shifter : shift_t(0 to 31) := (others => (others => '0'));
+	begin
+		process(PCLK) is
+		begin
+		if(rising_edge(PCLK)) then
+			
+			if(cmd_output_RGB = '1') then
+				D_OUT <= shifter(0);
+			elsif(cmd_output_L = '1') then
+				D_OUT <= x"0000" & shifter(0)(7 downto 0);
+			elsif(cmd_output_M = '1') then
+				D_OUT <= x"0000" & shifter(0)(15 downto 8);
+			elsif(cmd_output_H = '1') then
+				D_OUT <= x"0000" & shifter(0)(23 downto 16);
+			else
+				D_OUT <= x"ffffff";
+			end if;
+			
+			if(cmd_shift = '1') then
+				for i in 0 to shifter'high-1 loop
+					shifter(i) <= shifter(i+1);
+				end loop;
+				
+			elsif(cmd_load = '1') then
+				shifter( 0) <= word1( 1*24-1 downto  0*24);
+				shifter( 1) <= word1( 2*24-1 downto  1*24);
+				shifter( 2) <= word1( 3*24-1 downto  2*24);
+				shifter( 3) <= word1( 4*24-1 downto  3*24);
+				shifter( 4) <= word1( 5*24-1 downto  4*24);
+				shifter( 5) <= word1( 6*24-1 downto  5*24);
+				shifter( 6) <= word1( 7*24-1 downto  6*24);
+				shifter( 7) <= word1( 8*24-1 downto  7*24);
+				shifter( 8) <= word1( 9*24-1 downto  8*24);
+				shifter( 9) <= word1(10*24-1 downto  9*24);
+				shifter(10) <= word2(7 downto 0) & word1(255 downto 10*24);
+				shifter(11) <= word2( 1*24-1 +8 downto 0*24 +8);
+				shifter(12) <= word2( 2*24-1 +8 downto 1*24 +8);
+				shifter(13) <= word2( 3*24-1 +8 downto 2*24 +8);
+				shifter(14) <= word2( 4*24-1 +8 downto 3*24 +8);
+				shifter(15) <= word2( 5*24-1 +8 downto 4*24 +8);
+				shifter(16) <= word2( 6*24-1 +8 downto 5*24 +8);
+				shifter(17) <= word2( 7*24-1 +8 downto 6*24 +8);
+				shifter(18) <= word2( 8*24-1 +8 downto 7*24 +8);
+				shifter(19) <= word2( 9*24-1 +8 downto 8*24 +8);
+				shifter(20) <= word2(10*24-1 +8 downto 9*24 +8);
+				shifter(21) <= word3(15 downto 0) & word2(255 downto 10*24 +8);
+				shifter(22) <= word3( 1*24-1 +16 downto 0*24 +16);
+				shifter(23) <= word3( 2*24-1 +16 downto 1*24 +16);
+				shifter(24) <= word3( 3*24-1 +16 downto 2*24 +16);
+				shifter(25) <= word3( 4*24-1 +16 downto 3*24 +16);
+				shifter(26) <= word3( 5*24-1 +16 downto 4*24 +16);
+				shifter(27) <= word3( 6*24-1 +16 downto 5*24 +16);
+				shifter(28) <= word3( 7*24-1 +16 downto 6*24 +16);
+				shifter(29) <= word3( 8*24-1 +16 downto 7*24 +16);
+				shifter(30) <= word3( 9*24-1 +16 downto 8*24 +16);
+				shifter(31) <= word3(10*24-1 +16 downto 9*24 +16);
+			end if;
+		
 		end if;
 		end process;
 	end block;
 
 
+	process(PCLK) is
+	begin
+	if(rising_edge(PCLK)) then
+		de_proc_delay(de_proc_delay'high) <= DE;
+		for i in 0 to de_proc_delay'high-1 loop
+			de_proc_delay(i) <= de_proc_delay(i+1);
+		end loop;
+	end if;
+	end process;
 
-	-- This is the output FIFO that the consumer uses to pull out a stream of 24-bit words.
-	-- Thus the read side is connected to the top level signals. 
-	-- The write side is connected to the translation logic to handle the intermittent writes.
+	main_fsm : block is
+		type state_t is (WAIT_FOR_DE, STARTUP, NORMAL);
+		signal state : state_t := WAIT_FOR_DE;
+		
+		signal de_old : std_logic := '0';
+		signal shiftcount : natural range 0 to 32 := 0;
+	begin
+		process(PCLK) is
+		begin
+		if(rising_edge(PCLK)) then
+			de_old <= DE;
 
-	narrow_bram: bram_simple_dual_port 
-	generic map(
-		ADDR_WIDTH => pram_addr_width,
-		DATA_WIDTH => pram_data_width
-	)
-	PORT MAP(
-		CLK1 => PCLK,
-		WADDR1 => pram_waddr1,
-		WDATA1 => pram_wdata1,
-		WE1 => pram_we,
-		CLK2 => PCLK,
-		RADDR2 => pram_raddr2,
-		RDATA2 => pram_rdata2
-	);
-	
-	narrow_fifo: fifo_1clk 
-	generic map(
-		ADDR_WIDTH => pram_addr_width,
-		DATA_WIDTH => pram_data_width
-	)
-	PORT MAP(
-		CLK => PCLK,
-		DIN => pfifo_data,
-		PUSH => pfifo_push,
-		POP => PPOP,
-		DOUT => PDATA,
-		DVALID => PDVALID,
-		RESET => PRESET,
-		EMPTY => pfifo_empty,
-		FULL => pfifo_full,
-		OVERFLOW => open,
-		RAM_WADDR1 => pram_waddr1,
-		RAM_WDATA1 => pram_wdata1,
-		RAM_WE1 => pram_we,
-		RAM_RADDR2 => pram_raddr2,
-		RAM_RDATA2 => pram_rdata2
-	);
+		case state is
+		when WAIT_FOR_DE =>
+			cmd_output_RGB <= '0';
+			cmd_output_L <= '0';
+			cmd_output_M <= '0';
+			cmd_output_H <= '0';
+			cmd_shift <= '0';
+			cmd_load <= '0';
+			shiftcount <= 0;
+			
+			if(de_old = '0' and DE = '1') then
+				cmd_pop3 <= '1';
+				state <= STARTUP;
+			end if;
+			
+		when STARTUP =>
+			cmd_pop3 <= '0';
+			if(words_ready = '1') then
+				cmd_load <= '1';
+				state <= NORMAL;
+			end if;
+			
+		when NORMAL =>
+			if(de_proc_delay(0) = '1') then
+				
+				cmd_output_RGB <= '1';
+				
+				-- The DE condition prevents fifo popping at the end of the line.
+				-- This works because the startup delay is long enough that DE is
+				-- low by the time a pop would take place.
+				if(shiftcount = 31-5 and DE = '1') then
+					cmd_pop3 <= '1';
+				else
+					cmd_pop3 <= '0';
+				end if;
+				
+				if(shiftcount = 31) then
+					cmd_shift <= '0';
+					cmd_load <= '1';
+					shiftcount <= 0;
+				else
+					cmd_shift <= '1';
+					cmd_load <= '0';
+					shiftcount <= shiftcount + 1;
+				end if;
+			else
+				cmd_output_RGB <= '0';
+				cmd_load <= '0';
+				state <= WAIT_FOR_DE;
+			end if;
+		
+		end case;
+		
+		end if;
+		end process;
+	end block;
 
 end Behavioral;
 
