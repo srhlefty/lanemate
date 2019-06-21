@@ -6,19 +6,20 @@
       <db_ref path="delay_application_tb_behav.wdb" id="1">
          <top_modules>
             <top_module name="delay_application_tb" />
+            <top_module name="glbl" />
          </top_modules>
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="80400000001fs"></ZoomEndTime>
-      <Cursor1Time time="7900000000fs"></Cursor1Time>
+      <ZoomStartTime time="706968210000fs"></ZoomStartTime>
+      <ZoomEndTime time="707372210001fs"></ZoomEndTime>
+      <Cursor1Time time="707168210000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="191"></NameColumnWidth>
-      <ValueColumnWidth column_width="208"></ValueColumnWidth>
+      <ValueColumnWidth column_width="204"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="18" />
+   <WVObjectSize size="23" />
    <wvobject type="divider" fp_name="divider208">
       <obj_property name="label">pixel input</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -47,6 +48,10 @@
       <obj_property name="label">mcb traffic</obj_property>
       <obj_property name="DisplayName">label</obj_property>
    </wvobject>
+   <wvobject fp_name="/delay_application_tb/Inst_trivial_mcb/MCLK" type="logic">
+      <obj_property name="ElementShortName">MCLK</obj_property>
+      <obj_property name="ObjectShortName">MCLK</obj_property>
+   </wvobject>
    <wvobject fp_name="/delay_application_tb/Inst_trivial_mcb/MAVAIL" type="array">
       <obj_property name="ElementShortName">MAVAIL[8:0]</obj_property>
       <obj_property name="ObjectShortName">MAVAIL[8:0]</obj_property>
@@ -54,6 +59,22 @@
    <wvobject fp_name="/delay_application_tb/uut/ppush_w" type="logic">
       <obj_property name="ElementShortName">ppush_w</obj_property>
       <obj_property name="ObjectShortName">ppush_w</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/uut/inst_pixel_to_ddr_fifo/writer_fifo_block/write_fifo/RAM_WADDR" type="array">
+      <obj_property name="ElementShortName">RAM_WADDR[8:0]</obj_property>
+      <obj_property name="ObjectShortName">RAM_WADDR[8:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/uut/inst_pixel_to_ddr_fifo/writer_fifo_block/write_fifo/RAM_RADDR" type="array">
+      <obj_property name="ElementShortName">RAM_RADDR[8:0]</obj_property>
+      <obj_property name="ObjectShortName">RAM_RADDR[8:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/uut/inst_pixel_to_ddr_fifo/writer_fifo_block/write_fifo/FREE" type="array">
+      <obj_property name="ElementShortName">FREE[8:0]</obj_property>
+      <obj_property name="ObjectShortName">FREE[8:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/delay_application_tb/uut/inst_pixel_to_ddr_fifo/writer_fifo_block/write_fifo/RAM_WE" type="logic">
+      <obj_property name="ElementShortName">RAM_WE</obj_property>
+      <obj_property name="ObjectShortName">RAM_WE</obj_property>
    </wvobject>
    <wvobject fp_name="/delay_application_tb/Inst_trivial_mcb/MPOP_W" type="logic">
       <obj_property name="ElementShortName">MPOP_W</obj_property>

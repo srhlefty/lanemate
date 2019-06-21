@@ -120,6 +120,33 @@ ARCHITECTURE behavior OF delay_application_tb IS
 	);
 	end component;
     
+	COMPONENT timing_gen
+	PORT(
+		CLK : IN std_logic;
+		RST : IN std_logic;
+		SEL : IN std_logic_vector(1 downto 0);          
+		VS : OUT std_logic;
+		HS : OUT std_logic;
+		DE : OUT std_logic;
+		D : OUT std_logic_vector(23 downto 0)
+		);
+	END COMPONENT;
+	
+	component test_pattern is
+	Port ( 
+		PCLK : in  STD_LOGIC;
+		VS : in  STD_LOGIC;
+		HS : in  STD_LOGIC;
+		DE : in  STD_LOGIC;
+		CE : in  STD_LOGIC;
+		IS422 : in std_logic;
+		D : in  STD_LOGIC_VECTOR (23 downto 0);
+		VSOUT : out  STD_LOGIC;
+		HSOUT : out  STD_LOGIC;
+		DEOUT : out  STD_LOGIC;
+		DOUT : out  STD_LOGIC_VECTOR (23 downto 0)
+	);
+	end component;
 
    --Inputs
    signal PCLK : std_logic := '0';
@@ -154,10 +181,9 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal MDVALID_R : std_logic;
 
 	signal count : natural := 0;
-	signal line_length : natural := 0;
-	signal hblank : natural := 0;
 
-	constant source : natural := 0;
+	signal sel : std_logic_vector(1 downto 0);
+	constant source : natural := 1;
 
 BEGIN
  
@@ -193,8 +219,8 @@ BEGIN
           MDATA => MDATA
         );
 
-	Inst_trivial_mcb: trivial_mcb PORT MAP(
---	Inst_trivial_mcb: internal_mcb PORT MAP(
+--	Inst_trivial_mcb: trivial_mcb PORT MAP(
+	Inst_trivial_mcb: internal_mcb PORT MAP(
 		MCLK => MCLK,
 		MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 		MAVAIL => MAVAIL,
@@ -213,74 +239,64 @@ BEGIN
 	gen_1080p : if(source = 0) generate
 	begin
 		PCLK <= not PCLK after 3.367 ns; -- 1080p
-		line_length <= 1920;
 		READOUT_DELAY <= std_logic_vector(to_unsigned(1920/2, READOUT_DELAY'length));
-		hblank <= 88+148+44;
 		IS422 <= '0';
 		MTRANSACTION_SIZE <= x"1e";
+		sel <= "10";
 	end generate;
 
 	gen_720p : if(source = 1) generate
 	begin
 		PCLK <= not PCLK after 6.73 ns; -- 720p
-		line_length <= 1280;
 		READOUT_DELAY <= std_logic_vector(to_unsigned(1280/2, READOUT_DELAY'length));
-		hblank <= 110+220+40;
 		IS422 <= '0';
 		MTRANSACTION_SIZE <= x"14";
+		sel <= "01";
 	end generate;
 	
 	gen_480i : if(source = 2) generate
 	begin
 		PCLK <= not PCLK after 18.519 ns; -- 480i
-		line_length <= 1440;
 		READOUT_DELAY <= std_logic_vector(to_unsigned(1440/2, READOUT_DELAY'length));
-		hblank <= 38+114+124;
 		IS422 <= '1';
 		MTRANSACTION_SIZE <= x"08";
+		sel <= "11";
 	end generate;
 
 
 	MCLK <= not MCLK after 5 ns;
 	
 	
-	
-		  
-	process(PCLK) is
-		variable n : std_logic_vector(7 downto 0);
-		variable de1start, de1end, de2start, de2end : natural;
+	stim : block is
+		signal stage1_vs, stage1_hs, stage1_de : std_logic := '0';
+		signal stage1_d : std_logic_vector(23 downto 0) := (others => '0');
 	begin
-	if(rising_edge(PCLK)) then
-		count <= count + 1;
+	
+		Inst_timing_gen: timing_gen PORT MAP(
+			CLK => PCLK,
+			RST => '0',
+			SEL => sel,
+			VS => stage1_vs,
+			HS => stage1_hs,
+			DE => stage1_de,
+			D => stage1_d
+		);
+	
+		Inst_test_pattern: test_pattern PORT MAP(
+			PCLK => PCLK,
+			VS => stage1_vs,
+			HS => stage1_hs,
+			DE => stage1_de,
+			CE => '1',
+			IS422 => IS422,
+			D => stage1_d,
+			VSOUT => VS,
+			HSOUT => HS,
+			DEOUT => DE,
+			DOUT => PDATA
+		);
 		
-		if(count = 5) then
-			VS <= '0';
-		else
-			VS <= '1';
-		end if;
-		
-		if(count = 6 or count = 6+line_length+hblank) then
-			HS <= '0';
-		else
-			HS <= '1';
-		end if;
-		
-		if((count >= 10 and count < 10+line_length) or
-		   (count >= 10+line_length+hblank and count < 10+line_length+hblank+line_length)) then
-			n := std_logic_vector(to_unsigned(count-10, 8));
-			if(IS422 = '1') then
-				PDATA <= x"0000" & n;
-			else
-				PDATA <= n & x"aa" & x"bb";
-			end if;
-			DE <= '1';
-		else
-			PDATA <= (others => '0');
-			DE <= '0';
-		end if;
-		
-	end if;
-	end process;
+	end block;
 
 
 END;
