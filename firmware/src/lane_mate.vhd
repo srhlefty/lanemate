@@ -681,8 +681,8 @@ begin
 			 MDATA => MDATA
 		  );
 
-		Inst_trivial_mcb: trivial_mcb PORT MAP(
---		Inst_trivial_mcb: internal_mcb PORT MAP(
+--		Inst_trivial_mcb: trivial_mcb PORT MAP(
+		Inst_trivial_mcb: internal_mcb PORT MAP(
 			MCLK => clk,
 			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 			MAVAIL => MAVAIL,
@@ -700,7 +700,7 @@ begin
 	
 	B1_GPIO13 <= MPUSH;
 	B1_GPIO14 <= MPOP_W;	
-	B1_GPIO15 <= MAVAIL(8);
+	B1_GPIO15 <= delay_debug;
 	end block;
 	
 	

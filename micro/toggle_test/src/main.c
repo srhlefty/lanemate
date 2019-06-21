@@ -277,7 +277,7 @@ int main (void)
 
 
 	print("Waiting for FPGA to boot...\r\n");
-	delay_cycles_ms(10000);
+	//delay_cycles_ms(10000);
 	
 
 	uint8_t source = 0; // 0=hd, 1=sd
@@ -366,6 +366,8 @@ int main (void)
 				*/
 				delay_enabled = (delay_enabled > 0)? 0 : 1;
 				i2c_write_reg(lanemate_address, 0x06, delay_enabled);
+				if(delay_enabled) print("Delay enabled\r\n");
+				else print("Delay disabled\r\n");
 
 				cycle_count = 0;
 			}else

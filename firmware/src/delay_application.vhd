@@ -281,6 +281,9 @@ begin
 
 
 	-- stage 3: fill transaction fifos
+	in_fifo : block is
+		signal mavail_i : std_logic_vector(8 downto 0);
+	begin
    inst_pixel_to_ddr_fifo: pixel_to_ddr_fifo PORT MAP (
           PCLK => PCLK,
           MCLK => MCLK,
@@ -299,11 +302,20 @@ begin
           MPOP_R => MPOP_R,
           MADDR_R => MADDR_R,
           MDVALID_R => MDVALID_R,
-          MAVAIL => MAVAIL,
+          MAVAIL => mavail_i,
           MFLUSH => MFLUSH
         );
-
-	DEBUG <= ppush_w;
+	MAVAIL <= mavail_i;
+	process(HS, mavail_i) is
+	begin
+		if(HS = '0' and mavail_i > "000000000") then
+			DEBUG <= '1';
+		else
+			DEBUG <= '0';
+		end if;
+	end process;
+	
+	end block;
 
 	-- stage 4: generate delayed sync signals to give the MCB time to operate
 	sync_delay : block is
