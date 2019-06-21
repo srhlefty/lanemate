@@ -187,7 +187,7 @@ begin
 			count := n_push - n_pop;
 			int_free <= std_logic_vector(to_unsigned(   n_maxsize - count   , FREE'length));
 		else
-			int_free <= std_logic_vector(to_unsigned(   n_pop - n_push   , FREE'length));
+			int_free <= std_logic_vector(to_unsigned(   n_pop - n_push - 1   , FREE'length));
 		end if;
 	end if;
 	end process;
@@ -209,7 +209,7 @@ begin
 			int_used <= std_logic_vector(to_unsigned(   n_push - n_pop   , USED'length));
 		else
 			op1 := n_maxsize - n_pop;
-			int_used <= std_logic_vector(to_unsigned(   op1 + n_push   , USED'length));
+			int_used <= std_logic_vector(to_unsigned(   op1 + n_push + 1   , USED'length));
 		end if;
 	end if;
 	end process;
