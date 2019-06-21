@@ -281,32 +281,12 @@ begin
 
 
 	-- stage 3: fill transaction fifos
-	inputfifos : block is
-		signal preset : std_logic := '0';
-		signal hs_old : std_logic := '1';
-	begin
-	-- Reset input fifos on rising edge of HS.
-	-- If everything is working, this should do nothing
-	-- since there isn't supposed to be any remainder
-	-- after the mcb has seen all of the line's data
-	process(PCLK) is
-	begin
-	if(rising_edge(PCLK)) then
-		hs_old <= HS;
-		if(hs_old = '0' and HS = '1') then
-			preset <= '1';
-		else
-			preset <= '0';
-		end if;
-	end if;
-	end process;
-	
    inst_pixel_to_ddr_fifo: pixel_to_ddr_fifo PORT MAP (
           PCLK => PCLK,
           MCLK => MCLK,
           PDE => de_post_gearbox,
           PPUSHED => ppushed,
-			 PRESET_FIFOS => preset,
+			 PRESET_FIFOS => newframe,
           PADDR_W => paddr_w,
           PDATA_W => pdata_w,
           PPUSH_W => ppush_w,
@@ -322,7 +302,6 @@ begin
           MAVAIL => MAVAIL,
           MFLUSH => MFLUSH
         );
-	end block;
 
 	DEBUG <= ppush_w;
 

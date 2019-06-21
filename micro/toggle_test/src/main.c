@@ -265,8 +265,6 @@ int main (void)
 	delay_init();
 
 
-	print("Waiting for FPGA to boot...\r\n");
-	delay_cycles_ms(10000);
 
 
 	configure_i2c_master();
@@ -274,9 +272,12 @@ int main (void)
 	hdmi_rx_set_freerun_to_1080p60();
 	//hdmi_rx_set_freerun_to_720p60();
 	configure_sd_rx();
-	//configure_hdmi_tx_for_hd_input();
-	configure_hdmi_tx_for_sd_input();
+	configure_hdmi_tx_for_hd_input();
+	//configure_hdmi_tx_for_sd_input();
 
+
+	print("Waiting for FPGA to boot...\r\n");
+	delay_cycles_ms(10000);
 	
 
 	uint8_t source = 0; // 0=hd, 1=sd
