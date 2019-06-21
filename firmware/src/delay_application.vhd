@@ -87,6 +87,7 @@ architecture Behavioral of delay_application is
     COMPONENT gearbox8to24
     PORT(
          PCLK : IN  std_logic;
+			PRST : in std_logic;
          CE : IN  std_logic;
          DIN : IN  std_logic_vector(23 downto 0);
          DE : IN  std_logic;
@@ -98,6 +99,7 @@ architecture Behavioral of delay_application is
 	component gearbox24to256 is
 	Port ( 
 		PCLK : in std_logic;
+		PRST : in std_logic;
 		-- input data
 		PDATA : in std_logic_vector(23 downto 0);
 		PPUSH : in std_logic;                             -- DE
@@ -198,11 +200,20 @@ architecture Behavioral of delay_application is
 	);
 	end component;
 	
+	COMPONENT pulse_cross_fast2slow
+	PORT(
+		CLKFAST : IN  std_logic;
+		TRIGIN : IN  std_logic;
+		CLKSLOW : IN  std_logic;
+		TRIGOUT : OUT  std_logic
+	  );
+	END COMPONENT;
 
 	signal de_post_gearbox : std_logic;
 	signal data_post_gearbox : std_logic_vector(23 downto 0);
 
 	signal newframe : std_logic := '0';
+	signal mreset : std_logic := '0';
 
 	signal paddr_w : std_logic_vector(26 downto 0);
 	signal pdata_w : std_logic_vector(255 downto 0);
@@ -225,6 +236,7 @@ begin
 
    inst_gearbox8to24: gearbox8to24 PORT MAP (
           PCLK => PCLK,
+			 PRST => newframe,
           CE => IS422,
           DIN => PDATA,
           DE => DE,
@@ -253,6 +265,7 @@ begin
 	
    inst_gearbox24_to_256: gearbox24to256 PORT MAP (
           PCLK => PCLK,
+			 PRST => newframe,
           PDATA => data_post_gearbox,
           PPUSH => de_post_gearbox,
           PFRAME_ADDR_W => FRAME_ADDR_W,
@@ -336,11 +349,17 @@ begin
 	
 	
 	
+	rst_cross : pulse_cross_fast2slow PORT MAP(
+		CLKFAST => PCLK,
+		TRIGIN => newframe,
+		CLKSLOW => MCLK,
+		TRIGOUT => mreset
+	);
 
 	-- stage 5: inverse gearbox back to pixels
 	Inst_ddr_to_pixel_fifo: ddr_to_pixel_fifo PORT MAP(
 		MCLK => MCLK,
-		MRESET => '0',
+		MRESET => mreset,
 		MPUSH => MPUSH,
 		MDATA => MDATA,
 		PCLK => PCLK,

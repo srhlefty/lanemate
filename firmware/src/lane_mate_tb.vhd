@@ -2,7 +2,7 @@
 -- Company: 
 -- Engineer:
 --
--- Create Date:   15:57:15 04/20/2019
+-- Create Date:   17:15:49 06/20/2019
 -- Design Name:   
 -- Module Name:   C:/Users/Steven/Documents/Repositories/lanemate/firmware/src/lane_mate_tb.vhd
 -- Project Name:  firmware
@@ -55,12 +55,12 @@ ARCHITECTURE behavior OF lane_mate_tb IS
          SDI_VS : IN  std_logic;
          SDI_INT : IN  std_logic;
          SDV : IN  std_logic_vector(7 downto 0);
-	HDO_PCLK : out std_logic;
-	HDO_VS : out std_logic;
-	HDO_HS : out std_logic;
-	HDO_DE : out std_logic;
-	HDO_INT : in std_logic;
-	RGB_OUT : out std_logic_vector(23 downto 0);
+         HDO_PCLK : OUT  std_logic;
+         HDO_VS : OUT  std_logic;
+         HDO_HS : OUT  std_logic;
+         HDO_DE : OUT  std_logic;
+         HDO_INT : IN  std_logic;
+         RGB_OUT : OUT  std_logic_vector(23 downto 0);
          B0_GPIO0 : OUT  std_logic;
          B1_GPIO1 : OUT  std_logic;
          B1_GPIO2 : OUT  std_logic;
@@ -81,13 +81,24 @@ ARCHITECTURE behavior OF lane_mate_tb IS
          B1_GPIO25 : OUT  std_logic
         );
     END COMPONENT;
+
+	component timing_gen is
+    Port ( CLK : in  STD_LOGIC;
+	        RST : in std_logic;
+           SEL : in  STD_LOGIC_VECTOR (1 downto 0);
+           VS : out  STD_LOGIC;
+           HS : out  STD_LOGIC;
+           DE : out  STD_LOGIC;
+           D : out  STD_LOGIC_VECTOR (23 downto 0));
+	end component;
+	
     
 
    --Inputs
    signal SYSCLK : std_logic := '0';
    signal HDI_PCLK : std_logic := '0';
-   signal HDI_VS : std_logic := '1';
-   signal HDI_HS : std_logic := '1';
+   signal HDI_VS : std_logic := '0';
+   signal HDI_HS : std_logic := '0';
    signal HDI_DE : std_logic := '0';
    signal HDI_INT : std_logic := '0';
    signal RGB_IN : std_logic_vector(23 downto 0) := (others => '0');
@@ -96,18 +107,18 @@ ARCHITECTURE behavior OF lane_mate_tb IS
    signal SDI_VS : std_logic := '0';
    signal SDI_INT : std_logic := '0';
    signal SDV : std_logic_vector(7 downto 0) := (others => '0');
-	signal HDO_INT : std_logic := '0';
+   signal HDO_INT : std_logic := '0';
 
 	--BiDirs
    signal I2C_SDA : std_logic;
    signal I2C_SCL : std_logic;
 
  	--Outputs
-	signal HDO_PCLK : std_logic;
-	signal HDO_VS : std_logic;
-	signal HDO_HS : std_logic;
-	signal HDO_DE : std_logic;
-	signal RGB_OUT : std_logic_vector(23 downto 0);
+   signal HDO_PCLK : std_logic;
+   signal HDO_VS : std_logic;
+   signal HDO_HS : std_logic;
+   signal HDO_DE : std_logic;
+   signal RGB_OUT : std_logic_vector(23 downto 0);
    signal B0_GPIO0 : std_logic;
    signal B1_GPIO1 : std_logic;
    signal B1_GPIO2 : std_logic;
@@ -127,6 +138,11 @@ ARCHITECTURE behavior OF lane_mate_tb IS
    signal B1_GPIO24 : std_logic;
    signal B1_GPIO25 : std_logic;
 
+   -- Clock period definitions
+   constant SYSCLK_period : time := 10 ns;
+   constant HDI_PCLK_period : time := 10 ns;
+   constant SDI_PCLK_period : time := 10 ns;
+   constant HDO_PCLK_period : time := 10 ns;
  
 BEGIN
  
@@ -146,12 +162,12 @@ BEGIN
           SDI_VS => SDI_VS,
           SDI_INT => SDI_INT,
           SDV => SDV,
-			HDO_PCLK => HDO_PCLK,
-			HDO_VS => HDO_VS,
-			HDO_HS => HDO_HS,
-			HDO_DE => HDO_DE,
-			HDO_INT => HDO_INT,
-			RGB_OUT => RGB_OUT,
+          HDO_PCLK => HDO_PCLK,
+          HDO_VS => HDO_VS,
+          HDO_HS => HDO_HS,
+          HDO_DE => HDO_DE,
+          HDO_INT => HDO_INT,
+          RGB_OUT => RGB_OUT,
           B0_GPIO0 => B0_GPIO0,
           B1_GPIO1 => B1_GPIO1,
           B1_GPIO2 => B1_GPIO2,
@@ -171,6 +187,17 @@ BEGIN
           B1_GPIO24 => B1_GPIO24,
           B1_GPIO25 => B1_GPIO25
         );
+
+
+	Inst_timing_gen: timing_gen PORT MAP(
+		CLK => HDI_PCLK,
+		RST => '0',
+		SEL => "01",
+		VS => HDI_VS,
+		HS => HDI_HS,
+		DE => HDI_DE,
+		D => open
+	);
 
 	SYSCLK <= not SYSCLK after 5 ns;
 	HDI_PCLK <= not HDI_PCLK after 6.734 ns; -- 74.25 MHz

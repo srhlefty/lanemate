@@ -32,6 +32,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity gearbox24to256 is
 	Port ( 
 		PCLK : in std_logic;
+		PRST : in std_logic;
 		-- input data
 		PDATA : in std_logic_vector(23 downto 0);
 		PPUSH : in std_logic;                             -- DE
@@ -116,12 +117,17 @@ begin
 		begin
 		if(rising_edge(PCLK)) then
 		
-			if(PNEW_FRAME = '1') then
+			if(PNEW_FRAME = '1' or PRST = '1') then
 				base_addr_w <= PFRAME_ADDR_W;
 				base_addr_r <= PFRAME_ADDR_R;
 				addr_offset_w <= (others => '0');
 				addr_offset_r <= (others => '0');
 				offset_mode <= EVEN;
+				count <= 0;
+				pusher_state <= IDLE;
+				fifo_push <= '0';
+				done <= '0';
+				done_d <= '0';
 			else
 			
 		

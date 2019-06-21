@@ -191,14 +191,6 @@ architecture Behavioral of pixel_to_ddr_fifo is
 	signal crossout : std_logic_vector(0 downto 0);
 begin
 
---	flush_remainder <= (not PDE) and PPUSHED;
---
---	flush_cross : pulse_cross_fast2slow PORT MAP(
---		CLKFAST => PCLK,
---		TRIGIN => flush_remainder,
---		CLKSLOW => MCLK,
---		TRIGOUT => MFLUSH
---	);
 	process(PCLK) is
 	begin
 	if(rising_edge(PCLK)) then
@@ -233,7 +225,6 @@ begin
 	
 	crossin(0) <= flushd4;
 	MFLUSH <= crossout(0);
---	MFLUSH <= '0';
 	
 	writer_fifo_block : block is
 		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);

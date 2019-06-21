@@ -32,6 +32,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity gearbox8to24 is
 	Port ( 
 		PCLK : in  STD_LOGIC;
+		PRST : in std_logic;
 		CE : in  STD_LOGIC;
 		DIN : in  STD_LOGIC_VECTOR (23 downto 0);
 		DE : in  STD_LOGIC;
@@ -53,35 +54,42 @@ begin
 	process(PCLK) is
 	begin
 	if(rising_edge(PCLK)) then
-		if(CE = '1') then
-			if(DE = '1') then
-				shifter(2) <= DIN(7 downto 0);
-				for i in 0 to 1 loop
-					shifter(i) <= shifter(i+1);
-				end loop;
-				
-				if(count = 2) then
-					count <= 0;
-				elsif(count = 3) then
-					count <= 1;
+		if(PRST = '1') then
+			shifter <= (others => (others => '0'));
+			count <= 3;
+			dout_i <= (others => '0');
+			deout_i <= '0';
+		else
+			if(CE = '1') then
+				if(DE = '1') then
+					shifter(2) <= DIN(7 downto 0);
+					for i in 0 to 1 loop
+						shifter(i) <= shifter(i+1);
+					end loop;
+					
+					if(count = 2) then
+						count <= 0;
+					elsif(count = 3) then
+						count <= 1;
+					else
+						count <= count + 1;
+					end if;
 				else
-					count <= count + 1;
+					count <= 3;
 				end if;
+				
+				if(count = 0) then
+					dout_i <= shifter(2) & shifter(1) & shifter(0);
+					deout_i <= '1';
+				else
+					deout_i <= '0';
+				end if;
+				
 			else
 				count <= 3;
+				dout_i <= DIN;
+				deout_i <= DE;
 			end if;
-			
-			if(count = 0) then
-				dout_i <= shifter(2) & shifter(1) & shifter(0);
-				deout_i <= '1';
-			else
-				deout_i <= '0';
-			end if;
-			
-		else
-			count <= 3;
-			dout_i <= DIN;
-			deout_i <= DE;
 		end if;
 	end if;
 	end process;

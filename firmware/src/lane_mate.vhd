@@ -264,10 +264,10 @@ architecture Behavioral of lane_mate is
 	(
 		0 => x"02", -- Register table version
 		1 => x"00", -- video source, HD (0x00) or SD (0x01)
-		2 => x"00", -- test pattern, off (0x00) or on (0x01)
-		3 => x"03", -- readout_delay(10 downto 8)
-		4 => x"C0", -- readout_delay(7 downto 0)
-		5 => x"1e", -- mtransaction_size(7 downto 0)
+		2 => x"01", -- test pattern, off (0x00) or on (0x01)
+		3 => x"02", -- readout_delay(10 downto 8)
+		4 => x"80", -- readout_delay(7 downto 0)
+		5 => x"14", -- mtransaction_size(7 downto 0)
 		6 => x"00", -- delay_enabled
 		7 => x"CD",
 		others => x"00"
@@ -698,35 +698,9 @@ begin
 			MDATA_R => MDATA
 		);
 	
---	dbg_trig : block is
---		signal de_old : std_logic := '0';
---		signal rising : std_logic := '0';
---	begin
---		process(video_clock) is
---		begin
---		if(rising_edge(video_clock)) then
---			de_old <= stage2_de;
---			if(de_old = '0' and stage2_de = '1') then
---				rising <= '1';
---			else
---				rising <= '0';
---			end if;
---		end if;
---		end process;
---		
---		process(MAVAIL, rising) is
---		begin
---			if(to_integer(unsigned(MAVAIL)) > 0 and rising = '1') then
---				B1_GPIO13 <= '1';
---			else
---				B1_GPIO13 <= '0';
---			end if;
---		end process;
---	end block;
 	B1_GPIO13 <= MPUSH;
 	B1_GPIO14 <= MPOP_W;	
 	B1_GPIO15 <= MAVAIL(8);
-	RGB_OUT(7 downto 0) <= MAVAIL(7 downto 0);
 	end block;
 	
 	
@@ -744,7 +718,7 @@ begin
 		HDO_VS <= stage3_vs;
 		HDO_HS <= stage3_hs;
 		HDO_DE <= stage3_de;
-		RGB_OUT(23 downto 8) <= stage3_d(23 downto 8);
+		RGB_OUT <= stage3_d;
 	end if;
 	end process;
 	

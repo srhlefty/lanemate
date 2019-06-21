@@ -274,7 +274,8 @@ int main (void)
 	hdmi_rx_set_freerun_to_1080p60();
 	//hdmi_rx_set_freerun_to_720p60();
 	configure_sd_rx();
-	configure_hdmi_tx_for_hd_input();
+	//configure_hdmi_tx_for_hd_input();
+	configure_hdmi_tx_for_sd_input();
 
 	
 
@@ -295,11 +296,17 @@ int main (void)
 			transaction_size = 0x1e;
 		}else
 		{
-			// 720p: readout delay = 1280/2 = 960 = 0x280, transaction size = 0x14
+			// 720p: readout delay = 1280/2 = 640 = 0x280, transaction size = 0x14
 			readout_delay_hi = 0x02;
 			readout_delay_lo = 0x80;
 			transaction_size = 0x14;
 		}
+	}else
+	{
+		// 480i: readout delay = 1440/2 = 720 = 0x2D0, transaction size = 0x08
+		readout_delay_hi = 0x02;
+		readout_delay_lo = 0xD0;
+		transaction_size = 0x08;
 	}
 	i2c_write_reg(lanemate_address, 0x01, source);
 	i2c_write_reg(lanemate_address, 0x02, testpattern);

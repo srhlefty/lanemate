@@ -57,7 +57,9 @@ architecture Behavioral of test_pattern is
 	end component;
 
 	signal hcount : natural range 0 to 2047 := 0;
+	signal vcount : natural range 0 to 2047 := 0;
 	signal de_old : std_logic := '0';
+	signal hs_old : std_logic := '0';
 	
 	signal vs1 : std_logic := '0';
 	signal hs1 : std_logic := '0';
@@ -114,11 +116,20 @@ begin
 				hcount <= hcount + 1;
 			end if;
 		end if;
+		if(VS = '0') then
+			vcount <= 0;
+		else
+			if(de_old = '1' and DE = '0') then
+				vcount <= vcount + 1;
+			end if;
+		end if;
+			
 	end if;
 	end process;
 
 	process(PCLK) is
 		variable hcountv : std_logic_vector(10 downto 0);
+		variable vcountv : std_logic_vector(10 downto 0);
 		variable sample : std_logic_vector(23 downto 0);
 	begin
 	if(rising_edge(PCLK)) then
@@ -126,7 +137,11 @@ begin
 			de1 <= DE;
 			de444 <= de1;
 			hcountv := std_logic_vector(to_unsigned(hcount, hcountv'length));
-			d444 <= romRGB(to_integer(unsigned(hcountv(8 downto 7))));
+			vcountv := std_logic_vector(to_unsigned(vcount, vcountv'length));
+			--d444 <= romRGB(to_integer(unsigned(hcountv(8 downto 7))));
+			d444(23 downto 16) <= hcountv(7 downto 0);
+			d444(15 downto 8)  <= vcountv(7 downto 0);
+			d444(7 downto 0) <= x"00";
 			
 			sample := romYCbCr(to_integer(unsigned(hcountv(8 downto 7))));
 			srcYCbCr1 <= sample;

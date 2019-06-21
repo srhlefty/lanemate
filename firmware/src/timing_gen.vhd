@@ -29,7 +29,7 @@ use IEEE.NUMERIC_STD.ALL;
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
-use work.pkg_types.all;
+--use work.pkg_types.all;
 
 entity timing_gen is
     Port ( CLK : in  STD_LOGIC;
@@ -74,6 +74,23 @@ architecture Behavioral of timing_gen is
 		);
 	END COMPONENT;
 	
+	type vic_settings is record
+		total_horizontal_line_length              : std_logic_vector(11 downto 0);
+		horizontal_front_porch                    : std_logic_vector(11 downto 0);
+		horizontal_back_porch                     : std_logic_vector(11 downto 0);
+		horizontal_sync_pulse_width               : std_logic_vector(11 downto 0);
+		total_number_of_vertical_lines_in_field_0 : std_logic_vector(11 downto 0);
+		vertical_front_porch_field_0              : std_logic_vector(11 downto 0);
+		vertical_back_porch_field_0               : std_logic_vector(11 downto 0);
+		vertical_sync_pulse_in_field_0            : std_logic_vector(11 downto 0);
+		HV_offset_field_0                         : std_logic_vector(11 downto 0);
+		total_number_of_vertical_lines_in_field_1 : std_logic_vector(11 downto 0);
+		vertical_front_porch_field_1              : std_logic_vector(11 downto 0);
+		vertical_back_porch_field_1               : std_logic_vector(11 downto 0);
+		vertical_sync_pulse_in_field_1            : std_logic_vector(11 downto 0);
+		HV_offset_field_1                         : std_logic_vector(11 downto 0);
+		interlaced                                : std_logic;
+	end record;
 	
 
 	-- These constants are derived from the values listed in the CEA861D standard.
@@ -127,10 +144,14 @@ architecture Behavioral of timing_gen is
 		horizontal_front_porch                    => std_logic_vector(to_unsigned( 110, 12)),
 		horizontal_back_porch                     => std_logic_vector(to_unsigned( 220, 12)),
 		horizontal_sync_pulse_width               => std_logic_vector(to_unsigned(  40, 12)),
-		total_number_of_vertical_lines_in_field_0 => std_logic_vector(to_unsigned( 750, 12)),
-		vertical_front_porch_field_0              => std_logic_vector(to_unsigned(   5, 12)),
-		vertical_back_porch_field_0               => std_logic_vector(to_unsigned(  20, 12)),
-		vertical_sync_pulse_in_field_0            => std_logic_vector(to_unsigned(   5, 12)),
+--		total_number_of_vertical_lines_in_field_0 => std_logic_vector(to_unsigned( 750, 12)),
+--		vertical_front_porch_field_0              => std_logic_vector(to_unsigned(   5, 12)),
+--		vertical_back_porch_field_0               => std_logic_vector(to_unsigned(  20, 12)),
+--		vertical_sync_pulse_in_field_0            => std_logic_vector(to_unsigned(   5, 12)),
+		total_number_of_vertical_lines_in_field_0 => std_logic_vector(to_unsigned( 723, 12)),
+		vertical_front_porch_field_0              => std_logic_vector(to_unsigned(   1, 12)),
+		vertical_back_porch_field_0               => std_logic_vector(to_unsigned(  1, 12)),
+		vertical_sync_pulse_in_field_0            => std_logic_vector(to_unsigned(   1, 12)),
 		HV_offset_field_0                         => std_logic_vector(to_unsigned(   0, 12)),
 		total_number_of_vertical_lines_in_field_1 => std_logic_vector(to_unsigned(   0, 12)),
 		vertical_front_porch_field_1              => std_logic_vector(to_unsigned(   0, 12)),

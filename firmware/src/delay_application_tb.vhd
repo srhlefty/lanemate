@@ -157,7 +157,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
 	signal line_length : natural := 0;
 	signal hblank : natural := 0;
 
-	constant source : natural := 2;
+	constant source : natural := 0;
 
 BEGIN
  
@@ -271,7 +271,7 @@ BEGIN
 			if(IS422 = '1') then
 				PDATA <= x"0000" & n;
 			else
-				PDATA <= n & n & n;
+				PDATA <= n & x"aa" & x"bb";
 			end if;
 			DE <= '1';
 		else
