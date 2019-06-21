@@ -102,6 +102,8 @@ architecture Behavioral of internal_mcb is
 	-- in that situation.
 	signal half_burst : std_logic := '0';
 	signal burst_addr : std_logic := '0';
+
+	signal passcount : natural range 0 to 4 := 0;
 begin
 
 	MPOP_W <= pop_w;
@@ -131,23 +133,33 @@ begin
 			-- is odd, the burst is not full and so I have to forcibly
 			-- fill it with junk data.
 			if(available >= transaction) then
-				if(MTRANSACTION_SIZE(0) = '1') then
-					half_burst <= '1';
-					limit <= transaction + 1;
+				if(passcount = 4) then
+					if(MTRANSACTION_SIZE(0) = '1') then
+						half_burst <= '1';
+						limit <= transaction + 1;
+					else
+						half_burst <= '0';
+						limit <= transaction;
+					end if;
+					state <= OPEN_ROW_W;
 				else
-					half_burst <= '0';
-					limit <= transaction;
+					passcount <= passcount + 1;
 				end if;
-				state <= OPEN_ROW_W;
 			elsif(MFLUSH = '1' and available > 0) then
-				if(MAVAIL(0) = '1') then
-					half_burst <= '1';
-					limit <= available + 1;
+				if(passcount = 4) then
+					if(MAVAIL(0) = '1') then
+						half_burst <= '1';
+						limit <= available + 1;
+					else
+						half_burst <= '0';
+						limit <= available;
+					end if;
+					state <= OPEN_ROW_W;
 				else
-					half_burst <= '0';
-					limit <= available;
+					passcount <= passcount + 1;
 				end if;
-				state <= OPEN_ROW_W;
+			else
+				passcount <= 0;
 			end if;
 			
 		when OPEN_ROW_W =>
