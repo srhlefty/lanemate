@@ -117,11 +117,14 @@ begin
 		begin
 		if(rising_edge(PCLK)) then
 		
-			if(PNEW_FRAME = '1' or PRST = '1') then
+			if(PNEW_FRAME = '1') then
 				base_addr_w <= PFRAME_ADDR_W;
 				base_addr_r <= PFRAME_ADDR_R;
 				addr_offset_w <= (others => '0');
 				addr_offset_r <= (others => '0');
+			end if;
+			
+			if(PNEW_FRAME = '1' or PRST = '1') then
 				offset_mode <= EVEN;
 				count <= 0;
 				pusher_state <= IDLE;

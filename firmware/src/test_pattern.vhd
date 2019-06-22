@@ -146,7 +146,8 @@ begin
 			sample := romYCbCr(to_integer(unsigned(hcountv(8 downto 7))));
 			srcYCbCr1 <= sample;
 			srcY2 <= sample(23 downto 16);
-			
+--			d422 <= x"0000" & hcountv(7 downto 0);
+--			de422 <= de1;
 		else
 			de444 <= DE;
 			d444  <= D;

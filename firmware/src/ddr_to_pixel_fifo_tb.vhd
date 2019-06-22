@@ -66,7 +66,7 @@ ARCHITECTURE behavior OF ddr_to_pixel_fifo_tb IS
    signal MDATA : std_logic_vector(255 downto 0) := (others => '0');
    signal PCLK : std_logic := '0';
    signal PRESET : std_logic := '0';
-   signal P8BIT : std_logic := '0';
+   signal P8BIT : std_logic := '1';
    signal VS : std_logic := '0';
    signal HS : std_logic := '0';
    signal DE : std_logic := '0';

@@ -257,7 +257,7 @@ begin
 	with SEL select output_vic <=
 		VIC720p when "01",
 		VIC1080p when "10",
-		VIC480p when others;
+		VIC480i when others;
 	
 	Inst_sync_vg: sync_vg PORT MAP(
 		clk => CLK,

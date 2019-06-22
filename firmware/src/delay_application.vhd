@@ -213,6 +213,7 @@ architecture Behavioral of delay_application is
 	signal data_post_gearbox : std_logic_vector(23 downto 0);
 
 	signal newframe : std_logic := '0';
+	signal newline : std_logic := '0';
 	signal mreset : std_logic := '0';
 
 	signal paddr_w : std_logic_vector(26 downto 0);
@@ -236,7 +237,7 @@ begin
 
    inst_gearbox8to24: gearbox8to24 PORT MAP (
           PCLK => PCLK,
-			 PRST => newframe,
+			 PRST => newline,
           CE => IS422,
           DIN => PDATA,
           DE => DE,
@@ -247,17 +248,24 @@ begin
 	-- stage 2: pack 24-bit bus into 256-bit bus
 	-- and generate ddr addresses for read and write transactions
 	
-	newframe_gen : block is
+	rst_gen : block is
 		signal vs_old : std_logic := '1';
+		signal hs_old : std_logic := '1';
 	begin
 		process(PCLK) is
 		begin
 		if(rising_edge(PCLK)) then
 			vs_old <= VS;
+			hs_old <= HS;
 			if(vs_old = '1' and VS = '0') then
 				newframe <= '1';
 			else
 				newframe <= '0';
+			end if;
+			if(hs_old = '1' and HS = '0') then
+				newline <= '1';
+			else
+				newline <= '0';
 			end if;
 		end if;
 		end process;
@@ -265,7 +273,7 @@ begin
 	
    inst_gearbox24_to_256: gearbox24to256 PORT MAP (
           PCLK => PCLK,
-			 PRST => newframe,
+			 PRST => newline,
           PDATA => data_post_gearbox,
           PPUSH => de_post_gearbox,
           PFRAME_ADDR_W => FRAME_ADDR_W,

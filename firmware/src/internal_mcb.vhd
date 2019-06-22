@@ -244,6 +244,7 @@ begin
 			end if;
 			
 		when CLOSE_ROW_R =>
+			half_burst <= '0';
 			state <= NOP;
 			
 			

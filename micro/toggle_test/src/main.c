@@ -269,18 +269,18 @@ int main (void)
 
 	configure_i2c_master();
 	configure_hdmi_rx();
-	hdmi_rx_set_freerun_to_1080p60();
-	//hdmi_rx_set_freerun_to_720p60();
+	//hdmi_rx_set_freerun_to_1080p60();
+	hdmi_rx_set_freerun_to_720p60();
 	configure_sd_rx();
-	configure_hdmi_tx_for_hd_input();
-	//configure_hdmi_tx_for_sd_input();
+	//configure_hdmi_tx_for_hd_input();
+	configure_hdmi_tx_for_sd_input();
 
 
 	print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
 	
 
-	uint8_t source = 0; // 0=hd, 1=sd
+	uint8_t source = 1; // 0=hd, 1=sd
 	uint8_t testpattern = 1; // 0=off, 1=on
 	uint8_t readout_delay_hi;
 	uint8_t readout_delay_lo;
@@ -288,7 +288,7 @@ int main (void)
 	uint8_t delay_enabled = 0x01;
 	if(source == 0)
 	{
-		bool full = true;
+		bool full = false;
 		if(full)
 		{
 			// 1080p: readout delay = 1920/2 = 960 = 0x3C0, transaction size = 0x1e
@@ -316,7 +316,7 @@ int main (void)
 	i2c_write_reg(lanemate_address, 0x05, transaction_size);
 	i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 
-	uint8_t addr_w_L = 90;
+	uint8_t addr_w_L = 0;
 	uint8_t addr_r_L = 0;
 	i2c_write_reg(lanemate_address, 10, addr_w_L);
 	i2c_write_reg(lanemate_address, 14, addr_r_L);
@@ -335,7 +335,7 @@ int main (void)
 		{
 			handle_event = false;
 
-			if(cycle_count == 1)
+			if(cycle_count == 10)
 			{
 				/*
 				if(res == 0)
@@ -376,6 +376,7 @@ int main (void)
 				else print("Delay disabled\r\n");
 				*/
 
+				/*
 				if(addr_w_L >= 180)
 				{
 					print("Reset\r\n");
@@ -383,10 +384,10 @@ int main (void)
 				}
 				else
 				{
-					addr_w_L += 90;
+					addr_w_L += 45;
 				}
 				i2c_write_reg(lanemate_address, 10, addr_w_L);
-
+				*/
 
 				cycle_count = 0;
 			}else
