@@ -284,6 +284,7 @@ architecture Behavioral of lane_mate is
 	signal ram_rdata : std_logic_vector(7 downto 0);
 	signal ram_we : std_logic;
 	signal i2c_register_write : std_logic;
+	signal i2c_register_addr : std_logic_vector(7 downto 0);
 	
 
 	signal testpat_vs : std_logic;
@@ -467,7 +468,7 @@ begin
 		if(rising_edge(clk)) then
 		case state is
 			when IDLE =>
-				if(ram_addr = x"01" and i2c_register_write = '1') then
+				if(i2c_register_addr = x"01" and i2c_register_write = '1') then
 					dcm_rst <= '1';
 					count <= 12; -- 100MHz is 3.7x faster than 27MHz, and resets must be >3 input clocks long
 					state <= RESETTING;
@@ -612,23 +613,25 @@ begin
 		begin
 		if(rising_edge(clk)) then
 			-- writing to low byte triggers acceptance of new value
-			if(i2c_register_write = '1' and to_integer(unsigned(ram_addr)) = 4) then
+			if(i2c_register_write = '1' and to_integer(unsigned(i2c_register_addr)) = 4) then
 				readout_delay(10 downto 8) <= register_map(3)(2 downto 0);
 				readout_delay(7 downto 0) <= register_map(4)(7 downto 0);
 			end if;
 			mtransaction_size <= register_map(5);
 			
 			-- Double buffered, new value takes affect on VS
-			frame_addr_w(26 downto 24) <= register_map(7)(2 downto 0);
-			frame_addr_w(23 downto 16) <= register_map(8);
-			frame_addr_w(15 downto  8) <= register_map(9);
-			frame_addr_w( 7 downto  0) <= register_map(10);
-			--if(i2c_register_write = '1' and to_integer(unsigned(ram_addr)) = 14) then
+			if(i2c_register_write = '1' and to_integer(unsigned(i2c_register_addr)) = 10) then
+				frame_addr_w(26 downto 24) <= register_map(7)(2 downto 0);
+				frame_addr_w(23 downto 16) <= register_map(8);
+				frame_addr_w(15 downto  8) <= register_map(9);
+				frame_addr_w( 7 downto  0) <= register_map(10);
+			end if;
+			if(i2c_register_write = '1' and to_integer(unsigned(i2c_register_addr)) = 14) then
 				frame_addr_r(26 downto 24) <= register_map(11)(2 downto 0);
 				frame_addr_r(23 downto 16) <= register_map(12);
 				frame_addr_r(15 downto  8) <= register_map(13);
 				frame_addr_r( 7 downto  0) <= register_map(14);
-			--end if;
+			end if;
 		end if;
 		end process;
 	
@@ -717,9 +720,9 @@ begin
 			MDATA_R => MDATA
 		);
 	
-	B1_GPIO13 <= register_map(14)(0);
-	B1_GPIO14 <= register_map(14)(1);	
-	B1_GPIO15 <= delay_debug;
+	B1_GPIO13 <= MPOP_W;
+	B1_GPIO14 <= MPUSH;	
+	B1_GPIO15 <= MFLUSH;
 	end block;
 	
 	
@@ -782,6 +785,7 @@ begin
 		begin
 		if(rising_edge(clk)) then
 			i2c_register_write <= ram_we;
+			i2c_register_addr  <= ram_addr;
 			if(ram_we = '1') then
 				register_map(to_integer(unsigned(ram_addr))) <= ram_wdata;
 			end if;
