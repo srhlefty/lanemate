@@ -259,7 +259,7 @@ architecture Behavioral of lane_mate is
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
-	type ram_t is array(7 downto 0) of std_logic_vector(7 downto 0);
+	type ram_t is array(14 downto 0) of std_logic_vector(7 downto 0);
 	signal register_map : ram_t :=
 	(
 		0 => x"02", -- Register table version
@@ -269,7 +269,14 @@ architecture Behavioral of lane_mate is
 		4 => x"80", -- readout_delay(7 downto 0)
 		5 => x"14", -- mtransaction_size(7 downto 0)
 		6 => x"00", -- delay_enabled
-		7 => x"CD",
+		7  => x"00", -- ddr write pointer (26 downto 24)
+		8  => x"00", -- ddr write pointer (23 downto 16)
+		9  => x"00", -- ddr write pointer (15 downto  8)
+		10 => x"00", -- ddr write pointer ( 7 downto  0)
+		11 => x"00", -- ddr read pointer (26 downto 24)
+		12 => x"00", -- ddr read pointer (23 downto 16)
+		13 => x"00", -- ddr read pointer (15 downto  8)
+		14 => x"00", -- ddr read pointer ( 7 downto  0)
 		others => x"00"
 	);
 	signal ram_addr : std_logic_vector(7 downto 0);
@@ -610,6 +617,18 @@ begin
 				readout_delay(7 downto 0) <= register_map(4)(7 downto 0);
 			end if;
 			mtransaction_size <= register_map(5);
+			
+			-- Double buffered, new value takes affect on VS
+			frame_addr_w(26 downto 24) <= register_map(7)(2 downto 0);
+			frame_addr_w(23 downto 16) <= register_map(8);
+			frame_addr_w(15 downto  8) <= register_map(9);
+			frame_addr_w( 7 downto  0) <= register_map(10);
+			--if(i2c_register_write = '1' and to_integer(unsigned(ram_addr)) = 14) then
+				frame_addr_r(26 downto 24) <= register_map(11)(2 downto 0);
+				frame_addr_r(23 downto 16) <= register_map(12);
+				frame_addr_r(15 downto  8) <= register_map(13);
+				frame_addr_r( 7 downto  0) <= register_map(14);
+			--end if;
 		end if;
 		end process;
 	
@@ -698,8 +717,8 @@ begin
 			MDATA_R => MDATA
 		);
 	
-	B1_GPIO13 <= MPUSH;
-	B1_GPIO14 <= MPOP_W;	
+	B1_GPIO13 <= register_map(14)(0);
+	B1_GPIO14 <= register_map(14)(1);	
 	B1_GPIO15 <= delay_debug;
 	end block;
 	

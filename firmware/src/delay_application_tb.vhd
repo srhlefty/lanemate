@@ -158,7 +158,7 @@ ARCHITECTURE behavior OF delay_application_tb IS
    signal IS422 : std_logic := '0';
 	signal READOUT_DELAY : std_logic_vector(10 downto 0) := (others => '0');
    signal FRAME_ADDR_W : std_logic_vector(26 downto 0) := (others => '0');
-   signal FRAME_ADDR_R : std_logic_vector(26 downto 0) := (others => '0');
+   signal FRAME_ADDR_R : std_logic_vector(26 downto 0) := std_logic_vector(to_unsigned(3, 27));
    signal MCLK : std_logic := '0';
    signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := (others => '0');
    signal MPOP_W : std_logic := '0';

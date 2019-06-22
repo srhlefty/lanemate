@@ -285,7 +285,7 @@ int main (void)
 	uint8_t readout_delay_hi;
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
-	uint8_t delay_enabled = 0x00;
+	uint8_t delay_enabled = 0x01;
 	if(source == 0)
 	{
 		bool full = true;
@@ -316,6 +316,10 @@ int main (void)
 	i2c_write_reg(lanemate_address, 0x05, transaction_size);
 	i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 
+	uint8_t addr_w_L = 90;
+	uint8_t addr_r_L = 0;
+	i2c_write_reg(lanemate_address, 10, addr_w_L);
+	i2c_write_reg(lanemate_address, 14, addr_r_L);
 
 	uint8_t res = 0;
 
@@ -331,7 +335,7 @@ int main (void)
 		{
 			handle_event = false;
 
-			if(cycle_count == 15)
+			if(cycle_count == 1)
 			{
 				/*
 				if(res == 0)
@@ -364,10 +368,25 @@ int main (void)
 				}
 				i2c_write_reg(lanemate_address, 0x01, source);
 				*/
+
+				/*
 				delay_enabled = (delay_enabled > 0)? 0 : 1;
 				i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 				if(delay_enabled) print("Delay enabled\r\n");
 				else print("Delay disabled\r\n");
+				*/
+
+				if(addr_w_L >= 180)
+				{
+					print("Reset\r\n");
+					addr_w_L = 0;
+				}
+				else
+				{
+					addr_w_L += 90;
+				}
+				i2c_write_reg(lanemate_address, 10, addr_w_L);
+
 
 				cycle_count = 0;
 			}else
