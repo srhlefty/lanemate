@@ -85,6 +85,11 @@ architecture Behavioral of internal_mcb is
 	signal state : state_t := NOP;
 	signal count : natural range 0 to 255 := 0;
 	signal limit : natural range 0 to 255 := 0;
+	signal limit_p2 : natural range 0 to 255 := 0;
+	signal limit_p3 : natural range 0 to 255 := 0;
+	signal limit_m1 : natural range 0 to 255 := 0;
+	signal limit_m2 : natural range 0 to 255 := 0;
+	signal limit_m3 : natural range 0 to 255 := 0;
 	signal pop_w : std_logic := '0';
 	signal pop_r : std_logic := '0';
 	signal mpush : std_logic := '0';
@@ -163,6 +168,11 @@ begin
 			end if;
 			
 		when OPEN_ROW_W =>
+			limit_p2 <= limit + 2;
+			limit_p3 <= limit + 3;
+			limit_m1 <= limit - 1;
+			limit_m2 <= limit - 2;
+			limit_m3 <= limit - 3;
 			pop_w <= '1';
 			state <= DELAY1W;
 			
@@ -173,8 +183,8 @@ begin
 			-- Turn off popping input data. During a half burst,
 			-- there's one extra cycle but no real fifo element
 			-- to read so I have to shut off pop one clock early
-			if( (half_burst = '0' and count = limit-2) or
-             (half_burst = '1' and count = limit-3)) then
+			if( (half_burst = '0' and count = limit_m2) or
+             (half_burst = '1' and count = limit_m3)) then
 				pop_w <= '0';
 			end if;
 			
@@ -188,7 +198,7 @@ begin
 				state <= CLOSE_ROW_W;
 			else
 				-- in a half burst the last data is repeated
-				if((half_burst = '1' and count < limit-1) or half_burst = '0') then
+				if((half_burst = '1' and count < limit_m1) or half_burst = '0') then
 					wdata <= MDATA_W;
 					waddr <= MADDR_W;
 				end if;
@@ -216,22 +226,22 @@ begin
 			-- Turn off popping input data. During a half burst,
 			-- there's one extra cycle but no real fifo element
 			-- to read so I have to shut off pop one clock early
-			if( (half_burst = '0' and count = limit-2) or
-             (half_burst = '1' and count = limit-3)) then
+			if( (half_burst = '0' and count = limit_m2) or
+             (half_burst = '1' and count = limit_m3)) then
 				pop_r <= '0';
 			end if;
 			
 			if(count = 0) then
 				raddr <= MADDR_R;
 				count <= count + 1;
-			elsif((half_burst = '0' and count = limit+3) or 
-			      (half_burst = '1' and count = limit+2)) then
+			elsif((half_burst = '0' and count = limit_p3) or 
+			      (half_burst = '1' and count = limit_p2)) then
 				mpush <= '0';
 				count <= 0;
 				state <= CLOSE_ROW_R;
 			else
 				-- in a half burst the last data is repeated
-				if((half_burst = '1' and count < limit-1) or half_burst = '0') then
+				if((half_burst = '1' and count < limit_m1) or half_burst = '0') then
 					raddr <= MADDR_R;
 				end if;
 				ram_raddr2 <= raddr(7 downto 0) & burst_addr;
