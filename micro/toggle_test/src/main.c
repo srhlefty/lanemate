@@ -24,6 +24,11 @@ const uint16_t hdmi_tx_address = 0x72 >> 1;
 const uint16_t sd_rx_address = 0x40 >> 1;
 const uint16_t lanemate_address = 0b0101100;
 
+// Per wikipedia (Serial Presence Detect), the SA0-2 lines on a ddr stick
+// set the I2C address to be in the range 0x50 to 0x57. The current board
+// configuration ties those lines low, resulting in the address 0x50.
+const uint16_t ddr_address = 0x50;
+
 typedef struct regdata_
 {
 	uint8_t reg;
@@ -248,6 +253,93 @@ void configure_hdmi_tx_for_sd_input(void)
 	//print("  Finished.\r\n");
 }
 
+void probe_ddr_stick(void);
+void probe_ddr_stick(void)
+{
+	int res;
+	uint8_t reg04, reg05, reg07, reg0e, reg0f, reg20;
+
+	print("Probing DDR RAM...\r\n");
+	//register_dump(ddr_address);
+	
+	res = i2c_read_reg(ddr_address, 0x04, &reg04);
+	if(res == SLAVE_OK)
+	{
+		i2c_read_reg(ddr_address, 0x05, &reg05);
+		i2c_read_reg(ddr_address, 0x07, &reg07);
+		i2c_read_reg(ddr_address, 0x0e, &reg0e);
+		i2c_read_reg(ddr_address, 0x0f, &reg0f);
+		i2c_read_reg(ddr_address, 0x20, &reg20);
+
+		// reg04 bits 6 downto 4 = bank address bits - 3
+		uint8_t bank_bits = 3 + ((reg04 & 0b01110000) >> 4);
+		// reg05 bits 5 downto 3 = row address bits - 12
+		uint8_t row_bits = 12 + ((reg05 & 0b00111000) >> 3);
+		// reg05 bits 2 downto 0 = col address bits - 9
+		uint8_t col_bits = 9 + (reg05 & 0b00000111);
+		// reg07 bits 5 downto 3 = ranks - 1
+		uint8_t ranks = 1 + ((reg07 & 0b00111000) >> 3);
+		uint8_t rank_bits;
+		if(ranks == 1)
+			rank_bits = 0;
+		else if(ranks == 2)
+			rank_bits = 1;
+		else if(ranks > 2 && ranks <= 4)
+			rank_bits = 2;
+		else
+			rank_bits = 3;
+
+		char outstr[] = "DDR DIMM found. Bit width of ranks, banks, rows, cols = XX, XX, XX, XX\r\n";
+		byte_to_string(outstr+56, rank_bits);
+		byte_to_string(outstr+60, bank_bits);
+		byte_to_string(outstr+64, row_bits);
+		byte_to_string(outstr+68, col_bits);
+		print(outstr);
+		char outstr2[] = "Total address width = XX bits (";
+		uint8_t bits = rank_bits + bank_bits + row_bits + col_bits;
+		byte_to_string(outstr2+22, bits);
+		print(outstr2);
+		if(bits == 30) 
+			print("8GB)\r\n");
+		else if(bits == 29)
+			print("4GB)\r\n");
+		else if(bits == 28)
+			print("2GB)\r\n");
+		else if(bits == 27)
+			print("1GB)\r\n");
+		else
+			print("<512MB)\r\n");
+
+		print("CAS latencies supported: ");
+		if(reg0e & 0x01) print("4,");
+		if(reg0e & 0x02) print("5,");
+		if(reg0e & 0x04) print("6,");
+		if(reg0e & 0x08) print("7,");
+		if(reg0e & 0x10) print("8,");
+		if(reg0e & 0x20) print("9,");
+		if(reg0e & 0x40) print("10,");
+		if(reg0e & 0x80) print("11,");
+		if(reg0f & 0x01) print("12,");
+		if(reg0f & 0x02) print("13,");
+		if(reg0f & 0x04) print("14,");
+		if(reg0f & 0x08) print("15,");
+		if(reg0f & 0x10) print("16,");
+		if(reg0f & 0x20) print("17,");
+		if(reg0f & 0x40) print("18");
+		print("\r\n");
+
+		if(reg20 & 0x80)
+			print("DIMM temperature sensor present\r\n");
+		
+	}else if(res == SLAVE_NAK)
+	{
+		print("NAK\r\n");
+	}else if(res == SLAVE_NO_ACK)
+	{
+		print("NO ACK\r\n");
+	}
+	
+}
 
 volatile bool handle_event = false;
 
@@ -261,7 +353,7 @@ int main (void)
 	system_init();
 	configure_usart();
 
-	//print("\r\n\n\nSoftware started\r\n");
+	print("\r\n\n\nSoftware started\r\n");
 	delay_init();
 
 
@@ -274,6 +366,8 @@ int main (void)
 	configure_sd_rx();
 	//configure_hdmi_tx_for_hd_input();
 	configure_hdmi_tx_for_sd_input();
+
+	probe_ddr_stick();
 
 
 	print("Waiting for FPGA to boot...\r\n");
@@ -395,7 +489,7 @@ int main (void)
 			
 
 
-
+			/*
 			// Measure the input video stream, if it exists.
 			// Note that if an actual video source is not attached,
 			// the frame size measurement registers are not accurate.
@@ -494,7 +588,7 @@ int main (void)
 			}
 
 			print("\r\n");
-
+			*/
 
 			
 
