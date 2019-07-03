@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="C:/Users/Steven/Documents/Repositories/lanemate/firmware/ddr_pin_tb_isim_beh.wdb" id="1" type="auto">
+         <top_modules>
+            <top_module name="ddr_pin_tb" />
+            <top_module name="numeric_std" />
+            <top_module name="std_logic_1164" />
+            <top_module name="std_logic_arith" />
+            <top_module name="std_logic_signed" />
+            <top_module name="std_logic_textio" />
+            <top_module name="std_logic_unsigned" />
+            <top_module name="textio" />
+            <top_module name="vcomponents" />
+            <top_module name="vital_primitives" />
+            <top_module name="vital_timing" />
+            <top_module name="vpkg" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <WVObjectSize size="7" />
+   <wvobject fp_name="/ddr_pin_tb/clk200" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">clk200</obj_property>
+      <obj_property name="ObjectShortName">clk200</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb/txd" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">txd[3:0]</obj_property>
+      <obj_property name="ObjectShortName">txd[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb/ioclk" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ioclk</obj_property>
+      <obj_property name="ObjectShortName">ioclk</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb/pin" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">pin</obj_property>
+      <obj_property name="ObjectShortName">pin</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb/ckp" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ckp</obj_property>
+      <obj_property name="ObjectShortName">ckp</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb/strobe" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">strobe</obj_property>
+      <obj_property name="ObjectShortName">strobe</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb/val" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">val</obj_property>
+      <obj_property name="ObjectShortName">val</obj_property>
+   </wvobject>
+</wave_config>

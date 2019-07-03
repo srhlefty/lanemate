@@ -1,8 +1,12 @@
+Board changes for next revision:
 - Fix DONE wiring
-- Move interrupt pin on HDMI RX to the micro
-- Move reset pin on HDMI RX to the micro
-- That reset pin needs a soft pullup instead of a hard pullup
 - Change micro's power supply to 3.3V
 - SD rx chip also supports S-video and component; add connectors for those
 - For the SD input, a differential amp is not needed. Instead use the simple termination input described in the data sheet.
 - 5V regulator is connected incorrectly; input voltage should be plug power, not 3.3V
+- Connect output VSYNC to the micro
+- Consider making the video connectors headers which then use ribbon cable to connect to bulkhead connectors on the enclosure
+  - e.g. L-com Item # VHC00023
+- Alternatively, use HDMI connectors that have a panel mount feature
+  - e.g. A108402-ND
+  - also 889-2944-ND, but inside is another HDMI female so requires an actual HDMI cable inside the box
