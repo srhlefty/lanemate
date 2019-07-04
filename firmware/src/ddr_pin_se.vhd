@@ -4,7 +4,7 @@
 -- 
 -- Create Date:    16:12:29 07/02/2019 
 -- Design Name: 
--- Module Name:    ddr_pin - Behavioral 
+-- Module Name:    ddr_pin_se - Behavioral 
 -- Project Name: 
 -- Target Devices: 
 -- Tool versions: 
@@ -29,10 +29,10 @@ use IEEE.STD_LOGIC_1164.ALL;
 library UNISIM;
 use UNISIM.VComponents.all;
 
-entity ddr_pin is
+entity ddr_pin_se is
 	Generic ( 
 		IDELAY_VALUE : natural range 0 to 255 := 0;
-		ODELAY_VALUE : natural range 0 to 255 := 0 
+		ODELAY_VALUE : natural range 0 to 255 := 0
 	);
 	Port ( 
 		CLK : in  STD_LOGIC;
@@ -40,13 +40,15 @@ entity ddr_pin is
 		STROBE : in std_logic;
 		READING : in std_logic;
 		
+		BITSLIP : in std_logic;
+		
 		TXD : in std_logic_vector(3 downto 0);
 		RXD : out std_logic_vector(3 downto 0);
 		PIN : inout std_logic
 	);
-end ddr_pin;
+end ddr_pin_se;
 
-architecture Behavioral of ddr_pin is
+architecture Behavioral of ddr_pin_se is
 
 	signal oserdes_to_delay : std_logic;
 	signal oserdes_to_delay_t : std_logic;
@@ -138,10 +140,10 @@ begin
 
    ISERDES2_inst : ISERDES2
    generic map (
-      BITSLIP_ENABLE => FALSE,        -- Enable Bitslip Functionality (TRUE/FALSE)
+      BITSLIP_ENABLE => TRUE,        -- Enable Bitslip Functionality (TRUE/FALSE)
       DATA_RATE => "SDR",             -- Data-rate ("SDR" or "DDR")
       DATA_WIDTH => 4,                -- Parallel data width selection (2-8)
-      INTERFACE_TYPE => "NETWORKING", -- "NETWORKING", "NETWORKING_PIPELINED" or "RETIMED" 
+      INTERFACE_TYPE => "RETIMED", -- "NETWORKING", "NETWORKING_PIPELINED" or "RETIMED" 
       SERDES_MODE => "NONE"           -- "NONE", "MASTER" or "SLAVE" 
    )
    port map (
@@ -157,7 +159,7 @@ begin
       Q4 => RXD(0),
       SHIFTOUT => open,   -- 1-bit output: Cascade output signal for master/slave I/O
       VALID => open,         -- 1-bit output: Output status of the phase detector
-      BITSLIP => '0',     -- 1-bit input: Bitslip enable input
+      BITSLIP => BITSLIP,     -- 1-bit input: Bitslip enable input
       CE0 => '1',             -- 1-bit input: Clock enable input
       CLK0 => IOCLK,           -- 1-bit input: I/O clock network input
       CLK1 => '0',           -- 1-bit input: Secondary I/O clock network input

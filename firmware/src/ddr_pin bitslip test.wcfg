@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="C:/Users/Steven/Documents/Repositories/lanemate/firmware/ddr_pin_tb_bitslip_test_isim_beh.wdb" id="1" type="auto">
+         <top_modules>
+            <top_module name="ddr_pin_tb_bitslip_test" />
+            <top_module name="numeric_std" />
+            <top_module name="std_logic_1164" />
+            <top_module name="std_logic_arith" />
+            <top_module name="std_logic_signed" />
+            <top_module name="std_logic_textio" />
+            <top_module name="std_logic_unsigned" />
+            <top_module name="textio" />
+            <top_module name="vcomponents" />
+            <top_module name="vital_primitives" />
+            <top_module name="vital_timing" />
+            <top_module name="vpkg" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <WVObjectSize size="7" />
+   <wvobject fp_name="divider15" type="divider">
+      <obj_property name="label">stimulus</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb_bitslip_test/ckp" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ckp</obj_property>
+      <obj_property name="ObjectShortName">ckp</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb_bitslip_test/pin" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">pin</obj_property>
+      <obj_property name="ObjectShortName">pin</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider16" type="divider">
+      <obj_property name="label">iserdes</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb_bitslip_test/rxd" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">rxd[3:0]</obj_property>
+      <obj_property name="ObjectShortName">rxd[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb_bitslip_test/bitslip" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">bitslip</obj_property>
+      <obj_property name="ObjectShortName">bitslip</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr_pin_tb_bitslip_test/bitslip_handler/state" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">state</obj_property>
+      <obj_property name="ObjectShortName">state</obj_property>
+   </wvobject>
+</wave_config>
