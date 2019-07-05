@@ -176,7 +176,7 @@ begin
 
    IOBUF_inst : IOBUFDS
    generic map (
-      IOSTANDARD => "DIFF_HSTL_III" -- TODO is this right?
+      IOSTANDARD => "DIFF_HSTL_II" -- TODO is this right?
 	)
    port map (
       O => pin_to_delay,     -- Buffer output

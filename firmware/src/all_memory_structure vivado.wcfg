@@ -83,55 +83,55 @@
       <obj_property name="label">mcb</obj_property>
       <obj_property name="DisplayName">label</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/state" type="other">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/state" type="other">
       <obj_property name="ElementShortName">state</obj_property>
       <obj_property name="ObjectShortName">state</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/MPOP_W" type="logic">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/MPOP_W" type="logic">
       <obj_property name="ElementShortName">MPOP_W</obj_property>
       <obj_property name="ObjectShortName">MPOP_W</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/ram_wdata1" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/ram_wdata1" type="array">
       <obj_property name="ElementShortName">ram_wdata1[255:0]</obj_property>
       <obj_property name="ObjectShortName">ram_wdata1[255:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/ram_waddr1" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/ram_waddr1" type="array">
       <obj_property name="ElementShortName">ram_waddr1[8:0]</obj_property>
       <obj_property name="ObjectShortName">ram_waddr1[8:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/ram_we" type="logic">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/ram_we" type="logic">
       <obj_property name="ElementShortName">ram_we</obj_property>
       <obj_property name="ObjectShortName">ram_we</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/MPOP_R" type="logic">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/MPOP_R" type="logic">
       <obj_property name="ElementShortName">MPOP_R</obj_property>
       <obj_property name="ObjectShortName">MPOP_R</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/MADDR_R" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/MADDR_R" type="array">
       <obj_property name="ElementShortName">MADDR_R[23:0]</obj_property>
       <obj_property name="ObjectShortName">MADDR_R[23:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/MDVALID_R" type="logic">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/MDVALID_R" type="logic">
       <obj_property name="ElementShortName">MDVALID_R</obj_property>
       <obj_property name="ObjectShortName">MDVALID_R</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/raddr" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/raddr" type="array">
       <obj_property name="ElementShortName">raddr[23:0]</obj_property>
       <obj_property name="ObjectShortName">raddr[23:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/ram_raddr2" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/ram_raddr2" type="array">
       <obj_property name="ElementShortName">ram_raddr2[8:0]</obj_property>
       <obj_property name="ObjectShortName">ram_raddr2[8:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/ram_rdata2" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/ram_rdata2" type="array">
       <obj_property name="ElementShortName">ram_rdata2[255:0]</obj_property>
       <obj_property name="ObjectShortName">ram_rdata2[255:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/data_just_read" type="array">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/data_just_read" type="array">
       <obj_property name="ElementShortName">data_just_read[255:0]</obj_property>
       <obj_property name="ObjectShortName">data_just_read[255:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/all_memory_structure_tb/Inst_trivial_mcb/mpush" type="logic">
+   <wvobject fp_name="/all_memory_structure_tb/Inst_mcb/mpush" type="logic">
       <obj_property name="ElementShortName">mpush</obj_property>
       <obj_property name="ObjectShortName">mpush</obj_property>
    </wvobject>

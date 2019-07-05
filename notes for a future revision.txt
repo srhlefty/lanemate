@@ -10,3 +10,4 @@ Board changes for next revision:
 - Alternatively, use HDMI connectors that have a panel mount feature
   - e.g. A108402-ND
   - also 889-2944-ND, but inside is another HDMI female so requires an actual HDMI cable inside the box
+- DM4 is on a VREF pin, which prevents me from using SSTL_15. Move elsewhere.

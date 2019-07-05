@@ -56,6 +56,29 @@ port (
 	HDO_INT : in std_logic;
 	RGB_OUT : out std_logic_vector(23 downto 0);
 	
+	
+	
+	DDR_RESET : inout std_logic;
+	CK0_P : inout std_logic;
+	CK0_N : inout std_logic;
+	CKE0 : inout std_logic;
+	CK1_P : inout std_logic;
+	CK1_N : inout std_logic;
+	CKE1 : inout std_logic;
+	RAS : inout std_logic;
+	CAS : inout std_logic;
+	WE : inout std_logic;
+	CS0 : inout std_logic;
+	CS1 : inout std_logic;
+	BA : inout std_logic_vector(2 downto 0);
+	MA : inout std_logic_vector(15 downto 0);
+	DM : inout std_logic_vector(7 downto 0);
+	DQSP : inout std_logic_vector(7 downto 0);
+	DQSN : inout std_logic_vector(7 downto 0);
+	DQ : inout std_logic_vector(63 downto 0);
+
+	
+	
 	B0_GPIO0 : out std_logic;
 	B1_GPIO1 : out std_logic;
 	B1_GPIO2 : out std_logic;
@@ -255,6 +278,69 @@ architecture Behavioral of lane_mate is
 	);
 	end component;
 	
+	component ddr3_mcb is
+	Port ( 
+		MCLK : in std_logic;
+		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
+		MAVAIL : in std_logic_vector(8 downto 0);
+		MFLUSH : in std_logic;
+		
+		-- interface to data-to-write fifo
+		MPOP_W : out std_logic;
+		MADDR_W : in std_logic_vector(26 downto 0);   -- ddr address, high 27 bits
+		MDATA_W : in std_logic_vector(255 downto 0);  -- half-burst data (4 high speed clocks worth of data)
+		MDVALID_W : in std_logic;                      -- data valid
+		
+		-- interface to data-to-read fifo
+		MPOP_R : out std_logic;
+		MADDR_R : in std_logic_vector(26 downto 0);   -- ddr address, high 27 bits
+		MDVALID_R : in std_logic;
+		
+		-- interface to data-just-read fifo
+		MPUSH_R : out std_logic;
+		MDATA_R : out std_logic_vector(255 downto 0);
+		
+		
+		IOCLK : in std_logic;
+		STROBE : in std_logic;
+		IOCLK_180 : in std_logic;
+		STROBE_180 : in std_logic;
+
+		-- physical interface
+		DDR_RESET : inout std_logic;
+		CK0_P : inout std_logic;
+		CK0_N : inout std_logic;
+		CKE0 : inout std_logic;
+		CK1_P : inout std_logic;
+		CK1_N : inout std_logic;
+		CKE1 : inout std_logic;
+		RAS : inout std_logic;
+		CAS : inout std_logic;
+		WE : inout std_logic;
+		CS0 : inout std_logic;
+		CS1 : inout std_logic;
+		BA : inout std_logic_vector(2 downto 0);
+		MA : inout std_logic_vector(15 downto 0);
+		DM : inout std_logic_vector(7 downto 0);
+		DQSP : inout std_logic_vector(7 downto 0);
+		DQSN : inout std_logic_vector(7 downto 0);
+		DQ : inout std_logic_vector(63 downto 0)
+	);
+	end component;
+
+	component clkgen is
+	Port ( 
+		SYSCLK100 : in STD_LOGIC;
+		
+		CLK200 : out STD_LOGIC;
+		
+		CLK800 : out std_logic;
+		STROBE800 : out std_logic;
+		
+		CLK800_180 : out std_logic;
+		STROBE800_180 : out std_logic
+	);
+	end component;
 	
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
@@ -345,22 +431,27 @@ architecture Behavioral of lane_mate is
 	
 	signal delay_debug : std_logic;
 	
+	
+	signal serdesclk : std_logic;
+	signal serdesstrobe : std_logic;
+	signal serdesclk_180 : std_logic;
+	signal serdesstrobe_180 : std_logic;
+	
+	
 begin
 
 
 
 	-- Main clock input
+	Inst_clkgen: clkgen PORT MAP(
+		SYSCLK100 => SYSCLK,
+		CLK200 => clk,
+		CLK800 => serdesclk,
+		STROBE800 => serdesstrobe,
+		CLK800_180 => serdesclk_180,
+		STROBE800_180 => serdesstrobe_180
+	);
 
-   sysclk_ibufg : IBUFG generic map (IBUF_LOW_PWR => TRUE, IOSTANDARD => "DEFAULT")
-		port map (
-			I => SYSCLK,
-			O => ibufg_to_bufgs
-		);
-   clk_bufgmux : BUFG
-		port map (
-			I => ibufg_to_bufgs,
-			O => clk
-		);
 
 	
 	clock_manager : block is
@@ -703,8 +794,9 @@ begin
 			 MDATA => MDATA
 		  );
 
---		Inst_trivial_mcb: trivial_mcb PORT MAP(
-		Inst_trivial_mcb: internal_mcb PORT MAP(
+--		Inst_mcb: trivial_mcb PORT MAP(
+--		Inst_mcb: internal_mcb PORT MAP(
+		Inst_mcb: ddr3_mcb PORT MAP(
 			MCLK => clk,
 			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 			MAVAIL => MAVAIL,
@@ -717,7 +809,30 @@ begin
 			MADDR_R => MADDR_R,
 			MDVALID_R => MDVALID_R,
 			MPUSH_R => MPUSH,
-			MDATA_R => MDATA
+			MDATA_R => MDATA,
+			
+				IOCLK => serdesclk,
+				STROBE => serdesstrobe,
+				IOCLK_180 => serdesclk_180,
+				STROBE_180 => serdesstrobe_180,
+				DDR_RESET => DDR_RESET ,
+				CK0_P => CK0_P ,
+				CK0_N => CK0_N ,
+				CKE0 => CKE0 ,
+				CK1_P => CK1_P ,
+				CK1_N => CK1_N ,
+				CKE1 => CKE1 ,
+				RAS => RAS ,
+				CAS => CAS ,
+				WE => WE ,
+				CS0 => CS0 ,
+				CS1 => CS1 ,
+				BA => BA ,
+				MA => MA ,
+				DM => DM ,
+				DQSP => DQSP ,
+				DQSN => DQSN ,
+				DQ => DQ 
 		);
 	
 	B1_GPIO13 <= MPOP_W;
