@@ -301,10 +301,20 @@ architecture Behavioral of lane_mate is
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
 		
-		IOCLK : in std_logic;
-		STROBE : in std_logic;
-		IOCLK_180 : in std_logic;
-		STROBE_180 : in std_logic;
+		B0_IOCLK : in std_logic;
+		B0_STROBE : in std_logic;
+		B0_IOCLK_180 : in std_logic;
+		B0_STROBE_180 : in std_logic;
+		
+		B1_IOCLK : in std_logic;
+		B1_STROBE : in std_logic;
+		B1_IOCLK_180 : in std_logic;
+		B1_STROBE_180 : in std_logic;
+		
+		B3_IOCLK : in std_logic;
+		B3_STROBE : in std_logic;
+		B3_IOCLK_180 : in std_logic;
+		B3_STROBE_180 : in std_logic;
 
 		-- physical interface
 		DDR_RESET : inout std_logic;
@@ -334,11 +344,20 @@ architecture Behavioral of lane_mate is
 		
 		CLK200 : out STD_LOGIC;
 		
-		CLK800 : out std_logic;
-		STROBE800 : out std_logic;
-		
-		CLK800_180 : out std_logic;
-		STROBE800_180 : out std_logic
+		B0_CLK800 : out std_logic;
+		B0_STROBE800 : out std_logic;
+		B0_CLK800_180 : out std_logic;
+		B0_STROBE800_180 : out std_logic;
+
+		B1_CLK800 : out std_logic;
+		B1_STROBE800 : out std_logic;
+		B1_CLK800_180 : out std_logic;
+		B1_STROBE800_180 : out std_logic;
+
+		B3_CLK800 : out std_logic;
+		B3_STROBE800 : out std_logic;
+		B3_CLK800_180 : out std_logic;
+		B3_STROBE800_180 : out std_logic
 	);
 	end component;
 	
@@ -432,10 +451,18 @@ architecture Behavioral of lane_mate is
 	signal delay_debug : std_logic;
 	
 	
-	signal serdesclk : std_logic;
-	signal serdesstrobe : std_logic;
-	signal serdesclk_180 : std_logic;
-	signal serdesstrobe_180 : std_logic;
+	signal b0_serdesclk : std_logic;
+	signal b0_serdesstrobe : std_logic;
+	signal b0_serdesclk_180 : std_logic;
+	signal b0_serdesstrobe_180 : std_logic;
+	signal b1_serdesclk : std_logic;
+	signal b1_serdesstrobe : std_logic;
+	signal b1_serdesclk_180 : std_logic;
+	signal b1_serdesstrobe_180 : std_logic;
+	signal b3_serdesclk : std_logic;
+	signal b3_serdesstrobe : std_logic;
+	signal b3_serdesclk_180 : std_logic;
+	signal b3_serdesstrobe_180 : std_logic;
 	
 	
 begin
@@ -446,10 +473,18 @@ begin
 	Inst_clkgen: clkgen PORT MAP(
 		SYSCLK100 => SYSCLK,
 		CLK200 => clk,
-		CLK800 => serdesclk,
-		STROBE800 => serdesstrobe,
-		CLK800_180 => serdesclk_180,
-		STROBE800_180 => serdesstrobe_180
+		B0_CLK800 => b0_serdesclk,
+		B0_STROBE800 => b0_serdesstrobe,
+		B0_CLK800_180 => b0_serdesclk_180,
+		B0_STROBE800_180 => b0_serdesstrobe_180,
+		B1_CLK800 => b1_serdesclk,
+		B1_STROBE800 => b1_serdesstrobe,
+		B1_CLK800_180 => b1_serdesclk_180,
+		B1_STROBE800_180 => b1_serdesstrobe_180,
+		B3_CLK800 => b3_serdesclk,
+		B3_STROBE800 => b3_serdesstrobe,
+		B3_CLK800_180 => b3_serdesclk_180,
+		B3_STROBE800_180 => b3_serdesstrobe_180
 	);
 
 
@@ -811,10 +846,18 @@ begin
 			MPUSH_R => MPUSH,
 			MDATA_R => MDATA,
 			
-				IOCLK => serdesclk,
-				STROBE => serdesstrobe,
-				IOCLK_180 => serdesclk_180,
-				STROBE_180 => serdesstrobe_180,
+				B0_IOCLK => b0_serdesclk,
+				B0_STROBE => b0_serdesstrobe,
+				B0_IOCLK_180 => b0_serdesclk_180,
+				B0_STROBE_180 => b0_serdesstrobe_180,
+				B1_IOCLK => b1_serdesclk,
+				B1_STROBE => b1_serdesstrobe,
+				B1_IOCLK_180 => b1_serdesclk_180,
+				B1_STROBE_180 => b1_serdesstrobe_180,
+				B3_IOCLK => b3_serdesclk,
+				B3_STROBE => b3_serdesstrobe,
+				B3_IOCLK_180 => b3_serdesclk_180,
+				B3_STROBE_180 => b3_serdesstrobe_180,
 				DDR_RESET => DDR_RESET ,
 				CK0_P => CK0_P ,
 				CK0_N => CK0_N ,

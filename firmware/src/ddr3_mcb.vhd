@@ -52,10 +52,20 @@ entity ddr3_mcb is
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
 		
-		IOCLK : in std_logic;
-		STROBE : in std_logic;
-		IOCLK_180 : in std_logic;
-		STROBE_180 : in std_logic;
+		B0_IOCLK : in std_logic;
+		B0_STROBE : in std_logic;
+		B0_IOCLK_180 : in std_logic;
+		B0_STROBE_180 : in std_logic;
+		
+		B1_IOCLK : in std_logic;
+		B1_STROBE : in std_logic;
+		B1_IOCLK_180 : in std_logic;
+		B1_STROBE_180 : in std_logic;
+		
+		B3_IOCLK : in std_logic;
+		B3_STROBE : in std_logic;
+		B3_IOCLK_180 : in std_logic;
+		B3_STROBE_180 : in std_logic;
 		
 		-- physical interface
 		DDR_RESET : inout std_logic;
@@ -120,21 +130,22 @@ architecture Behavioral of ddr3_mcb is
 	);
 	end component;
 
-	signal mDDR_RESET : std_logic_vector(3 downto 0) := "0000"; -- startup state is supposed to be low (active)
-	signal mCKE0 : std_logic_vector(3 downto 0) := "0000"; -- active high
-	signal mCKE1 : std_logic_vector(3 downto 0) := "0000";
+	signal mDDR_RESET : std_logic_vector(3 downto 0) := "LLLL"; -- startup state is supposed to be low (active)
+	signal mCKE0 : std_logic_vector(3 downto 0) := "LLLL"; -- active high
+	signal mCKE1 : std_logic_vector(3 downto 0) := "LLLL";
 	signal mRAS : std_logic_vector(3 downto 0) := "HHHH";
 	signal mCAS : std_logic_vector(3 downto 0) := "HHHH";
 	signal mWE : std_logic_vector(3 downto 0) := "HHHH";
-	signal mCS0 : std_logic_vector(3 downto 0) := "0000"; -- rank chip enable, active low
-	signal mCS1 : std_logic_vector(3 downto 0) := "0000";
+	signal mCS0 : std_logic_vector(3 downto 0) := "LLLL"; -- rank chip enable, active low
+	signal mCS1 : std_logic_vector(3 downto 0) := "LLLL";
 
 	type burst_t is array(natural range <>) of std_logic_vector(3 downto 0);
-	signal mBA : burst_t(2 downto 0);
-	signal mMA : burst_t(15 downto 0);
-	signal mDQSout : burst_t(7 downto 0);
+	signal mBA : burst_t(2 downto 0) := (others => (others => 'L'));
+	signal mMA : burst_t(15 downto 0) := (others => (others => 'L'));
+	signal mDQSout : burst_t(7 downto 0) := (others => (others => 'L'));
+	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
 	signal mDQSin : burst_t(7 downto 0);
-	signal mDQout : burst_t(63 downto 0);
+	signal mDQout : burst_t(63 downto 0) := (others => (others => 'L'));
 	signal mDQin : burst_t(63 downto 0);
 	
 	signal reading : std_logic := '1';
@@ -148,37 +159,68 @@ begin
 
 	DM <= (others => 'L');
 
-	pin_ck0: ddr_pin_diff 
+
+
+	pin_ckp0: ddr_pin_se 
 	generic map (
 		IDELAY_VALUE => 0,
 		ODELAY_VALUE => 0
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "1010",
 		RXD => open,
-		PIN_P => CK0_P,
-		PIN_N => CK0_N
+		PIN => CK0_P
 	);
-	pin_ck1: ddr_pin_diff 
+	pin_ckn0: ddr_pin_se 
 	generic map (
 		IDELAY_VALUE => 0,
 		ODELAY_VALUE => 0
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
+		READING => '0',
+		BITSLIP => '0',
+		TXD => "0101",
+		RXD => open,
+		PIN => CK0_N
+	);
+
+	pin_ckp1: ddr_pin_se 
+	generic map (
+		IDELAY_VALUE => 0,
+		ODELAY_VALUE => 0
+	)
+	port map (
+		CLK => MCLK,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "1010",
 		RXD => open,
-		PIN_P => CK1_P,
-		PIN_N => CK1_N
+		PIN => CK1_P
+	);
+	pin_ckn1: ddr_pin_se 
+	generic map (
+		IDELAY_VALUE => 0,
+		ODELAY_VALUE => 0
+	)
+	port map (
+		CLK => MCLK,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
+		READING => '0',
+		BITSLIP => '0',
+		TXD => "0101",
+		RXD => open,
+		PIN => CK1_N
 	);
 	
 	
@@ -194,8 +236,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mDDR_RESET,
@@ -211,8 +253,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B3_IOCLK,
+		STROBE => B3_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCKE0,
@@ -226,8 +268,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B3_IOCLK_180,
+		STROBE => B3_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCKE1,
@@ -244,8 +286,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCS0,
@@ -259,8 +301,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCS1,
@@ -274,8 +316,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mRAS,
@@ -289,8 +331,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCAS,
@@ -304,8 +346,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => IOCLK,
-		STROBE => STROBE,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mWE,
@@ -316,87 +358,310 @@ begin
 
 
 
-	gen_bank : for i in 0 to 2 generate
-		
-		pin_ba: ddr_pin_se 
-		generic map (
-			IDELAY_VALUE => 0,
-			ODELAY_VALUE => 0
-		)
-		port map (
-			CLK => MCLK,
-			IOCLK => IOCLK,
-			STROBE => STROBE,
-			READING => '0',
-			BITSLIP => '0',
-			TXD => mBA(i),
-			RXD => open,
-			PIN => BA(i)
-		);
+	pin_ba0: ddr_pin_se 
+	generic map (
+		IDELAY_VALUE => 0,
+		ODELAY_VALUE => 0
+	)
+	port map (
+		CLK => MCLK,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
+		READING => '0',
+		BITSLIP => '0',
+		TXD => mBA(0),
+		RXD => open,
+		PIN => BA(0)
+	);
+	pin_ba1: ddr_pin_se 
+	generic map (
+		IDELAY_VALUE => 0,
+		ODELAY_VALUE => 0
+	)
+	port map (
+		CLK => MCLK,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
+		READING => '0',
+		BITSLIP => '0',
+		TXD => mBA(1),
+		RXD => open,
+		PIN => BA(1)
+	);
+	pin_ba2: ddr_pin_se 
+	generic map (
+		IDELAY_VALUE => 0,
+		ODELAY_VALUE => 0
+	)
+	port map (
+		CLK => MCLK,
+		IOCLK => B3_IOCLK,
+		STROBE => B3_STROBE,
+		READING => '0',
+		BITSLIP => '0',
+		TXD => mBA(2),
+		RXD => open,
+		PIN => BA(2)
+	);
 	
-	end generate;
+	
 	
 	
 	
 	gen_addr : for i in 0 to 15 generate
 	
-		pin_ma: ddr_pin_se 
-		generic map (
-			IDELAY_VALUE => 0,
-			ODELAY_VALUE => 0
-		)
-		port map (
-			CLK => MCLK,
-			IOCLK => IOCLK,
-			STROBE => STROBE,
-			READING => '0',
-			BITSLIP => '0',
-			TXD => mMA(i),
-			RXD => open,
-			PIN => MA(i)
-		);
+		is_bank3 : if(i=9 or i=11 or i=14 or i=15) generate
+		
+			pin_ma: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => 0,
+				ODELAY_VALUE => 0
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B3_IOCLK,
+				STROBE => B3_STROBE,
+				READING => '0',
+				BITSLIP => '0',
+				TXD => mMA(i),
+				RXD => open,
+				PIN => MA(i)
+			);
+		end generate;
+	
+		is_bank0 : if(not(i=9 or i=11 or i=14 or i=15)) generate
+		
+			pin_ma: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => 0,
+				ODELAY_VALUE => 0
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B0_IOCLK,
+				STROBE => B0_STROBE,
+				READING => '0',
+				BITSLIP => '0',
+				TXD => mMA(i),
+				RXD => open,
+				PIN => MA(i)
+			);
+		end generate;
 	
 	end generate;
 	
 	
 	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	
 	gen_lane : for ln in 0 to 7 generate
 	
-		pin_dqs: ddr_pin_diff 
-		generic map (
-			IDELAY_VALUE => LANE_INPUT_DELAY(ln),
-			ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
-		)
-		port map (
-			CLK => MCLK,
-			IOCLK => IOCLK,
-			STROBE => STROBE,
-			READING => reading,
-			BITSLIP => bitslip,
-			TXD => mDQSout(ln),
-			RXD => mDQSin(ln),
-			PIN_P => DQSP(ln),
-			PIN_N => DQSN(ln)
-		);
-	
-		gen_bit : for b in 0 to 7 generate
-
-			pin_dq: ddr_pin_se 
+		is_bank0 : if(ln=4) generate
+		
+			pin_dqsp: ddr_pin_se 
 			generic map (
 				IDELAY_VALUE => LANE_INPUT_DELAY(ln),
 				ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => IOCLK,
-				STROBE => STROBE,
+				IOCLK => B0_IOCLK,
+				STROBE => B0_STROBE,
 				READING => reading,
 				BITSLIP => bitslip,
-				TXD => mDQout(ln*8+b),    -- lane 0: 7 downto 0. lane 1: 15 downto 8. etc.
-				RXD => mDQin(ln*8+b),
-				PIN => DQ(ln*8+b)
+				TXD => mDQSout(ln),
+				RXD => mDQSin(ln),
+				PIN => DQSP(ln)
 			);
+			pin_dqsn: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+				ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B0_IOCLK,
+				STROBE => B0_STROBE,
+				READING => reading,
+				BITSLIP => bitslip,
+				TXD => mDQSNout(ln),
+				RXD => open,
+				PIN => DQSN(ln)
+			);
+		
+		end generate;
+		
+		is_bank1 : if(ln=5 or ln=6 or ln=7) generate
+		
+			pin_dqsp: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+				ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B1_IOCLK,
+				STROBE => B1_STROBE,
+				READING => reading,
+				BITSLIP => bitslip,
+				TXD => mDQSout(ln),
+				RXD => mDQSin(ln),
+				PIN => DQSP(ln)
+			);
+			pin_dqsn: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+				ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B1_IOCLK_180,
+				STROBE => B1_STROBE_180,
+				READING => reading,
+				BITSLIP => bitslip,
+				TXD => mDQSNout(ln),
+				RXD => open,
+				PIN => DQSN(ln)
+			);
+		
+		end generate;
+		
+		
+		is_bank3 : if(ln=0 or ln=1 or ln=2 or ln=3) generate
+		
+			pin_dqsp: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+				ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B3_IOCLK,
+				STROBE => B3_STROBE,
+				READING => reading,
+				BITSLIP => bitslip,
+				TXD => mDQSout(ln),
+				RXD => mDQSin(ln),
+				PIN => DQSP(ln)
+			);
+			pin_dqsn: ddr_pin_se 
+			generic map (
+				IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+				ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+			)
+			port map (
+				CLK => MCLK,
+				IOCLK => B3_IOCLK,
+				STROBE => B3_STROBE,
+				READING => reading,
+				BITSLIP => bitslip,
+				TXD => mDQSNout(ln),
+				RXD => open,
+				PIN => DQSN(ln)
+			);
+		
+		end generate;
+
+
+
+		
+		gen_inv : for i in 0 to mDQSout'high generate
+			mDQSNout(i) <= not mDQSout(i);
+		end generate;
+		
+		
+		
+		
+		
+	
+		gen_bit : for b in 0 to 7 generate
+
+			is_bank3 : if(ln*8+b <= 31) generate
+			
+				pin_dq: ddr_pin_se 
+				generic map (
+					IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+					ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+				)
+				port map (
+					CLK => MCLK,
+					IOCLK => B3_IOCLK,
+					STROBE => B3_STROBE,
+					READING => reading,
+					BITSLIP => bitslip,
+					TXD => mDQout(ln*8+b),    -- lane 0: 7 downto 0. lane 1: 15 downto 8. etc.
+					RXD => mDQin(ln*8+b),
+					PIN => DQ(ln*8+b)
+				);
+			
+			end generate;
+			
+			is_bank0 : if( (ln*8+b >= 32 and ln*8+b <= 39) 
+								or ln*8+b = 41
+								or ln*8+b = 42
+								or ln*8+b = 44
+								or ln*8+b = 45 ) generate
+			
+				pin_dq: ddr_pin_se 
+				generic map (
+					IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+					ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+				)
+				port map (
+					CLK => MCLK,
+					IOCLK => B0_IOCLK,
+					STROBE => B0_STROBE,
+					READING => reading,
+					BITSLIP => bitslip,
+					TXD => mDQout(ln*8+b),
+					RXD => mDQin(ln*8+b),
+					PIN => DQ(ln*8+b)
+				);
+			
+			end generate;
+			
+			
+			
+			is_bank1 : if( ln*8+b >= 46
+								or ln*8+b = 40
+								or ln*8+b = 43 ) generate
+			
+				pin_dq: ddr_pin_se 
+				generic map (
+					IDELAY_VALUE => LANE_INPUT_DELAY(ln),
+					ODELAY_VALUE => LANE_OUTPUT_DELAY(ln)
+				)
+				port map (
+					CLK => MCLK,
+					IOCLK => B1_IOCLK,
+					STROBE => B1_STROBE,
+					READING => reading,
+					BITSLIP => bitslip,
+					TXD => mDQout(ln*8+b),
+					RXD => mDQin(ln*8+b),
+					PIN => DQ(ln*8+b)
+				);
+			
+			end generate;
+			
+			
+			
+			
 		
 		end generate;
 		
