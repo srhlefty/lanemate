@@ -29,6 +29,8 @@ package pkg_types is
 		HV_offset_field_1                         : std_logic_vector(11 downto 0);
 		interlaced                                : std_logic;
 	end record;
+	
+	type burst_t is array(natural range <>) of std_logic_vector(3 downto 0);
 
 -- type <new_type> is
 --  record

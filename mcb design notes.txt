@@ -1,0 +1,100 @@
+DDR clock is 400 MHz (2.5 ns period)
+Trace length from FPGA to DIMM slot is about 5.1 inch
+Rule of thumb is 150 ps/inch propagation speed
+Total there-and-back delay is therefore 0.15 * 10.2 = 1.53 ns
+
+Since I will not be using DQS to capture read data (is this a hard req?),
+I need to delay the received data enough to properly capture it.
+
+Yes, I can't use DQS to capture the data. In principle the technique is
+viable, but the issue here is that the DQS lines are not on clock pins.
+In fact there aren't enough clock pins even in principle.
+
+This means I must do a "blind" data capture using my FPGA-generated clocks.
+
+There are two stages of calibration: write leveling and read leveling.
+
+Before doing DDR3 write leveling, the ram must be initialized. Why doesn't
+leveling affect initialization? Because of the routing topology. Of the 
+control signals, only DQS is *not* routed fly-by to each lane, because there
+is a separate DQS for each lane. Initialization does not use DQS nor DQ.
+
+Write leveling is done by successively delaying DQS and monitoring DQ for
+a transition from 0 to 1. The value of this output delay should then be
+applied to the data lines as well. And of course this needs to be done
+for each byte lane since there is one DQS per lane. (The chip samples the
+clock using DQS as the clock.) This process does not require that reading be 
+fully correct: DQ is clocked by DQS, so it does not change until the next DQS. 
+Reading the value of DQ can thus take place "some time later" without regard to 
+bit alignment or skew.
+
+Note that the output delay in the IODELAY block is a compile-time constant. So I
+cannot do write leveling programmatically. I will need to make a new bit file
+for each unique tap value.
+
+
+
+Ok so here is the order of operations:
+
+1. Write initialization code. All these operations use the control lane, which
+is routed to be tightly length matched. The lines are also routed fly-by to
+each chip, so they will all eventually get the message.
+
+2. Perform write leveling for each lane. Sequence is power up, initialization,
+then write appropriate register to enable write leveling. Pipe the DQ bit out
+to a GPIO LED. Send DQS pulses every 10ish system clocks. View the LED or probe
+the pin for each tap value. Note the delay values when the LED changes state.
+The maximum amount of time DQS can be early is one half-period, 1250 ps.
+
+Taps	Estimated delay (ps)
+0		0 			= 0
+1		8			= 8
+2		40			= 40
+3		95			= 95
+4		108			= 108
+5		171			= 171
+6		207			= 207
+7		212			= 212
+8		322			= 322
+9		1*322+8		= 330
+10		1*322+40	= 362
+11		1*322+95	= 417
+12		1*322+108	= 430
+13		1*322+171	= 493
+14		1*322+207	= 529
+15		1*322+212	= 534
+16		2*322		= 644
+17		2*322+8		= 652
+18		2*322+40	= 684
+19		2*322+95	= 739
+20		2*322+108	= 752
+21		2*322+171	= 815
+22		2*322+207	= 851
+23		2*322+212	= 856
+24		3*322		= 966
+25		3*322+8		= 974
+26		3*322+40	= 1006
+27		3*322+95	= 1061
+28		3*322+108	= 1074
+29		3*322+171	= 1137
+30		3*322+207	= 1173
+31		3*322+212	= 1178
+32		4*322		= 1288
+
+3. Configure each lane's OSERDES with the proper tap value. Verify that in write
+leveling mode, all lane's LEDs light up. Remember that the spec says that DQS
+on write should be _aligned_ to CK, so pick the delay value that first causes
+the DQ transition.
+
+4. Read leveling is trickier. There are two stages: getting the data centered
+on the clock edges, and bitslip. The results of the write leveling should tell
+me the amount of extra clock propagation delay for each lane. Since data is
+returned aligned to the clock edge, the data edge will be delayed by the amount
+of clock propagation delay. I can then use that number to determine how much
+extra delay is needed to push each lane into the center. Next is the bitslip
+routine. I configure the DIMM to emit known data and perform a bitslip until
+I get the correct value. If it fails, then I'm either capturing on the wrong
+clock cycle or the data is not properly centered on the clock edges.
+
+
+
