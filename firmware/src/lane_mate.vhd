@@ -364,7 +364,7 @@ architecture Behavioral of lane_mate is
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
-	type ram_t is array(14 downto 0) of std_logic_vector(7 downto 0);
+	type ram_t is array(23 downto 0) of std_logic_vector(7 downto 0);
 	signal register_map : ram_t :=
 	(
 		0 => x"02", -- Register table version
@@ -382,6 +382,14 @@ architecture Behavioral of lane_mate is
 		12 => x"00", -- ddr read pointer (23 downto 16)
 		13 => x"00", -- ddr read pointer (15 downto  8)
 		14 => x"00", -- ddr read pointer ( 7 downto  0)
+		15 => x"00", -- debug data
+		16 => x"00", -- debug data
+		17 => x"00", -- debug data
+		18 => x"00", -- debug data
+		19 => x"00", -- debug data
+		20 => x"00", -- debug data
+		21 => x"00", -- debug data
+		22 => x"00", -- debug data
 		others => x"00"
 	);
 	signal ram_addr : std_logic_vector(7 downto 0);
@@ -390,6 +398,10 @@ architecture Behavioral of lane_mate is
 	signal ram_we : std_logic;
 	signal i2c_register_write : std_logic;
 	signal i2c_register_addr : std_logic_vector(7 downto 0);
+	-- These are so I can set register data for reading by the micro
+	signal internal_reg_we : std_logic := '0';
+	signal internal_reg_addr : std_logic_vector(7 downto 0) := x"00";
+	signal internal_reg_data : std_logic_vector(7 downto 0) := x"00";
 	
 
 	signal testpat_vs : std_logic;
@@ -834,48 +846,50 @@ begin
 		Inst_mcb: ddr3_mcb PORT MAP(
 			MCLK => clk,
 			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
-			MAVAIL => MAVAIL,
-			MFLUSH => MFLUSH,
-			MPOP_W => MPOP_W,
-			MADDR_W => MADDR_W,
-			MDATA_W => MDATA_W,
+			MAVAIL    => MAVAIL,
+			MFLUSH    => MFLUSH,
+			MPOP_W    => MPOP_W,
+			MADDR_W   => MADDR_W,
+			MDATA_W   => MDATA_W,
 			MDVALID_W => MDVALID_W,
-			MPOP_R => MPOP_R,
-			MADDR_R => MADDR_R,
+			MPOP_R    => MPOP_R,
+			MADDR_R   => MADDR_R,
 			MDVALID_R => MDVALID_R,
-			MPUSH_R => MPUSH,
-			MDATA_R => MDATA,
+			MPUSH_R   => MPUSH,
+			MDATA_R   => MDATA,
 			
-				B0_IOCLK => b0_serdesclk,
-				B0_STROBE => b0_serdesstrobe,
-				B0_IOCLK_180 => b0_serdesclk_180,
-				B0_STROBE_180 => b0_serdesstrobe_180,
-				B1_IOCLK => b1_serdesclk,
-				B1_STROBE => b1_serdesstrobe,
-				B1_IOCLK_180 => b1_serdesclk_180,
-				B1_STROBE_180 => b1_serdesstrobe_180,
-				B3_IOCLK => b3_serdesclk,
-				B3_STROBE => b3_serdesstrobe,
-				B3_IOCLK_180 => b3_serdesclk_180,
-				B3_STROBE_180 => b3_serdesstrobe_180,
-				DDR_RESET => DDR_RESET ,
-				CK0_P => CK0_P ,
-				CK0_N => CK0_N ,
-				CKE0 => CKE0 ,
-				CK1_P => CK1_P ,
-				CK1_N => CK1_N ,
-				CKE1 => CKE1 ,
-				RAS => RAS ,
-				CAS => CAS ,
-				WE => WE ,
-				CS0 => CS0 ,
-				CS1 => CS1 ,
-				BA => BA ,
-				MA => MA ,
-				DM => DM ,
-				DQSP => DQSP ,
-				DQSN => DQSN ,
-				DQ => DQ 
+			B0_IOCLK      => b0_serdesclk,
+			B0_STROBE     => b0_serdesstrobe,
+			B0_IOCLK_180  => b0_serdesclk_180,
+			B0_STROBE_180 => b0_serdesstrobe_180,
+			B1_IOCLK      => b1_serdesclk,
+			B1_STROBE     => b1_serdesstrobe,
+			B1_IOCLK_180  => b1_serdesclk_180,
+			B1_STROBE_180 => b1_serdesstrobe_180,
+			B3_IOCLK      => b3_serdesclk,
+			B3_STROBE     => b3_serdesstrobe,
+			B3_IOCLK_180  => b3_serdesclk_180,
+			B3_STROBE_180 => b3_serdesstrobe_180,
+			
+			DDR_RESET => DDR_RESET,
+			
+			CK0_P => CK0_P,
+			CK0_N => CK0_N,
+			CKE0  => CKE0,
+			CK1_P => CK1_P,
+			CK1_N => CK1_N,
+			CKE1  => CKE1,
+			RAS   => RAS,
+			CAS   => CAS,
+			WE    => WE,
+			CS0   => CS0,
+			CS1   => CS1,
+			BA    => BA,
+			MA    => MA,
+			DM    => DM,
+			DQSP  => DQSP,
+			DQSN  => DQSN,
+			DQ    => DQ 
 		);
 	
 	B1_GPIO13 <= MPOP_W;
@@ -946,6 +960,8 @@ begin
 			i2c_register_addr  <= ram_addr;
 			if(ram_we = '1') then
 				register_map(to_integer(unsigned(ram_addr))) <= ram_wdata;
+			elsif(internal_reg_we = '1') then
+				register_map(to_integer(unsigned(internal_reg_addr))) <= internal_reg_data;
 			end if;
 			ram_rdata <= register_map(to_integer(unsigned(ram_addr)));
 		end if;
