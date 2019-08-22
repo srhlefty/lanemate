@@ -341,6 +341,20 @@ void probe_ddr_stick(void)
 	
 }
 
+void print_debug_registers()
+{
+	print("Debug registers:\r\n");
+	for(int i=0;i<8;++i)
+	{
+		uint8_t val;
+		i2c_read_reg(lanemate_address, 16+i, &val);
+		uint8_t str[4] = "XX ";
+		byte_to_string(str, val);
+		print(str);
+	}
+	print("\r\n");
+}
+
 volatile bool handle_event = false;
 
 void SysTick_Handler(void)
@@ -368,7 +382,9 @@ int main (void)
 	configure_hdmi_tx_for_sd_input();
 
 	probe_ddr_stick();
-
+	print_debug_registers();
+	i2c_write_reg(lanemate_address, 15, 1); // run test
+	print_debug_registers();
 
 	print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
@@ -414,6 +430,8 @@ int main (void)
 	uint8_t addr_r_L = 0;
 	i2c_write_reg(lanemate_address, 10, addr_w_L);
 	i2c_write_reg(lanemate_address, 14, addr_r_L);
+
+	
 
 	uint8_t res = 0;
 
