@@ -303,6 +303,9 @@ architecture Behavioral of lane_mate is
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		
+		MADDITIVE_LATENCY : in std_logic_vector(1 downto 0);
+		MCAS_LATENCY : in std_logic_vector(3 downto 0);
+		
 		B0_IOCLK : in std_logic;
 		B0_STROBE : in std_logic;
 		B0_IOCLK_180 : in std_logic;
@@ -867,6 +870,9 @@ begin
 			MTEST => trigger_ddr_init,
 			MDEBUG_LED => mcb_debug,
 			
+			MADDITIVE_LATENCY => "00",
+			MCAS_LATENCY => "0010",
+		
 			B0_IOCLK      => b0_serdesclk,
 			B0_STROBE     => b0_serdesstrobe,
 			B0_IOCLK_180  => b0_serdesclk_180,

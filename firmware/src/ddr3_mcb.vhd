@@ -56,6 +56,9 @@ entity ddr3_mcb is
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		
+		MADDITIVE_LATENCY : in std_logic_vector(1 downto 0);
+		MCAS_LATENCY : in std_logic_vector(3 downto 0);
+		
 		B0_IOCLK : in std_logic;
 		B0_STROBE : in std_logic;
 		B0_IOCLK_180 : in std_logic;
@@ -265,6 +268,7 @@ begin
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
+		signal debug_string : string;
 	begin
 	process(MCLK) is
 	begin
@@ -275,9 +279,11 @@ begin
 			if(MTEST = '1') then
 				state <= INIT1;
 			end if;
+			debug_string <= "IDLE";
 			
 		when DELAY =>
-			mCS  <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -301,6 +307,7 @@ begin
 			delay_count <= 40000; -- MCLK has 5ns period, 5ns*40e3 = 200us
 			state <= DELAY;
 			ret <= INIT2;
+			debug_string <= "INIT1";
 			
 		when INIT2 =>
 			-- After RESET# is de-asserted, wait for another 500us until CKE becomes active (high).
@@ -308,13 +315,15 @@ begin
 			mDDR_RESET <= "1111";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
-			mCS  <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
 			delay_count <= 100000; -- 5ns*100e3 = 500us
 			state <= DELAY;
 			ret <= INIT3;
+			debug_string <= "INIT2";
 			
 		when INIT3 =>
 			-- Clocks need to be started and stabilized for at least 10ns before CKE goes active.
@@ -324,10 +333,12 @@ begin
 			mCKE0 <= "1111";
 			mCKE1 <= "1111";
 			state <= INIT4;
+			debug_string <= "INIT3";
 			
 		when INIT4 =>
 			-- ODT etc etc. On this board ODT is set by external resistors so it's not managed by the mcb.
 			state <= INIT5;
+			debug_string <= "INIT4";
 			
 		when INIT5 =>
 			-- After CKE is registered high, wait a minimum of "Reset CKE Exit Time" (tXPR) before
@@ -336,10 +347,12 @@ begin
 			delay_count <= 72;
 			state <= DELAY;
 			ret <= INIT6;
+			debug_string <= "INIT5";
 			
 		when INIT6 =>
 			-- Issue MRS command to load MR2 with all application settings
-			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -357,7 +370,7 @@ begin
 			mMA( 8) <= "0000";
 			mMA( 7) <= "0000"; -- A(7) = SRT (normal operating temperature range)
 			mMA( 6) <= "0000"; -- A(6) = ASR (manual self refresh)
-			mMA( 5) <= "0000"; -- A(5 downto 3) = CAS write latency (5)
+			mMA( 5) <= "0000"; -- A(5 downto 3) = CAS write latency (5). This is fixed by the clock frequency.
 			mMA( 4) <= "0000"; 
 			mMA( 3) <= "0000"; 
 			mMA( 2) <= "0000"; -- A(2 downto 0) = Partial array self refresh (full array)
@@ -369,10 +382,12 @@ begin
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT7;
+			debug_string <= "INIT6";
 			
 		when INIT7 =>
 			-- Issue MRS command to load MR3 with all application settings
-			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -399,10 +414,12 @@ begin
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT8;
+			debug_string <= "INIT7";
 			
 		when INIT8 =>
 			-- Issue MRS command to load MR1 with all application settings and DLL enabled
-			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -421,18 +438,20 @@ begin
 			mMA( 7) <= "0000"; -- A(7) = Write leveling (disabled)
 			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
 			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-			mMA( 4) <= "0000"; -- A(5 downto 4) = Additive latency (0)
-			mMA( 3) <= "0000"; 
+			mMA( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
+			mMA( 3) <= MADDITIVE_LATENCY(0) & "000"; 
 			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
 			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
 			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT9;
+			debug_string <= "INIT8";
 			
 		when INIT9 =>
 			-- Issue MRS command to load MR0 with all application settings and DLL reset
-			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -449,23 +468,25 @@ begin
 			mMA( 9) <= "0000";
 			mMA( 8) <= "1000"; -- A(8) = DLL reset; self clearing (reset)
 			mMA( 7) <= "0000"; -- A(7) = Test mode (normal)
-			mMA( 6) <= "0000"; -- A(6 downto 4), A(2) = CAS read latency (5) !!! Micro should tell me if attached device supports this
-			mMA( 5) <= "0000"; 
-			mMA( 4) <= "1000"; 
+			mMA( 6) <= MCAS_LATENCY(3) & "000"; -- A(6 downto 4), A(2) = CAS read latency !!! Micro should tell me if attached device supports this
+			mMA( 5) <= MCAS_LATENCY(2) & "000"; 
+			mMA( 4) <= MCAS_LATENCY(1) & "000"; 
 			mMA( 3) <= "0000"; -- A(3) = Read burst type (nibble sequential)
-			mMA( 2) <= "0000";
+			mMA( 2) <= MCAS_LATENCY(0) & "000";
 			mMA( 1) <= "0000"; -- A(1 downto 0) = burst length (8, fixed)
 			mMA( 0) <= "0000"; 
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= INIT10;
+			debug_string <= "INIT9";
 			-- Note: tDLLK is the lock time of the DLL, and is 512 clocks. That must elapse
 			-- prior to a command being issued that requires it, such as read/write. Time
 			-- starts here.
 			
 		when INIT10 =>
 			-- Issue ZQCL command to start ZQ calibration
-			mCS  <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0  <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1  <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rZQCL)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rZQCL)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rZQCL)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -474,9 +495,11 @@ begin
 			-- tDLLK will be satisfied by the time this delay is finished.
 			state <= DELAY;
 			ret <= INIT_FINISHED;
-			
+			debug_string <= "INIT10";
+
 		when INIT_FINISHED =>
 			state <= WRITE_LEVELING;
+			debug_string <= "END";
 			
 		when WRITE_LEVELING =>
 			-- Set MR1 again to enable write leveling
