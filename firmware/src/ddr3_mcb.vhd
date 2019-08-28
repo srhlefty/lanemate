@@ -268,7 +268,7 @@ begin
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
-		signal debug_string : string;
+		signal debug_string : string(1 to 6);
 	begin
 	process(MCLK) is
 	begin
@@ -279,7 +279,7 @@ begin
 			if(MTEST = '1') then
 				state <= INIT1;
 			end if;
-			debug_string <= "IDLE";
+			debug_string <= "IDLE  ";
 			
 		when DELAY =>
 			mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
@@ -307,7 +307,7 @@ begin
 			delay_count <= 40000; -- MCLK has 5ns period, 5ns*40e3 = 200us
 			state <= DELAY;
 			ret <= INIT2;
-			debug_string <= "INIT1";
+			debug_string <= "INIT1 ";
 			
 		when INIT2 =>
 			-- After RESET# is de-asserted, wait for another 500us until CKE becomes active (high).
@@ -323,7 +323,7 @@ begin
 			delay_count <= 100000; -- 5ns*100e3 = 500us
 			state <= DELAY;
 			ret <= INIT3;
-			debug_string <= "INIT2";
+			debug_string <= "INIT2 ";
 			
 		when INIT3 =>
 			-- Clocks need to be started and stabilized for at least 10ns before CKE goes active.
@@ -333,12 +333,12 @@ begin
 			mCKE0 <= "1111";
 			mCKE1 <= "1111";
 			state <= INIT4;
-			debug_string <= "INIT3";
+			debug_string <= "INIT3 ";
 			
 		when INIT4 =>
 			-- ODT etc etc. On this board ODT is set by external resistors so it's not managed by the mcb.
 			state <= INIT5;
-			debug_string <= "INIT4";
+			debug_string <= "INIT4 ";
 			
 		when INIT5 =>
 			-- After CKE is registered high, wait a minimum of "Reset CKE Exit Time" (tXPR) before
@@ -347,7 +347,7 @@ begin
 			delay_count <= 72;
 			state <= DELAY;
 			ret <= INIT6;
-			debug_string <= "INIT5";
+			debug_string <= "INIT5 ";
 			
 		when INIT6 =>
 			-- Issue MRS command to load MR2 with all application settings
@@ -382,7 +382,7 @@ begin
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT7;
-			debug_string <= "INIT6";
+			debug_string <= "INIT6 ";
 			
 		when INIT7 =>
 			-- Issue MRS command to load MR3 with all application settings
@@ -414,7 +414,7 @@ begin
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT8;
-			debug_string <= "INIT7";
+			debug_string <= "INIT7 ";
 			
 		when INIT8 =>
 			-- Issue MRS command to load MR1 with all application settings and DLL enabled
@@ -446,7 +446,7 @@ begin
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT9;
-			debug_string <= "INIT8";
+			debug_string <= "INIT8 ";
 			
 		when INIT9 =>
 			-- Issue MRS command to load MR0 with all application settings and DLL reset
@@ -478,7 +478,7 @@ begin
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= INIT10;
-			debug_string <= "INIT9";
+			debug_string <= "INIT9 ";
 			-- Note: tDLLK is the lock time of the DLL, and is 512 clocks. That must elapse
 			-- prior to a command being issued that requires it, such as read/write. Time
 			-- starts here.
@@ -499,7 +499,7 @@ begin
 
 		when INIT_FINISHED =>
 			state <= WRITE_LEVELING;
-			debug_string <= "END";
+			debug_string <= "END   ";
 			
 		when WRITE_LEVELING =>
 			-- Set MR1 again to enable write leveling

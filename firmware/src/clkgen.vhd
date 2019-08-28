@@ -67,7 +67,6 @@ architecture Behavioral of clkgen is
 	signal b1_bufio_to_pll : std_logic;
 	signal b1_pll_fb : std_logic;
 	signal b1_pll_locked : std_logic;
-	signal b1_pll_to_bufg : std_logic;
 	signal b1_pll_to_buf1 : std_logic;
 	signal b1_pll_to_buf2 : std_logic;
 	
@@ -131,8 +130,8 @@ begin
       CLKOUT5_DUTY_CYCLE => 0.5,
       -- CLKOUT0_PHASE - CLKOUT5_PHASE: Output phase relationship for CLKOUT# clock output (-360.0-360.0).
       CLKOUT0_PHASE => 0.0,
-      CLKOUT1_PHASE => 0.0,
-      CLKOUT2_PHASE => 180.0,
+      CLKOUT1_PHASE => 180.0,
+      CLKOUT2_PHASE => 0.0,
       CLKOUT3_PHASE => 0.0,
       CLKOUT4_PHASE => 0.0,
       CLKOUT5_PHASE => 0.0,
@@ -233,8 +232,8 @@ begin
       CLKOUT5_DUTY_CYCLE => 0.5,
       -- CLKOUT0_PHASE - CLKOUT5_PHASE: Output phase relationship for CLKOUT# clock output (-360.0-360.0).
       CLKOUT0_PHASE => 0.0,
-      CLKOUT1_PHASE => 0.0,
-      CLKOUT2_PHASE => 180.0,
+      CLKOUT1_PHASE => 180.0,
+      CLKOUT2_PHASE => 0.0,
       CLKOUT3_PHASE => 0.0,
       CLKOUT4_PHASE => 0.0,
       CLKOUT5_PHASE => 0.0,
@@ -249,7 +248,7 @@ begin
       -- CLKOUT0 - CLKOUT5: 1-bit (each) output: Clock outputs
       CLKOUT0 => b1_pll_to_buf1,
       CLKOUT1 => b1_pll_to_buf2,
-      CLKOUT2 => b1_pll_to_bufg,
+      CLKOUT2 => open,
       CLKOUT3 => open,
       CLKOUT4 => open,
       CLKOUT5 => open,
@@ -331,8 +330,8 @@ begin
       CLKOUT5_DUTY_CYCLE => 0.5,
       -- CLKOUT0_PHASE - CLKOUT5_PHASE: Output phase relationship for CLKOUT# clock output (-360.0-360.0).
       CLKOUT0_PHASE => 0.0,
-      CLKOUT1_PHASE => 0.0,
-      CLKOUT2_PHASE => 180.0,
+      CLKOUT1_PHASE => 180.0,
+      CLKOUT2_PHASE => 0.0,
       CLKOUT3_PHASE => 0.0,
       CLKOUT4_PHASE => 0.0,
       CLKOUT5_PHASE => 0.0,
