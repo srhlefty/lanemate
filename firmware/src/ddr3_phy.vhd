@@ -145,6 +145,9 @@ begin
 
 	DM <= (others => 'L');
 
+	-- The clock is on the 180deg phase.
+	-- Pins that should straddle the rising edge (command, data) go on the 0deg phase.
+	-- Pins that should be aligned with the rising edge (dqs) go on the 180deg phase.
 
 	pin_ckp0: ddr_pin_se 
 	generic map (
@@ -153,8 +156,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "1010",
@@ -168,8 +171,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "0101",
@@ -184,8 +187,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "1010",
@@ -199,8 +202,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "0101",
@@ -221,8 +224,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK_180,
-		STROBE => B0_STROBE_180,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mDDR_RESET,
@@ -238,8 +241,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B3_IOCLK,
-		STROBE => B3_STROBE,
+		IOCLK => B3_IOCLK_180,
+		STROBE => B3_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCKE0,
@@ -465,8 +468,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B0_IOCLK,
-				STROBE => B0_STROBE,
+				IOCLK => B0_IOCLK_180,
+				STROBE => B0_STROBE_180,
 				READING => READING,
 				BITSLIP => BITSLIP,
 				TXD => mDQS_TX(ln),
@@ -480,8 +483,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B0_IOCLK,
-				STROBE => B0_STROBE,
+				IOCLK => B0_IOCLK_180,
+				STROBE => B0_STROBE_180,
 				READING => READING,
 				BITSLIP => BITSLIP,
 				TXD => mDQSNout(ln),
@@ -500,8 +503,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B1_IOCLK,
-				STROBE => B1_STROBE,
+				IOCLK => B1_IOCLK_180,
+				STROBE => B1_STROBE_180,
 				READING => READING,
 				BITSLIP => BITSLIP,
 				TXD => mDQS_TX(ln),
@@ -536,8 +539,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B3_IOCLK,
-				STROBE => B3_STROBE,
+				IOCLK => B3_IOCLK_180,
+				STROBE => B3_STROBE_180,
 				READING => READING,
 				BITSLIP => BITSLIP,
 				TXD => mDQS_TX(ln),
@@ -551,8 +554,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B3_IOCLK,
-				STROBE => B3_STROBE,
+				IOCLK => B3_IOCLK_180,
+				STROBE => B3_STROBE_180,
 				READING => READING,
 				BITSLIP => BITSLIP,
 				TXD => mDQSNout(ln),
