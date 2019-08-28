@@ -300,6 +300,8 @@ architecture Behavioral of lane_mate is
 		MPUSH_R : out std_logic;
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
+		MTEST : in std_logic;
+		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		
 		B0_IOCLK : in std_logic;
 		B0_STROBE : in std_logic;
@@ -460,6 +462,9 @@ architecture Behavioral of lane_mate is
 	signal frame_addr_w : std_logic_vector(26 downto 0) := (others => '0');
 	signal frame_addr_r : std_logic_vector(26 downto 0) := (others => '0');
 	signal mtransaction_size : std_logic_vector(7 downto 0) := x"1e";
+	
+	signal trigger_ddr_init : std_logic := '0';
+	signal mcb_debug : std_logic_vector(7 downto 0);
 	
 	signal delay_debug : std_logic;
 	
@@ -859,6 +864,9 @@ begin
 			MPUSH_R   => MPUSH,
 			MDATA_R   => MDATA,
 			
+			MTEST => trigger_ddr_init,
+			MDEBUG_LED => mcb_debug,
+			
 			B0_IOCLK      => b0_serdesclk,
 			B0_STROBE     => b0_serdesstrobe,
 			B0_IOCLK_180  => b0_serdesclk_180,
@@ -873,7 +881,6 @@ begin
 			B3_STROBE_180 => b3_serdesstrobe_180,
 			
 			DDR_RESET => DDR_RESET,
-			
 			CK0_P => CK0_P,
 			CK0_N => CK0_N,
 			CKE0  => CKE0,
@@ -893,9 +900,9 @@ begin
 			DQ    => DQ 
 		);
 	
-	B1_GPIO13 <= MPOP_W;
-	B1_GPIO14 <= MPUSH;	
-	B1_GPIO15 <= MFLUSH;
+--	B1_GPIO13 <= MPOP_W;
+--	B1_GPIO14 <= MPUSH;	
+--	B1_GPIO15 <= MFLUSH;
 	end block;
 	
 	
@@ -969,6 +976,17 @@ begin
 		end process;
 
 	end block;
+	
+	process(clk) is
+	begin
+	if(rising_edge(clk)) then
+		if(i2c_register_write = '1' and i2c_register_addr = x"0f") then
+			trigger_ddr_init <= '1';
+		else
+			trigger_ddr_init <= '0';
+		end if;
+	end if;
+	end process;
 
 	
 	startup_test : block is
@@ -1072,18 +1090,23 @@ begin
 		B1_GPIO5 <= val(5);
 		B1_GPIO6 <= val(6);
 		B1_GPIO7 <= val(7);
-		B1_GPIO8 <= val(8);
-		B1_GPIO9 <= val(9);
-		B1_GPIO10 <= val(10);
-		B1_GPIO11 <= val(11);
+		--B1_GPIO8 <= val(8);
+		--B1_GPIO9 <= val(9);
+		--B1_GPIO10 <= val(10);
+		--B1_GPIO11 <= val(11);
 		--B1_GPIO12 <= val(12);
 		--B1_GPIO13 <= val(13);
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
-		B1_GPIO12 <= register_map(1)(0);
-		--B1_GPIO13 <= register_map(1)(1);
-		--B1_GPIO14 <= register_map(1)(2);
-		--B1_GPIO15 <= de_debug;
+
+		B1_GPIO8 <= mcb_debug(0);
+		B1_GPIO9 <= mcb_debug(1);
+		B1_GPIO10 <= mcb_debug(2);
+		B1_GPIO11 <= mcb_debug(3);
+		B1_GPIO12 <= mcb_debug(4);
+		B1_GPIO13 <= mcb_debug(5);
+		B1_GPIO14 <= mcb_debug(6);
+		B1_GPIO15 <= mcb_debug(7);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';

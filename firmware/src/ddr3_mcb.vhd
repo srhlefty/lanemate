@@ -53,6 +53,8 @@ entity ddr3_mcb is
 		MPUSH_R : out std_logic;
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
+		MTEST : in std_logic;
+		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		
 		B0_IOCLK : in std_logic;
 		B0_STROBE : in std_logic;
@@ -173,8 +175,261 @@ architecture Behavioral of ddr3_mcb is
 	signal reading : std_logic := '1';
 	signal bitslip : std_logic := '0';
 	
+	constant cCS   : natural := 0;
+	constant cRAS  : natural := 1;
+	constant cCAS  : natural := 2;
+	constant cWE   : natural := 3;
+	
+	constant rMRS  : natural := 0;
+	constant rREF  : natural := 1;
+	constant rSRE  : natural := 2;
+	constant rSRX  : natural := 3;
+	constant rPRE  : natural := 4;
+	constant rPREA : natural := 5;
+	constant rACT  : natural := 6;
+	constant rWR   : natural := 7;
+	constant rWRS4 : natural := 8;
+	constant rWRS8 : natural := 9;
+	constant rWRA  : natural := 10;
+	constant rWRAS4: natural := 11;
+	constant rWRAS8: natural := 12;
+	constant rRD   : natural := 13;
+	constant rRDS4 : natural := 14;
+	constant rRDS8 : natural := 15;
+	constant rRDA  : natural := 16;
+	constant rRDAS4: natural := 17;
+	constant rRDAS8: natural := 18;
+	constant rNOP  : natural := 19;
+	constant rDES  : natural := 20;
+	constant rPDE  : natural := 21;
+	constant rPDX  : natural := 22;
+	constant rZQCL : natural := 23;
+	constant rZQCS : natural := 24;
+
+	type row_t is array(0 to 3) of std_logic;
+	type table_t is array(integer range <>) of row_t;
+	
+	-- This is the truth table for CS#, RAS#, CAS#, and WE#
+	-- for each command. The row (first index) is the command,
+	-- to be indexed with the rXXX constants. The column (second index)
+	-- is to be indexed with the cXXX constants.
+	-- Note that this is not the complete command since CKE and the address
+	-- pins also contribute in some cases.
+	constant cmd : table_t(0 to 24) :=
+	(
+		('0', '0', '0', '0'), -- rMRS
+		('0', '0', '0', '1'), -- rREF
+		('0', '0', '0', '1'), -- rSRE
+		('0', '1', '1', '1'), -- rSRX (assuming CS# should be L)
+		('0', '0', '1', '0'), -- rPRE
+		('0', '0', '1', '0'), -- rPREA
+		('0', '0', '1', '1'), -- rACT
+		('0', '1', '0', '0'), -- rWR
+		('0', '1', '0', '0'), -- rWRS4
+		('0', '1', '0', '0'), -- rWRS8
+		('0', '1', '0', '0'), -- rWRA
+		('0', '1', '0', '0'), -- rWRAS4
+		('0', '1', '0', '0'), -- rWRAS8
+		('0', '1', '0', '1'), -- rRD
+		('0', '1', '0', '1'), -- rRDS4
+		('0', '1', '0', '1'), -- rRDS8
+		('0', '1', '0', '1'), -- rRDA
+		('0', '1', '0', '1'), -- rRDAS4
+		('0', '1', '0', '1'), -- rRDAS8
+		('0', '1', '1', '1'), -- rNOP
+		('1', '1', '1', '1'), -- rDES
+		('0', '1', '1', '1'), -- rPDE
+		('0', '1', '1', '1'), -- rPDX
+		('0', '1', '1', '0'), -- rZQCL
+		('0', '1', '1', '0')  -- rZQCS		
+	);
 
 begin
+
+
+	fsm : block is
+		type state_t is (IDLE, DELAY, 
+			INIT1, 
+			INIT2, 
+			INIT3, 
+			INIT4, 
+			INIT5, 
+			INIT6, 
+			INIT7, 
+			INIT8, 
+			INIT9, 
+			INIT10, 
+			INIT_FINISHED,
+			WRITE_LEVELING
+		);
+		signal state : state_t := IDLE;
+		signal ret : state_t := IDLE;
+		signal delay_count : natural := 0;
+	begin
+	process(MCLK) is
+	begin
+	if(rising_edge(MCLK)) then
+	case state is
+	
+		when IDLE =>
+			if(MTEST = '1') then
+				state <= INIT1;
+			end if;
+			
+		when DELAY =>
+			mCS  <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			if(delay_count = 0) then
+				state <= ret;
+			else
+				delay_count <= delay_count - 1;
+			end if;
+
+		-- Follow along with the init sequence on page 19 of JEDEC 79-3F
+		
+		when INIT1 =>
+			-- Apply power. RESET# needs to be maintained (low) for a minimum 200us 
+			-- with stable power. CKE must be low at least 10ns before RESET# is
+			-- de-asserted, but this time can be a part of the 200us.
+			mDDR_RESET <= "0000";
+			mCKE0 <= "0000";
+			mCKE1 <= "0000";
+			delay_count <= 40000; -- MCLK has 5ns period, 5ns*40e3 = 200us
+			state <= DELAY;
+			ret <= INIT2;
+			
+		when INIT2 =>
+			-- After RESET# is de-asserted, wait for another 500us until CKE becomes active (high).
+			-- In step 3, NOP should be registered as CKE goes high so I may as well do it here for safety.
+			mDDR_RESET <= "1111";
+			mCKE0 <= "0000";
+			mCKE1 <= "0000";
+			mCS  <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			delay_count <= 100000; -- 5ns*100e3 = 500us
+			state <= DELAY;
+			ret <= INIT3;
+			
+		when INIT3 =>
+			-- Clocks need to be started and stabilized for at least 10ns before CKE goes active.
+			-- (This is true because MCLK is generated by the same PLL that generates the DDR clock.
+			-- Thus if this circuit is running, the PLL is locked and we're more than 2 clocks from
+			-- clock startup)
+			mCKE0 <= "1111";
+			mCKE1 <= "1111";
+			state <= INIT4;
+			
+		when INIT4 =>
+			-- ODT etc etc. On this board ODT is set by external resistors so it's not managed by the mcb.
+			state <= INIT5;
+			
+		when INIT5 =>
+			-- After CKE is registered high, wait a minimum of "Reset CKE Exit Time" (tXPR) before
+			-- issuing the first MRS command. tXPR is max(5 clocks, tRFC+10ns). tRFC is 350ns for
+			-- an 8Gb density chip. So the minimum wait time is 360ns, or 72 system clocks.
+			delay_count <= 72;
+			state <= DELAY;
+			ret <= INIT6;
+			
+		when INIT6 =>
+			-- Issue MRS command to load MR2 with all application settings
+			-- Note: tMRD, the min time between MRS commands, is 4 clocks.
+			-- When I send a burst I'm giving it 2 clocks of data.
+			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- MR2 is "010" on BA
+			mBA(0) <= "0000";
+			mBA(1) <= "1111";
+			mBA(2) <= "0000";
+			-- TODO: settings
+			delay_count <= 2;
+			state <= DELAY;
+			ret <= INIT7;
+			
+		when INIT7 =>
+			-- Issue MRS command to load MR3 with all application settings
+			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- MR3 is "011" on BA
+			mBA(0) <= "1111";
+			mBA(1) <= "1111";
+			mBA(2) <= "0000";
+			-- TODO: settings
+			delay_count <= 2;
+			state <= DELAY;
+			ret <= INIT8;
+			
+		when INIT8 =>
+			-- Issue MRS command to load MR1 with all application settings and DLL enabled
+			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- MR1+DLL enabled is "001" on BA, '0' on A0
+			mBA(0) <= "1111";
+			mBA(1) <= "0000";
+			mBA(2) <= "0000";
+			mMA(0) <= "0000";
+			-- TODO: settings
+			delay_count <= 2;
+			state <= DELAY;
+			ret <= INIT9;
+			
+		when INIT9 =>
+			-- Issue MRS command to load MR0 with all application settings and DLL reset
+			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- MR0+DLL reset is "000" on BA, '1' on A8
+			mBA(0) <= "0000";
+			mBA(1) <= "0000";
+			mBA(2) <= "0000";
+			mMA(8) <= "1111";
+			-- TODO: settings
+			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
+			state <= DELAY;
+			ret <= INIT10;
+			-- Note: tDLLK is the lock time of the DLL, and is 512 clocks. That must elapse
+			-- prior to a command being issued that requires it, such as read/write. Time
+			-- starts here.
+			
+		when INIT10 =>
+			-- Issue ZQCL command to start ZQ calibration
+			mCS  <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rZQCL)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rZQCL)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rZQCL)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			mMA(8) <= "0000"; -- undo INIT9 setting
+			mMA(10) <= "1111"; -- required for command
+			delay_count <= 256; -- tZQinit = max(512 clocks, 640ns). 256 system clocks is 512 clocks and 640ns at 400MHz
+			-- tDLLK will be satisfied by the time this delay is finished.
+			state <= DELAY;
+			ret <= INIT_FINISHED;
+			
+		when INIT_FINISHED =>
+			state <= WRITE_LEVELING;
+			
+		when WRITE_LEVELING =>
+			-- Set MR1 again to enable write leveling
+	
+	end case;
+	end if;
+	end process;
+	end block;
+
+
+
+
+
 
 	Inst_ddr3_phy: ddr3_phy PORT MAP(
 		MCLK          => MCLK,
@@ -225,6 +480,16 @@ begin
 		DQSN          => DQSN,
 		DQ            => DQ 
 	);
+	
+	-- burst_t indexing is pin id then position within burst
+	MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
+	MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
+	MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
+	MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
+	MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
+	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
+	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
+	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
 		
 end Behavioral;
 
