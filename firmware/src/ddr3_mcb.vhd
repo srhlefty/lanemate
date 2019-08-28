@@ -281,6 +281,8 @@ begin
 			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			mBA <= (others => (others => '0'));
+			mMA <= (others => (others => '0'));
 			if(delay_count = 0) then
 				state <= ret;
 			else
@@ -337,17 +339,33 @@ begin
 			
 		when INIT6 =>
 			-- Issue MRS command to load MR2 with all application settings
-			-- Note: tMRD, the min time between MRS commands, is 4 clocks.
-			-- When I send a burst I'm giving it 2 clocks of data.
 			mCS  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			-- MR2 is "010" on BA
-			mBA(0) <= "0000";
-			mBA(1) <= "1111";
+			-- see p.30 of spec
 			mBA(2) <= "0000";
-			-- TODO: settings
+			mBA(1) <= "1000";
+			mBA(0) <= "0000";
+			mMA(15) <= "0000"; -- A(15 downto 11) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "0000";
+			mMA(11) <= "0000";
+			mMA(10) <= "0000"; -- A(10 downto 9) = Rtt_WR (dynamic ODT off)
+			mMA( 9) <= "0000";
+			mMA( 8) <= "0000";
+			mMA( 7) <= "0000"; -- A(7) = SRT (normal operating temperature range)
+			mMA( 6) <= "0000"; -- A(6) = ASR (manual self refresh)
+			mMA( 5) <= "0000"; -- A(5 downto 3) = CAS write latency (5)
+			mMA( 4) <= "0000"; 
+			mMA( 3) <= "0000"; 
+			mMA( 2) <= "0000"; -- A(2 downto 0) = Partial array self refresh (full array)
+			mMA( 1) <= "0000"; 
+			mMA( 0) <= "0000"; 
+			
+			-- Note: the min time between MRS commands (tMRD) is 4 clocks.
+			-- Actual delay will be 5
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT7;
@@ -358,11 +376,26 @@ begin
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			-- MR3 is "011" on BA
-			mBA(0) <= "1111";
-			mBA(1) <= "1111";
+			-- see p.32 of spec
 			mBA(2) <= "0000";
-			-- TODO: settings
+			mBA(1) <= "1000";
+			mBA(0) <= "1000";
+			mMA(15) <= "0000"; -- A(15 downto 3) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "0000";
+			mMA(11) <= "0000";
+			mMA(10) <= "0000"; 
+			mMA( 9) <= "0000";
+			mMA( 8) <= "0000";
+			mMA( 7) <= "0000"; 
+			mMA( 6) <= "0000"; 
+			mMA( 5) <= "0000"; 
+			mMA( 4) <= "0000"; 
+			mMA( 3) <= "0000"; 
+			mMA( 2) <= "0000"; -- A(2) = MPR operation (RD test pattern off)
+			mMA( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
+			mMA( 0) <= "0000"; 
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT8;
@@ -373,12 +406,26 @@ begin
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			-- MR1+DLL enabled is "001" on BA, '0' on A0
-			mBA(0) <= "1111";
-			mBA(1) <= "0000";
+			-- see p.27 of spec
 			mBA(2) <= "0000";
-			mMA(0) <= "0000";
-			-- TODO: settings
+			mBA(1) <= "0000";
+			mBA(0) <= "1000";
+			mMA(15) <= "0000"; -- A(15 downto 13) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
+			mMA(11) <= "0000"; -- A(11) = TDQS (disabled)
+			mMA(10) <= "0000"; -- A(10) = 0
+			mMA( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+			mMA( 8) <= "0000"; -- A(8) = 0
+			mMA( 7) <= "0000"; -- A(7) = Write leveling (disabled)
+			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
+			mMA( 4) <= "0000"; -- A(5 downto 4) = Additive latency (0)
+			mMA( 3) <= "0000"; 
+			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
+			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= INIT9;
@@ -389,12 +436,26 @@ begin
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			-- MR0+DLL reset is "000" on BA, '1' on A8
-			mBA(0) <= "0000";
-			mBA(1) <= "0000";
+			-- see p.24 of spec
 			mBA(2) <= "0000";
-			mMA(8) <= "1111";
-			-- TODO: settings
+			mBA(1) <= "0000";
+			mBA(0) <= "0000";
+			mMA(15) <= "0000"; -- A(15 downto 13) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "1000"; -- A(12) = DLL control for precharge PD (fast exit)
+			mMA(11) <= "1000"; -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
+			mMA(10) <= "0000"; 
+			mMA( 9) <= "0000";
+			mMA( 8) <= "1000"; -- A(8) = DLL reset; self clearing (reset)
+			mMA( 7) <= "0000"; -- A(7) = Test mode (normal)
+			mMA( 6) <= "0000"; -- A(6 downto 4), A(2) = CAS read latency (5) !!! Micro should tell me if attached device supports this
+			mMA( 5) <= "0000"; 
+			mMA( 4) <= "1000"; 
+			mMA( 3) <= "0000"; -- A(3) = Read burst type (nibble sequential)
+			mMA( 2) <= "0000";
+			mMA( 1) <= "0000"; -- A(1 downto 0) = burst length (8, fixed)
+			mMA( 0) <= "0000"; 
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= INIT10;
@@ -408,8 +469,7 @@ begin
 			mRAS <= cmd(rZQCL)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rZQCL)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rZQCL)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			mMA(8) <= "0000"; -- undo INIT9 setting
-			mMA(10) <= "1111"; -- required for command
+			mMA(10) <= "1000";
 			delay_count <= 256; -- tZQinit = max(512 clocks, 640ns). 256 system clocks is 512 clocks and 640ns at 400MHz
 			-- tDLLK will be satisfied by the time this delay is finished.
 			state <= DELAY;
@@ -420,6 +480,8 @@ begin
 			
 		when WRITE_LEVELING =>
 			-- Set MR1 again to enable write leveling
+			-- Turn on DQS pulse generator
+			state <= WRITE_LEVELING ;
 	
 	end case;
 	end if;
