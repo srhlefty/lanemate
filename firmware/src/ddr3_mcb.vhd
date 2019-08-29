@@ -75,6 +75,8 @@ entity ddr3_mcb is
 		B3_IOCLK_180 : in std_logic;
 		B3_STROBE_180 : in std_logic;
 		
+		IOCLK_LOCKED : in std_logic;
+		
 		-- physical interface
 		DDR_RESET : inout std_logic;
 		CK0_P : inout std_logic;
@@ -160,20 +162,20 @@ architecture Behavioral of ddr3_mcb is
 	);
 	end component;
 
-	signal mDDR_RESET : std_logic_vector(3 downto 0) := "LLLL"; -- startup state is supposed to be low (active)
-	signal mCKE0 : std_logic_vector(3 downto 0) := "LLLL"; -- active high
-	signal mCKE1 : std_logic_vector(3 downto 0) := "LLLL";
-	signal mRAS : std_logic_vector(3 downto 0) := "HHHH";
-	signal mCAS : std_logic_vector(3 downto 0) := "HHHH";
-	signal mWE : std_logic_vector(3 downto 0) := "HHHH";
-	signal mCS0 : std_logic_vector(3 downto 0) := "LLLL"; -- rank chip enable, active low
-	signal mCS1 : std_logic_vector(3 downto 0) := "LLLL";
+	signal mDDR_RESET : std_logic_vector(3 downto 0) := "0000"; -- startup state is supposed to be low (active)
+	signal mCKE0 : std_logic_vector(3 downto 0) := "0000"; -- active high
+	signal mCKE1 : std_logic_vector(3 downto 0) := "0000";
+	signal mRAS : std_logic_vector(3 downto 0) := "1111";
+	signal mCAS : std_logic_vector(3 downto 0) := "1111";
+	signal mWE : std_logic_vector(3 downto 0) := "1111";
+	signal mCS0 : std_logic_vector(3 downto 0) := "0000"; -- rank chip enable, active low
+	signal mCS1 : std_logic_vector(3 downto 0) := "0000";
 
-	signal mBA : burst_t(2 downto 0) := (others => (others => 'L'));
-	signal mMA : burst_t(15 downto 0) := (others => (others => 'L'));
-	signal mDQS_TX : burst_t(7 downto 0) := (others => (others => 'L'));
+	signal mBA : burst_t(2 downto 0) := (others => (others => '0'));
+	signal mMA : burst_t(15 downto 0) := (others => (others => '0'));
+	signal mDQS_TX : burst_t(7 downto 0) := (others => (others => '0'));
 	signal mDQS_RX : burst_t(7 downto 0);
-	signal mDQ_TX : burst_t(63 downto 0) := (others => (others => 'L'));
+	signal mDQ_TX : burst_t(63 downto 0) := (others => (others => '0'));
 	signal mDQ_RX : burst_t(63 downto 0);
 	
 	signal reading : std_logic := '1';
@@ -295,7 +297,7 @@ begin
 	case state is
 	
 		when IDLE =>
-			if(MTEST = '1') then
+			if(MTEST = '1' and IOCLK_LOCKED = '1') then
 				state <= INIT1;
 			end if;
 			debug_string <= "IDLE  ";

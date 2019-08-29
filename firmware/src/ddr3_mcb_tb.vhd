@@ -71,6 +71,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
          B3_STROBE : IN  std_logic;
          B3_IOCLK_180 : IN  std_logic;
          B3_STROBE_180 : IN  std_logic;
+			IOCLK_LOCKED : in std_logic;
          DDR_RESET : INOUT  std_logic;
          CK0_P : INOUT  std_logic;
          CK0_N : INOUT  std_logic;
@@ -111,7 +112,9 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 		B3_CLK800 : out std_logic;
 		B3_STROBE800 : out std_logic;
 		B3_CLK800_180 : out std_logic;
-		B3_STROBE800_180 : out std_logic
+		B3_STROBE800_180 : out std_logic;
+		
+		LOCKED : out std_logic
 	);
 	end component;
 	
@@ -186,6 +189,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
    signal MPUSH_R : std_logic;
    signal MDATA_R : std_logic_vector(255 downto 0);
    signal MDEBUG_LED : std_logic_vector(7 downto 0);
+	signal LOCKED : std_logic;
 
 
 	signal SYSCLK : std_logic := '0';
@@ -224,7 +228,8 @@ BEGIN
 		B3_CLK800        => b3_serdesclk,
 		B3_STROBE800     => b3_serdesstrobe,
 		B3_CLK800_180    => b3_serdesclk_180,
-		B3_STROBE800_180 => b3_serdesstrobe_180
+		B3_STROBE800_180 => b3_serdesstrobe_180,
+		LOCKED           => LOCKED
 	);
 
 
@@ -268,6 +273,8 @@ BEGIN
 			B3_STROBE     => b3_serdesstrobe,
 			B3_IOCLK_180  => b3_serdesclk_180,
 			B3_STROBE_180 => b3_serdesstrobe_180,
+			
+			IOCLK_LOCKED => LOCKED,
 			 
           DDR_RESET => DDR_RESET,
           CK0_P => CK0_P,
@@ -353,7 +360,7 @@ BEGIN
 
 	process(MCLK) is
 	begin
-	if(rising_edge(MCLK)) then
+	if(rising_edge(MCLK) and LOCKED = '1') then
 		count <= count + 1;
 		if(count = 64) then
 			MTEST <= '1';

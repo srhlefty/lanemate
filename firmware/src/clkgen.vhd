@@ -48,7 +48,9 @@ entity clkgen is
 		B3_CLK800 : out std_logic;
 		B3_STROBE800 : out std_logic;
 		B3_CLK800_180 : out std_logic;
-		B3_STROBE800_180 : out std_logic
+		B3_STROBE800_180 : out std_logic;
+		
+		LOCKED : out std_logic
 	);
 end clkgen;
 
@@ -81,6 +83,8 @@ architecture Behavioral of clkgen is
 	signal b0_pll_to_b1_pll : std_logic;
 	
 begin
+
+	LOCKED <= b0_pll_locked and b1_pll_locked and b3_pll_locked;
 
    sysclk_ibufg : IBUFG generic map (IBUF_LOW_PWR => TRUE, IOSTANDARD => "DEFAULT")
 		port map (

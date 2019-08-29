@@ -322,6 +322,8 @@ architecture Behavioral of lane_mate is
 		B3_IOCLK_180 : in std_logic;
 		B3_STROBE_180 : in std_logic;
 
+		IOCLK_LOCKED : in std_logic;
+
 		-- physical interface
 		DDR_RESET : inout std_logic;
 		CK0_P : inout std_logic;
@@ -363,7 +365,9 @@ architecture Behavioral of lane_mate is
 		B3_CLK800 : out std_logic;
 		B3_STROBE800 : out std_logic;
 		B3_CLK800_180 : out std_logic;
-		B3_STROBE800_180 : out std_logic
+		B3_STROBE800_180 : out std_logic;
+		
+		LOCKED : out std_logic
 	);
 	end component;
 	
@@ -485,7 +489,7 @@ architecture Behavioral of lane_mate is
 	signal b3_serdesstrobe : std_logic;
 	signal b3_serdesclk_180 : std_logic;
 	signal b3_serdesstrobe_180 : std_logic;
-	
+	signal ioclk_locked : std_logic;
 	
 begin
 
@@ -506,7 +510,8 @@ begin
 		B3_CLK800 => b3_serdesclk,
 		B3_STROBE800 => b3_serdesstrobe,
 		B3_CLK800_180 => b3_serdesclk_180,
-		B3_STROBE800_180 => b3_serdesstrobe_180
+		B3_STROBE800_180 => b3_serdesstrobe_180,
+		LOCKED => ioclk_locked
 	);
 
 
@@ -888,6 +893,8 @@ begin
 			B3_STROBE     => b3_serdesstrobe,
 			B3_IOCLK_180  => b3_serdesclk_180,
 			B3_STROBE_180 => b3_serdesstrobe_180,
+			
+			IOCLK_LOCKED => ioclk_locked,
 			
 			DDR_RESET => DDR_RESET,
 			CK0_P => CK0_P,
