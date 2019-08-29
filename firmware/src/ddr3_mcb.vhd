@@ -32,6 +32,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use work.pkg_types.all;
 
 entity ddr3_mcb is
+	Generic ( DEBUG : boolean := false );
 	Port ( 
 		MCLK : in std_logic;
 		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
@@ -269,7 +270,25 @@ begin
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
 		signal debug_string : string(1 to 6);
+		constant INIT1_DELAY_REAL : natural := 40000;
+		constant INIT1_DELAY_DEBUG : natural := 10;
+		constant INIT2_DELAY_REAL : natural := 100000;
+		constant INIT2_DELAY_DEBUG : natural := 10;
+		signal INIT1_DELAY : natural;
+		signal INIT2_DELAY : natural;
 	begin
+		
+		gen_const_d : if(DEBUG = true) generate
+		begin
+			INIT1_DELAY <= INIT1_DELAY_DEBUG;
+			INIT2_DELAY <= INIT2_DELAY_DEBUG;
+		end generate;
+		gen_const : if(DEBUG = false) generate
+		begin
+			INIT1_DELAY <= INIT1_DELAY_REAL;
+			INIT2_DELAY <= INIT2_DELAY_REAL;
+		end generate;
+	
 	process(MCLK) is
 	begin
 	if(rising_edge(MCLK)) then
@@ -304,7 +323,7 @@ begin
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
-			delay_count <= 40000; -- MCLK has 5ns period, 5ns*40e3 = 200us
+			delay_count <= INIT1_DELAY; -- MCLK has 5ns period, 5ns*40e3 = 200us
 			state <= DELAY;
 			ret <= INIT2;
 			debug_string <= "INIT1 ";
@@ -320,7 +339,7 @@ begin
 			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			delay_count <= 100000; -- 5ns*100e3 = 500us
+			delay_count <= INIT2_DELAY; -- 5ns*100e3 = 500us
 			state <= DELAY;
 			ret <= INIT3;
 			debug_string <= "INIT2 ";
