@@ -279,6 +279,7 @@ architecture Behavioral of lane_mate is
 	end component;
 	
 	component ddr3_mcb is
+	Generic ( DEBUG : boolean := false );
 	Port ( 
 		MCLK : in std_logic;
 		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
@@ -852,7 +853,9 @@ begin
 
 --		Inst_mcb: trivial_mcb PORT MAP(
 --		Inst_mcb: internal_mcb PORT MAP(
-		Inst_mcb: ddr3_mcb PORT MAP(
+		Inst_mcb: ddr3_mcb 
+		generic map ( DEBUG => false )
+		PORT MAP(
 			MCLK => clk,
 			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 			MAVAIL    => MAVAIL,
