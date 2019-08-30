@@ -56,6 +56,7 @@ entity ddr3_mcb is
 		
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
+		MDEBUG_SYNC : out std_logic;
 		
 		MADDITIVE_LATENCY : in std_logic_vector(1 downto 0);
 		MCAS_LATENCY : in std_logic_vector(3 downto 0);
@@ -121,9 +122,15 @@ architecture Behavioral of ddr3_mcb is
 		mDQ_TX : in burst_t(63 downto 0);
 		mDQ_RX : out burst_t(63 downto 0);
 		
-		DQS_READING : in std_logic;
-		DQ_READING : in std_logic;
-		BITSLIP : in std_logic;
+		B0_DQS_READING : in std_logic;
+		B1_DQS_READING : in std_logic;
+		B3_DQS_READING : in std_logic;
+		B0_DQ_READING : in std_logic;
+		B1_DQ_READING : in std_logic;
+		B3_DQ_READING : in std_logic;
+		B0_BITSLIP : in std_logic;
+		B1_BITSLIP : in std_logic;
+		B3_BITSLIP : in std_logic;
 	
 		--------------------------------
 	
@@ -178,10 +185,41 @@ architecture Behavioral of ddr3_mcb is
 	signal mDQS_RX : burst_t(7 downto 0);
 	signal mDQ_TX : burst_t(63 downto 0) := (others => (others => '0'));
 	signal mDQ_RX : burst_t(63 downto 0);
+
+	attribute keep : string;
+	-- The compiler would typically prefer to optimize away the array into a single register
+	-- that gets passed to the OSERDES blocks. This is a problem because I'm using OSERDES
+	-- blocks on 3 separate banks, which are very far apart. Placing the flip flop in the
+	-- middle still has too much routing delay to get everywhere, causing the design to
+	-- fail timing. The fix here is to keep the "redundant" flip flops so that each one
+	-- that goes to a specific byte lane can be placed closer to the edge of the chip.
+	attribute keep of mDQS_TX : signal is "true";
+
 	
-	signal dqs_reading : std_logic := '1';
-	signal dq_reading : std_logic := '1';
-	signal bitslip : std_logic := '0';
+	signal dqs_reading0 : std_logic := '1';
+	signal dqs_reading1 : std_logic := '1';
+	signal dqs_reading3 : std_logic := '1';
+	signal dq_reading0 : std_logic := '1';
+	signal dq_reading1 : std_logic := '1';
+	signal dq_reading3 : std_logic := '1';
+	signal bitslip0 : std_logic := '0';
+	signal bitslip1 : std_logic := '0';
+	signal bitslip3 : std_logic := '0';
+
+	-- Same thing here, I need separate registers to service the different edges of the chip
+	-- in order to meet timing
+	attribute keep of dqs_reading0 : signal is "true";
+	attribute keep of dqs_reading1 : signal is "true";
+	attribute keep of dqs_reading3 : signal is "true";
+	attribute keep of dq_reading0 : signal is "true";
+	attribute keep of dq_reading1 : signal is "true";
+	attribute keep of dq_reading3 : signal is "true";
+	attribute keep of bitslip0 : signal is "true";
+	attribute keep of bitslip1 : signal is "true";
+	attribute keep of bitslip3 : signal is "true";
+	
+	
+	signal debug_sync : std_logic := '0';
 	
 	constant cCS   : natural := 0;
 	constant cRAS  : natural := 1;
@@ -571,7 +609,9 @@ begin
 			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
 			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
 
-			dqs_reading <= '0';
+			dqs_reading0 <= '0';
+			dqs_reading1 <= '0';
+			dqs_reading3 <= '0';
 			mDQS_TX <= (others => (others => '0'));
 			-- Need to wait at least tWLDQSEN (25 clocks) before the first DQS pulse
 			delay_count <= 13;
@@ -588,6 +628,14 @@ begin
 				delay_count <= delay_count - 1;
 			end if;
 			
+			-- This is brought out to a test point to let me trigger off of on the scope.
+			-- Wider than 1 clock to reduce bandwidth requirements.
+			if(delay_count < 5) then
+				debug_sync <= '1';
+			else
+				debug_sync <= '0';
+			end if;
+			
 			if(MTEST = '1') then
 				state <= WRITE_LEVELING_EXIT;
 			else
@@ -596,8 +644,11 @@ begin
 			debug_string <= "WL    ";
 			
 		when WRITE_LEVELING_EXIT =>
-			dqs_reading <= '1';
+			dqs_reading0 <= '1';
+			dqs_reading1 <= '1';
+			dqs_reading3 <= '1';
 			mDQS_TX <= (others => (others => '0'));
+			debug_sync <= '0';
 			-- This is a copy of INIT8
 			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
@@ -655,9 +706,15 @@ begin
 		mDQS_RX       => mDQS_RX,
 		mDQ_TX        => mDQ_TX,
 		mDQ_RX        => mDQ_RX,
-		DQS_READING   => dqs_reading,
-		DQ_READING    => dq_reading,
-		BITSLIP       => bitslip,
+		B0_DQS_READING=> dqs_reading0,
+		B1_DQS_READING=> dqs_reading1,
+		B3_DQS_READING=> dqs_reading3,
+		B0_DQ_READING => dq_reading0,
+		B1_DQ_READING => dq_reading1,
+		B3_DQ_READING => dq_reading3,
+		B0_BITSLIP    => bitslip0,
+		B1_BITSLIP    => bitslip1,
+		B3_BITSLIP    => bitslip3,
 		B0_IOCLK      => B0_IOCLK,
 		B0_STROBE     => B0_STROBE,
 		B0_IOCLK_180  => B0_IOCLK_180,
@@ -699,6 +756,8 @@ begin
 	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
 	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
 	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
+
+	MDEBUG_SYNC <= debug_sync;
 		
 end Behavioral;
 

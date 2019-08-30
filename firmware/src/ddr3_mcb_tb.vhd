@@ -57,6 +57,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
          MDATA_R : OUT  std_logic_vector(255 downto 0);
          MTEST : IN  std_logic;
          MDEBUG_LED : OUT  std_logic_vector(7 downto 0);
+			MDEBUG_SYNC : out std_logic;
          MADDITIVE_LATENCY : IN  std_logic_vector(1 downto 0);
          MCAS_LATENCY : IN  std_logic_vector(3 downto 0);
          B0_IOCLK : IN  std_logic;
@@ -189,6 +190,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
    signal MPUSH_R : std_logic;
    signal MDATA_R : std_logic_vector(255 downto 0);
    signal MDEBUG_LED : std_logic_vector(7 downto 0);
+	signal MDEBUG_SYNC : std_logic;
 	signal LOCKED : std_logic;
 
 
@@ -257,6 +259,7 @@ BEGIN
 			 
           MTEST => MTEST,
           MDEBUG_LED => MDEBUG_LED,
+			 MDEBUG_SYNC => MDEBUG_SYNC,
 			 
           MADDITIVE_LATENCY => MADDITIVE_LATENCY,
           MCAS_LATENCY => MCAS_LATENCY,

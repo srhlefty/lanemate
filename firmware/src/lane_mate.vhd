@@ -303,6 +303,7 @@ architecture Behavioral of lane_mate is
 		
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
+		MDEBUG_SYNC : out std_logic;
 		
 		MADDITIVE_LATENCY : in std_logic_vector(1 downto 0);
 		MCAS_LATENCY : in std_logic_vector(3 downto 0);
@@ -473,6 +474,7 @@ architecture Behavioral of lane_mate is
 	
 	signal trigger_ddr_init : std_logic := '0';
 	signal mcb_debug : std_logic_vector(7 downto 0);
+	signal debug_sync : std_logic;
 	
 	signal delay_debug : std_logic;
 	
@@ -877,6 +879,7 @@ begin
 			
 			MTEST => trigger_ddr_init,
 			MDEBUG_LED => mcb_debug,
+			MDEBUG_SYNC => debug_sync,
 			
 			MADDITIVE_LATENCY => "00",
 			MCAS_LATENCY => "0010",
@@ -1098,7 +1101,7 @@ begin
 		end if;
 		end process;
 		
-		B0_GPIO0 <= val(0);
+		--B0_GPIO0 <= val(0);
 		B1_GPIO1 <= val(1);
 		B1_GPIO2 <= val(2);
 		B1_GPIO3 <= val(3);
@@ -1115,6 +1118,7 @@ begin
 		--B1_GPIO14 <= val(14);
 		--B1_GPIO15 <= val(15);
 
+		B0_GPIO0 <= debug_sync;
 		B1_GPIO8 <= mcb_debug(0);
 		B1_GPIO9 <= mcb_debug(1);
 		B1_GPIO10 <= mcb_debug(2);
