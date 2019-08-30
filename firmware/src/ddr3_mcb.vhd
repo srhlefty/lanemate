@@ -121,7 +121,8 @@ architecture Behavioral of ddr3_mcb is
 		mDQ_TX : in burst_t(63 downto 0);
 		mDQ_RX : out burst_t(63 downto 0);
 		
-		READING : in std_logic;
+		DQS_READING : in std_logic;
+		DQ_READING : in std_logic;
 		BITSLIP : in std_logic;
 	
 		--------------------------------
@@ -178,7 +179,8 @@ architecture Behavioral of ddr3_mcb is
 	signal mDQ_TX : burst_t(63 downto 0) := (others => (others => '0'));
 	signal mDQ_RX : burst_t(63 downto 0);
 	
-	signal reading : std_logic := '1';
+	signal dqs_reading : std_logic := '1';
+	signal dq_reading : std_logic := '1';
 	signal bitslip : std_logic := '0';
 	
 	constant cCS   : natural := 0;
@@ -568,7 +570,8 @@ begin
 		mDQS_RX       => mDQS_RX,
 		mDQ_TX        => mDQ_TX,
 		mDQ_RX        => mDQ_RX,
-		READING       => reading,
+		DQS_READING   => dqs_reading,
+		DQ_READING    => dq_reading,
 		BITSLIP       => bitslip,
 		B0_IOCLK      => B0_IOCLK,
 		B0_STROBE     => B0_STROBE,
