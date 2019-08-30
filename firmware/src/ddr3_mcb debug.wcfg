@@ -21,7 +21,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="8" />
+   <WVObjectSize size="9" />
    <wvobject fp_name="/ddr3_mcb_tb/uut/mclk" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mclk</obj_property>
       <obj_property name="ObjectShortName">mclk</obj_property>
@@ -75,5 +75,9 @@
          <obj_property name="ElementShortName">we</obj_property>
          <obj_property name="ObjectShortName">we</obj_property>
       </wvobject>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/dqsp" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">dqsp[7:0]</obj_property>
+      <obj_property name="ObjectShortName">dqsp[7:0]</obj_property>
    </wvobject>
 </wave_config>

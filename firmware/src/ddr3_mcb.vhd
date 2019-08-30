@@ -268,7 +268,9 @@ begin
 			INIT9, 
 			INIT10, 
 			INIT_FINISHED,
-			WRITE_LEVELING
+			WRITE_LEVELING_ENTER,
+			WRITE_LEVELING,
+			WRITE_LEVELING_EXIT
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
@@ -312,6 +314,7 @@ begin
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
 			mBA <= (others => (others => '0'));
 			mMA <= (others => (others => '0'));
+			mDQS_TX <= (others => (others => '0'));
 			if(delay_count = 0) then
 				state <= ret;
 			else
@@ -536,13 +539,95 @@ begin
 			debug_string <= "INIT10";
 
 		when INIT_FINISHED =>
-			state <= WRITE_LEVELING;
+			state <= WRITE_LEVELING_ENTER;
 			debug_string <= "END   ";
 			
-		when WRITE_LEVELING =>
+		when WRITE_LEVELING_ENTER =>
 			-- Set MR1 again to enable write leveling
 			-- Turn on DQS pulse generator
-			state <= WRITE_LEVELING ;
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- see p.27 of spec
+			mBA(2) <= "0000";
+			mBA(1) <= "0000";
+			mBA(0) <= "1000";
+			mMA(15) <= "0000"; -- A(15 downto 13) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
+			mMA(11) <= "0000"; -- A(11) = TDQS (disabled)
+			mMA(10) <= "0000"; -- A(10) = 0
+			mMA( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+			mMA( 8) <= "0000"; -- A(8) = 0
+			mMA( 7) <= "1000"; -- A(7) = Write leveling (enabled)
+			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
+			mMA( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
+			mMA( 3) <= MADDITIVE_LATENCY(0) & "000"; 
+			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
+			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+
+			dqs_reading <= '0';
+			mDQS_TX <= (others => (others => '0'));
+			-- Need to wait at least tWLDQSEN (25 clocks) before the first DQS pulse
+			delay_count <= 13;
+			state <= DELAY;
+			ret <= WRITE_LEVELING;
+			debug_string <= "WLENTR";
+			
+		when WRITE_LEVELING =>
+			if(delay_count = 0) then
+				mDQS_TX <= (others => "1000");
+				delay_count <= 16;
+			else
+				mDQS_TX <= (others => "0000");
+				delay_count <= delay_count - 1;
+			end if;
+			
+			if(MTEST = '1') then
+				state <= WRITE_LEVELING_EXIT;
+			else
+				state <= WRITE_LEVELING;
+			end if;
+			debug_string <= "WL    ";
+			
+		when WRITE_LEVELING_EXIT =>
+			dqs_reading <= '1';
+			mDQS_TX <= (others => (others => '0'));
+			-- This is a copy of INIT8
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- see p.27 of spec
+			mBA(2) <= "0000";
+			mBA(1) <= "0000";
+			mBA(0) <= "1000";
+			mMA(15) <= "0000"; -- A(15 downto 13) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
+			mMA(11) <= "0000"; -- A(11) = TDQS (disabled)
+			mMA(10) <= "0000"; -- A(10) = 0
+			mMA( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+			mMA( 8) <= "0000"; -- A(8) = 0
+			mMA( 7) <= "0000"; -- A(7) = Write leveling (disabled)
+			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
+			mMA( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
+			mMA( 3) <= MADDITIVE_LATENCY(0) & "000"; 
+			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
+			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
+			state <= DELAY;
+			ret <= IDLE;
+			debug_string <= "WLEXIT";
 	
 	end case;
 	end if;

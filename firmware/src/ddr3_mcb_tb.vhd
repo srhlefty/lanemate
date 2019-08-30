@@ -362,7 +362,7 @@ BEGIN
 	begin
 	if(rising_edge(MCLK) and LOCKED = '1') then
 		count <= count + 1;
-		if(count = 64) then
+		if(count = 64 or count = 600) then
 			MTEST <= '1';
 		else
 			MTEST <= '0';
