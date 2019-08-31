@@ -176,8 +176,8 @@ architecture Behavioral of ddr3_mcb is
 	signal mRAS : std_logic_vector(3 downto 0) := "1111";
 	signal mCAS : std_logic_vector(3 downto 0) := "1111";
 	signal mWE : std_logic_vector(3 downto 0) := "1111";
-	signal mCS0 : std_logic_vector(3 downto 0) := "0000"; -- rank chip enable, active low
-	signal mCS1 : std_logic_vector(3 downto 0) := "0000";
+	signal mCS0 : std_logic_vector(3 downto 0) := "1111"; -- rank chip enable, active low
+	signal mCS1 : std_logic_vector(3 downto 0) := "1111";
 
 	signal mBA : burst_t(2 downto 0) := (others => (others => '0'));
 	signal mMA : burst_t(15 downto 0) := (others => (others => '0'));
@@ -308,7 +308,10 @@ begin
 			INIT_FINISHED,
 			WRITE_LEVELING_ENTER,
 			WRITE_LEVELING,
-			WRITE_LEVELING_EXIT
+			WRITE_LEVELING_EXIT,
+			READ_PATTERN_ENTER,
+			ENABLE_PATTERN,
+			READ_PATTERN
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
@@ -346,7 +349,7 @@ begin
 			
 		when DELAY =>
 			mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -380,7 +383,7 @@ begin
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
 			mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -393,7 +396,7 @@ begin
 			-- Clocks need to be started and stabilized for at least 10ns before CKE goes active.
 			-- True by assertion because I gate this FSM on the IOCLK_LOCKED signal
 			mCKE0 <= "1111";
-			mCKE1 <= "1111";
+--			mCKE1 <= "1111";
 			state <= INIT4;
 			debug_string <= "INIT3 ";
 			
@@ -415,7 +418,7 @@ begin
 		when INIT6 =>
 			-- Issue MRS command to load MR2 with all application settings
 			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -451,7 +454,7 @@ begin
 		when INIT7 =>
 			-- Issue MRS command to load MR3 with all application settings
 			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -483,7 +486,7 @@ begin
 		when INIT8 =>
 			-- Issue MRS command to load MR1 with all application settings and DLL enabled
 			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -514,8 +517,8 @@ begin
 			
 		when INIT9 =>
 			-- Issue MRS command to load MR0 with all application settings and DLL reset
-			mCS0  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1  <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -549,8 +552,8 @@ begin
 			
 		when INIT10 =>
 			-- Issue ZQCL command to start ZQ calibration
-			mCS0  <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1  <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS0 <= cmd(rZQCL)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rZQCL)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rZQCL)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rZQCL)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -577,14 +580,13 @@ begin
 			debug_string <= "INIT10";
 
 		when INIT_FINISHED =>
-			state <= WRITE_LEVELING_ENTER;
+			state <= READ_PATTERN_ENTER;
 			debug_string <= "END   ";
 			
 		when WRITE_LEVELING_ENTER =>
 			-- Set MR1 again to enable write leveling
-			-- Turn on DQS pulse generator
 			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -621,12 +623,13 @@ begin
 			
 		when WRITE_LEVELING =>
 			if(delay_count = 0) then
-				mDQS_TX <= (others => "1000");
+--				mDQS_TX <= (others => "1000");
 				delay_count <= 16;
 			else
-				mDQS_TX <= (others => "0000");
+--				mDQS_TX <= (others => "0000");
 				delay_count <= delay_count - 1;
 			end if;
+			mDQS_TX <= (others => "1010");
 			
 			-- This is brought out to a test point to let me trigger off of on the scope.
 			-- Wider than 1 clock to reduce bandwidth requirements.
@@ -651,7 +654,7 @@ begin
 			debug_sync <= '0';
 			-- This is a copy of INIT8
 			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-			mCS1 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
@@ -679,6 +682,86 @@ begin
 			state <= DELAY;
 			ret <= IDLE;
 			debug_string <= "WLEXIT";
+	
+	
+	
+	
+	
+	
+	
+		when READ_PATTERN_ENTER =>
+			dqs_reading0 <= '1';
+			dqs_reading1 <= '1';
+			dqs_reading3 <= '1';
+			-- precharge all, wait tRP (15ns)
+			mCS0 <= cmd(rPREA)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+			mRAS <= cmd(rPREA)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rPREA)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rPREA)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			mBA <= (others => (others => '0'));
+			mMA(10) <= "1000";
+			mMA(15 downto 11) <= (others => (others => '0'));
+			mMA(9 downto 0) <= (others => (others => '0'));
+			delay_count <= 6;
+			state <= DELAY;
+			ret <= ENABLE_PATTERN;
+			
+		when ENABLE_PATTERN =>
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- see p.32 of spec
+			mBA(2) <= "0000";
+			mBA(1) <= "1000";
+			mBA(0) <= "1000";
+			mMA(15) <= "0000"; -- A(15 downto 3) = 0
+			mMA(14) <= "0000";
+			mMA(13) <= "0000";
+			mMA(12) <= "0000";
+			mMA(11) <= "0000";
+			mMA(10) <= "0000"; 
+			mMA( 9) <= "0000";
+			mMA( 8) <= "0000";
+			mMA( 7) <= "0000"; 
+			mMA( 6) <= "0000"; 
+			mMA( 5) <= "0000"; 
+			mMA( 4) <= "0000"; 
+			mMA( 3) <= "0000"; 
+			mMA( 2) <= "1000"; -- A(2) = Multi-purpose register operation (RD test pattern on)
+			mMA( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
+			mMA( 0) <= "0000"; 
+			delay_count <= 6; -- wait tMOD
+			state <= DELAY;
+			ret <= READ_PATTERN;
+			
+		when READ_PATTERN =>
+			if(delay_count = 0) then
+				mCS0 <= cmd(rRD)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+				mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+				mRAS <= cmd(rRD)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+				mCAS <= cmd(rRD)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+				mWE  <= cmd(rRD)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+				delay_count <= 32;
+			else
+				mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+				mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+				mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+				mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+				mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+				delay_count <= delay_count - 1;
+			end if;
+			mBA <= (others => (others => '0'));
+			mMA <= (others => (others => '0'));
+			if(delay_count < 3) then
+				debug_sync <= '1';
+			else
+				debug_sync <= '0';
+			end if;
+			
+		
 	
 	end case;
 	end if;

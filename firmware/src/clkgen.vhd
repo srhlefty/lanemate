@@ -82,6 +82,11 @@ architecture Behavioral of clkgen is
 	signal clk : std_logic;
 	signal b0_pll_to_b1_pll : std_logic;
 	
+	constant PLL_M : natural := 8;
+--	constant IOCLK_D : natural := 1;
+--	constant SYSCLK_D : natural := 4;
+	constant IOCLK_D : natural := 4;
+	constant SYSCLK_D : natural := 16;
 begin
 
 	LOCKED <= b0_pll_locked and b1_pll_locked and b3_pll_locked;
@@ -113,16 +118,16 @@ begin
    bank0_PLL_BASE : PLL_BASE
    generic map (
       BANDWIDTH => "OPTIMIZED",             -- "HIGH", "LOW" or "OPTIMIZED" 
-      CLKFBOUT_MULT => 8,                   -- Multiply value for all CLKOUT clock outputs (1-64)
+      CLKFBOUT_MULT => PLL_M,                   -- Multiply value for all CLKOUT clock outputs (1-64)
       CLKFBOUT_PHASE => 0.0,                -- Phase offset in degrees of the clock feedback output
                                             -- (0.0-360.0).
       CLKIN_PERIOD => 10.0,                  -- Input clock period in ns to ps resolution (i.e. 33.333 is 30
                                             -- MHz).
       -- CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for CLKOUT# clock output (1-128)
-      CLKOUT0_DIVIDE => 1,
-      CLKOUT1_DIVIDE => 1,
-      CLKOUT2_DIVIDE => 4,
-      CLKOUT3_DIVIDE => 8,
+      CLKOUT0_DIVIDE => IOCLK_D, -- serdes clock
+      CLKOUT1_DIVIDE => IOCLK_D, -- serdes clock (180deg)
+      CLKOUT2_DIVIDE => SYSCLK_D, -- system clock
+      CLKOUT3_DIVIDE => PLL_M, -- forwarded clock to second pll
       CLKOUT4_DIVIDE => 1,
       CLKOUT5_DIVIDE => 1,
       -- CLKOUT0_DUTY_CYCLE - CLKOUT5_DUTY_CYCLE: Duty cycle for CLKOUT# clock output (0.01-0.99).
@@ -215,14 +220,14 @@ begin
    bank1_PLL_BASE : PLL_BASE
    generic map (
       BANDWIDTH => "OPTIMIZED",             -- "HIGH", "LOW" or "OPTIMIZED" 
-      CLKFBOUT_MULT => 8,                   -- Multiply value for all CLKOUT clock outputs (1-64)
+      CLKFBOUT_MULT => PLL_M,                   -- Multiply value for all CLKOUT clock outputs (1-64)
       CLKFBOUT_PHASE => 0.0,                -- Phase offset in degrees of the clock feedback output
                                             -- (0.0-360.0).
       CLKIN_PERIOD => 10.0,                  -- Input clock period in ns to ps resolution (i.e. 33.333 is 30
                                             -- MHz).
       -- CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for CLKOUT# clock output (1-128)
-      CLKOUT0_DIVIDE => 1,
-      CLKOUT1_DIVIDE => 1,
+      CLKOUT0_DIVIDE => IOCLK_D,
+      CLKOUT1_DIVIDE => IOCLK_D,
       CLKOUT2_DIVIDE => 1,
       CLKOUT3_DIVIDE => 1,
       CLKOUT4_DIVIDE => 1,
@@ -313,14 +318,14 @@ begin
    bank3_PLL_BASE : PLL_BASE
    generic map (
       BANDWIDTH => "OPTIMIZED",             -- "HIGH", "LOW" or "OPTIMIZED" 
-      CLKFBOUT_MULT => 8,                   -- Multiply value for all CLKOUT clock outputs (1-64)
+      CLKFBOUT_MULT => PLL_M,                   -- Multiply value for all CLKOUT clock outputs (1-64)
       CLKFBOUT_PHASE => 0.0,                -- Phase offset in degrees of the clock feedback output
                                             -- (0.0-360.0).
       CLKIN_PERIOD => 10.0,                  -- Input clock period in ns to ps resolution (i.e. 33.333 is 30
                                             -- MHz).
       -- CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for CLKOUT# clock output (1-128)
-      CLKOUT0_DIVIDE => 1,
-      CLKOUT1_DIVIDE => 1,
+      CLKOUT0_DIVIDE => IOCLK_D,
+      CLKOUT1_DIVIDE => IOCLK_D,
       CLKOUT2_DIVIDE => 1,
       CLKOUT3_DIVIDE => 1,
       CLKOUT4_DIVIDE => 1,

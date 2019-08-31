@@ -81,6 +81,59 @@ Taps	Estimated delay (ps)
 31		3*322+212	= 1178
 32		4*322		= 1288
 
+On-board trace lengths
+Clock:  5.100"
+Lane 0: 5.359" (+0.259)
+Lane 1: 5.210" (+0.110)
+Lane 2: 5.050" (-0.050)
+Lane 3: 5.110" (+0.010)
+Lane 4: 5.110" (+0.010)
+Lane 5: 5.110" (+0.010)
+Lane 6: 5.110" (+0.010)
+Lane 7: 5.154" (+0.054)
+
+But since clock is routed fly-by, it travels extra distance before reaching the 
+actual lane. Clock arrives in the middle of the connector, so let's assume that
+it first travels to the lane 0 edge, then travels across to lane 7. Further
+assume that there are 4.5/7 = 0.64 inches between each ram chip. The clock then
+travels 4.5/2 = 2.25" to the right edge, then 0.64" to each successive chip.
+
+Total signal travel length (estimated):
+        Clock                                      DQS
+Lane 0: 5.100 + 2.25 + 0*0.64 =  7.35" = 1103ps    5.359" = 804ps
+Lane 1: 5.100 + 2.25 + 1*0.64 =  7.99" = 1199ps    5.210" = 782ps
+Lane 2: 5.100 + 2.25 + 2*0.64 =  8.63" = 1295ps    5.050" = 758ps
+Lane 3: 5.100 + 2.25 + 3*0.64 =  9.27" = 1391ps    5.110" = 767ps
+Lane 4: 5.100 + 2.25 + 4*0.64 =  9.91" = 1487ps    5.110" = 767ps
+Lane 5: 5.100 + 2.25 + 5*0.64 = 10.55" = 1583ps    5.110" = 767ps
+Lane 6: 5.100 + 2.25 + 6*0.64 = 11.19" = 1679ps    5.110" = 767ps
+Lane 7: 5.100 + 2.25 + 7*0.64 = 11.83" = 1775ps    5.154" = 773ps
+
+Subtracting those two columns gives us the estimated DQS delay for each lane:
+Lane 0:  299ps
+Lane 1:  417ps
+Lane 2:  537ps
+Lane 3:  624ps
+Lane 4:  720ps
+Lane 5:  816ps
+Lane 6:  912ps
+Lane 7: 1001ps
+
+Bringup notes:
+- No LEDs ever lit with any of the tap delays.
+- I checked that DQS is making it to the connector.
+- I checked that different tap values do move DQS.
+- I checked that the clock does not move with DQS tap setting.
+- Instead of write leveling, I changed modes to perform the read leveling step.
+  Provided the DRAM chip received my read request, I should see DQS pulses even
+  if the read leveling was not successfully enabled.
+- I did not see DQS pulses! Therefore the DRAM chip is not seeing the command.
+- I lowered the frequency by a factor of 4 to make it easier to look at the
+  clock/data phase relationship at the connector. Definitely not what it showed
+  in the simulator! I had to move the clock to 0 degrees and command bus to 180 
+  degrees to get the command appropriately positioned relative to the clock.
+- Now I get DQS pulses!
+
 3. Configure each lane's OSERDES with the proper tap value. Verify that in write
 leveling mode, all lane's LEDs light up. Remember that the spec says that DQS
 on write should be _aligned_ to CK, so pick the delay value that first causes

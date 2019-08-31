@@ -68,7 +68,7 @@ architecture Behavioral of i2c_slave is
 	type target_t is (WRITE_REG, WRITE_VAL);
 	signal write_target : target_t := WRITE_REG;
 
-	constant SCL_PERIOD : natural := 1000;
+	constant SCL_PERIOD : natural := 500;
 	constant SCL_HALF_PERIOD : natural := SCL_PERIOD / 2;
 	constant SCL_QUARTER_PERIOD : natural := SCL_PERIOD / 4;
 

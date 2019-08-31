@@ -143,7 +143,7 @@ architecture Behavioral of ddr3_phy is
 
 	type delay_array_t is array(0 to 7) of natural;
 	constant LANE_INPUT_DELAY : delay_array_t := (0,0,0,0,0,0,0,0);
-	constant LANE_OUTPUT_DELAY : delay_array_t := (0,0,0,0,0,0,0,0);
+	constant LANE_OUTPUT_DELAY : delay_array_t := (others => 0);
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
 
@@ -163,8 +163,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK_180,
-		STROBE => B0_STROBE_180,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "1010",
@@ -178,8 +178,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK_180,
-		STROBE => B0_STROBE_180,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "0101",
@@ -194,8 +194,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK_180,
-		STROBE => B0_STROBE_180,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "1010",
@@ -209,8 +209,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK_180,
-		STROBE => B0_STROBE_180,
+		IOCLK => B0_IOCLK,
+		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => "0101",
@@ -231,8 +231,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mDDR_RESET,
@@ -281,8 +281,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCS0,
@@ -296,8 +296,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCS1,
@@ -311,8 +311,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mRAS,
@@ -326,8 +326,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mCAS,
@@ -341,8 +341,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mWE,
