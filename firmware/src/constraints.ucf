@@ -370,14 +370,14 @@ NET "CK0_N"     IOSTANDARD = LVCMOS15 | DRIVE = 8 | SLEW = FAST;
 NET "CK1_P"     IOSTANDARD = LVCMOS15 | DRIVE = 8 | SLEW = FAST;
 NET "CK1_N"     IOSTANDARD = LVCMOS15 | DRIVE = 8 | SLEW = FAST;
 
-INST "Inst_clkgen/bank0_PLL_BASE" LOC = PLL_ADV_X0Y1;
-INST "Inst_clkgen/bank0_bufpll1" LOC = BUFPLL_X1Y5;
-INST "Inst_clkgen/bank0_bufpll2" LOC = BUFPLL_X1Y4;
-
-INST "Inst_clkgen/bank3_PLL_BASE" LOC = PLL_ADV_X0Y0;
-INST "Inst_clkgen/bank3_bufpll1" LOC = BUFPLL_X0Y2;
-INST "Inst_clkgen/bank3_bufpll2" LOC = BUFPLL_X0Y3;
-
-INST "Inst_clkgen/bank1_PLL_BASE" LOC = PLL_ADV_X0Y2;
-INST "Inst_clkgen/bank1_bufpll1" LOC = BUFPLL_X2Y2;
-INST "Inst_clkgen/bank1_bufpll2" LOC = BUFPLL_X2Y3;
+#INST "Inst_clkgen/bank0_PLL_BASE" LOC = PLL_ADV_X0Y1;
+#INST "Inst_clkgen/bank0_bufpll1" LOC = BUFPLL_X1Y5;
+#INST "Inst_clkgen/bank0_bufpll2" LOC = BUFPLL_X1Y4;
+#
+#INST "Inst_clkgen/bank3_PLL_BASE" LOC = PLL_ADV_X0Y0;
+#INST "Inst_clkgen/bank3_bufpll1" LOC = BUFPLL_X0Y2;
+#INST "Inst_clkgen/bank3_bufpll2" LOC = BUFPLL_X0Y3;
+#
+#INST "Inst_clkgen/bank1_PLL_BASE" LOC = PLL_ADV_X0Y2;
+#INST "Inst_clkgen/bank1_bufpll1" LOC = BUFPLL_X2Y2;
+#INST "Inst_clkgen/bank1_bufpll2" LOC = BUFPLL_X2Y3;

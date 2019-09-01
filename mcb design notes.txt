@@ -167,6 +167,21 @@ Bringup notes:
   somehow that I want the bus skew to be less than a certain amount?
 - Report says DQS7 should have a skew of 2.7ns relative to DQS0. Measured on the
   scope, it looks like 1.3ns to me.
+  
+- Lots of reading suggests that the best you can do in terms of skew is FF at
+  the chip edge (or I/OSERDES) all driven by the same clock. I made a test
+  project with the SYSCLK, CK0_P, and DQSP nets assigned to their proper pins.
+  (These span all 4 banks). I manually instantiated an ODDR for each output,
+  and drove them all with the same clock. The timing report indicated a max
+  skew of 0.173ns. So my issue might be coming from my desire to use the high
+  speed dedicated route, which requires the use of those chained PLLs.
+
+- Ok so I was wrong that I had to use chained PLLs. It turns out that the
+  restriction is *not* that a PLL can only drive one bank--it's that a BUFPLL
+  can only drive one bank. And it further turns out that the same PLL output
+  can drive multiple BUFPLLs! I now have each PLL output driving 3 BUFPLLs,
+  one for each bank. The max reported skew across CK and DQS is now just 0.2ns.
+  
 
 3. Configure each lane's OSERDES with the proper tap value. Verify that in write
 leveling mode, all lane's LEDs light up. Remember that the spec says that DQS
