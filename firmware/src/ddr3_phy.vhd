@@ -147,10 +147,21 @@ architecture Behavioral of ddr3_phy is
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
 
+	signal dqs_buf1 : burst_t(7 downto 0) := (others => (others => '0'));
+	signal dqs_buf2 : burst_t(7 downto 0) := (others => (others => '0'));
+
 begin
 
 
 	DM <= (others => 'L');
+	
+	process(MCLK) is
+	begin
+	if(rising_edge(MCLK)) then
+		dqs_buf1 <= mDQS_TX;
+		dqs_buf2 <= dqs_buf1;
+	end if;
+	end process;
 
 	-- The clock is on the 180deg phase.
 	-- Pins that should straddle the rising edge (command, data) go on the 0deg phase.
@@ -360,8 +371,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mBA(0),
@@ -375,8 +386,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B0_IOCLK,
-		STROBE => B0_STROBE,
+		IOCLK => B0_IOCLK_180,
+		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mBA(1),
@@ -390,8 +401,8 @@ begin
 	)
 	port map (
 		CLK => MCLK,
-		IOCLK => B3_IOCLK,
-		STROBE => B3_STROBE,
+		IOCLK => B3_IOCLK_180,
+		STROBE => B3_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
 		TXD => mBA(2),
@@ -414,8 +425,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B3_IOCLK,
-				STROBE => B3_STROBE,
+				IOCLK => B3_IOCLK_180,
+				STROBE => B3_STROBE_180,
 				READING => '0',
 				BITSLIP => '0',
 				TXD => mMA(i),
@@ -433,8 +444,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B0_IOCLK,
-				STROBE => B0_STROBE,
+				IOCLK => B0_IOCLK_180,
+				STROBE => B0_STROBE_180,
 				READING => '0',
 				BITSLIP => '0',
 				TXD => mMA(i),
@@ -475,11 +486,11 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B0_IOCLK_180,
-				STROBE => B0_STROBE_180,
+				IOCLK => B0_IOCLK,
+				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
 				BITSLIP => B0_BITSLIP,
-				TXD => mDQS_TX(ln),
+				TXD => dqs_buf2(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
 			);
@@ -490,8 +501,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B0_IOCLK_180,
-				STROBE => B0_STROBE_180,
+				IOCLK => B0_IOCLK,
+				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
 				BITSLIP => B0_BITSLIP,
 				TXD => mDQSNout(ln),
@@ -510,11 +521,11 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B1_IOCLK_180,
-				STROBE => B1_STROBE_180,
+				IOCLK => B1_IOCLK,
+				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
 				BITSLIP => B1_BITSLIP,
-				TXD => mDQS_TX(ln),
+				TXD => dqs_buf2(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
 			);
@@ -525,8 +536,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B1_IOCLK_180,
-				STROBE => B1_STROBE_180,
+				IOCLK => B1_IOCLK,
+				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
 				BITSLIP => B1_BITSLIP,
 				TXD => mDQSNout(ln),
@@ -546,11 +557,11 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B3_IOCLK_180,
-				STROBE => B3_STROBE_180,
+				IOCLK => B3_IOCLK,
+				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
 				BITSLIP => B3_BITSLIP,
-				TXD => mDQS_TX(ln),
+				TXD => dqs_buf2(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
 			);
@@ -561,8 +572,8 @@ begin
 			)
 			port map (
 				CLK => MCLK,
-				IOCLK => B3_IOCLK_180,
-				STROBE => B3_STROBE_180,
+				IOCLK => B3_IOCLK,
+				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
 				BITSLIP => B3_BITSLIP,
 				TXD => mDQSNout(ln),
@@ -576,7 +587,7 @@ begin
 
 		
 		gen_inv : for i in 0 to mDQS_TX'high generate
-			mDQSNout(i) <= not mDQS_TX(i);
+			mDQSNout(i) <= not dqs_buf2(i);
 		end generate;
 		
 		
@@ -595,8 +606,8 @@ begin
 				)
 				port map (
 					CLK => MCLK,
-					IOCLK => B3_IOCLK,
-					STROBE => B3_STROBE,
+					IOCLK => B3_IOCLK_180,
+					STROBE => B3_STROBE_180,
 					READING => B3_DQ_READING,
 					BITSLIP => B3_BITSLIP,
 					TXD => mDQ_TX(ln*8+b),    -- lane 0: 7 downto 0. lane 1: 15 downto 8. etc.
@@ -619,8 +630,8 @@ begin
 				)
 				port map (
 					CLK => MCLK,
-					IOCLK => B0_IOCLK,
-					STROBE => B0_STROBE,
+					IOCLK => B0_IOCLK_180,
+					STROBE => B0_STROBE_180,
 					READING => B3_DQ_READING,
 					BITSLIP => B3_BITSLIP,
 					TXD => mDQ_TX(ln*8+b),
@@ -643,8 +654,8 @@ begin
 				)
 				port map (
 					CLK => MCLK,
-					IOCLK => B1_IOCLK,
-					STROBE => B1_STROBE,
+					IOCLK => B1_IOCLK_180,
+					STROBE => B1_STROBE_180,
 					READING => B1_DQ_READING,
 					BITSLIP => B1_BITSLIP,
 					TXD => mDQ_TX(ln*8+b),

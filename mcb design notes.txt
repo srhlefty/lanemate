@@ -133,6 +133,40 @@ Bringup notes:
   in the simulator! I had to move the clock to 0 degrees and command bus to 180 
   degrees to get the command appropriately positioned relative to the clock.
 - Now I get DQS pulses!
+- Switched back to write leveling. Adjusted the phase so that clock and DQS
+  have 0 delay to start. 0 taps: none. 32 taps: lane 0! 16: none. 24: none.
+  28: none. 30: none. 31: lane 0. So 31 is the minimum for lane 0. According to
+  the spec (tDQSCK) the window of allowed DQS-CK skew is +/-225ps for the 
+  fastest speed grade. The difference between 30 and 31 taps is only predicted
+  to be 5 ps. Between 31 and 32 is 110 ps. So I'm well within that window. These
+  tap results should be valid for faster frequencies too, because I began with
+  clock and DQS at the same phase out of the PLL.
+- Upped the frequency by a factor of 2 (now 100Mhz sysclk, 200MHz ram clk).
+  Lane 0 light now unlit. 64 taps: still nothing.
+- Tried going back to the read test with the faster clock. Alignment of CAS to
+  clock looks ok, but no DQS pulses. Maybe this is a signal integrity issue?
+  It's tempting to blame that because I really can't do anything about it.
+- Back to the slow clock with read test. Now I don't get DQS pulses???
+- Messing around with constraints to have the compiler tell me what the skew
+  is across all the ram nets. I also realized I had forgotten to adjust the
+  phase of the bank, address, and data pins after the initial discovery.
+  The report says that the skew for the different-bank outputs is really bad,
+  as much as 4ns.
+- Now I'm getting all 8 lanes to light up in read test mode with zero delay!!!
+- All lanes ok at 100MHz/200MHz
+- Switched back to 50/100 and turned on write leveling (0 taps). Lanes 5,6,7 on.
+  Does that mean there's so much skew that those lanes are falling into the
+  previous clock? I looked at the timing report, and lanes 5,6,7 are reported
+  to have a DQS-CK skew of 3.2ns relative to CK0. DQSP4, which is on the same
+  bank as CK0, has a skew of 0. 
+- I tried adding some taps of delay and reran the report. The skew was properly
+  updated! Good, this means that I can use the tap delay feature on each pin to
+  try to remove these cross-bank delays. But I found a Xilinx forum post that
+  suggested there is no problem clocking multiple banks simultaneously with just
+  minimal delay--why are DQSP 5,6,7 so delayed then? And can I tell the tool
+  somehow that I want the bus skew to be less than a certain amount?
+- Report says DQS7 should have a skew of 2.7ns relative to DQS0. Measured on the
+  scope, it looks like 1.3ns to me.
 
 3. Configure each lane's OSERDES with the proper tap value. Verify that in write
 leveling mode, all lane's LEDs light up. Remember that the spec says that DQS

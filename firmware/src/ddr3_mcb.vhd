@@ -580,7 +580,8 @@ begin
 			debug_string <= "INIT10";
 
 		when INIT_FINISHED =>
-			state <= READ_PATTERN_ENTER;
+--			state <= READ_PATTERN_ENTER;
+			state <= WRITE_LEVELING_ENTER;
 			debug_string <= "END   ";
 			
 		when WRITE_LEVELING_ENTER =>
@@ -623,13 +624,13 @@ begin
 			
 		when WRITE_LEVELING =>
 			if(delay_count = 0) then
---				mDQS_TX <= (others => "1000");
+				mDQS_TX <= (others => "1000");
 				delay_count <= 16;
 			else
---				mDQS_TX <= (others => "0000");
+				mDQS_TX <= (others => "0000");
 				delay_count <= delay_count - 1;
 			end if;
-			mDQS_TX <= (others => "1010");
+--			mDQS_TX <= (others => "1010");
 			
 			-- This is brought out to a test point to let me trigger off of on the scope.
 			-- Wider than 1 clock to reduce bandwidth requirements.
