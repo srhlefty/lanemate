@@ -141,7 +141,7 @@ Bringup notes:
   to be 5 ps. Between 31 and 32 is 110 ps. So I'm well within that window. These
   tap results should be valid for faster frequencies too, because I began with
   clock and DQS at the same phase out of the PLL.
-- Upped the frequency by a factor of 2 (now 100Mhz sysclk, 200MHz ram clk).
+- Upped the frequency by a factor of 2 (now 100Mhz sysclk, 400MHz ioclk).
   Lane 0 light now unlit. 64 taps: still nothing.
 - Tried going back to the read test with the faster clock. Alignment of CAS to
   clock looks ok, but no DQS pulses. Maybe this is a signal integrity issue?
@@ -153,8 +153,8 @@ Bringup notes:
   The report says that the skew for the different-bank outputs is really bad,
   as much as 4ns.
 - Now I'm getting all 8 lanes to light up in read test mode with zero delay!!!
-- All lanes ok at 100MHz/200MHz
-- Switched back to 50/100 and turned on write leveling (0 taps). Lanes 5,6,7 on.
+- All lanes ok at 100MHz/400MHz
+- Switched back to 50/200 and turned on write leveling (0 taps). Lanes 5,6,7 on.
   Does that mean there's so much skew that those lanes are falling into the
   previous clock? I looked at the timing report, and lanes 5,6,7 are reported
   to have a DQS-CK skew of 3.2ns relative to CK0. DQSP4, which is on the same
@@ -182,6 +182,20 @@ Bringup notes:
   can drive multiple BUFPLLs! I now have each PLL output driving 3 BUFPLLs,
   one for each bank. The max reported skew across CK and DQS is now just 0.2ns.
   
+- Since clock skew changed a bunch, I turned on read leveling to look at how
+  command's edge related to clock at the connector. The phase looks correct.
+  All LEDs light even with zero delay (probably by accident). In write leveling,
+  DQS0 was aligned really well with clock.
+  
+- Successful write leveling! Tap values 22,29,34,37,34,48,54,54.
+- I tried upping the frequency to the original 200/800. Lanes 0,1,2,4 still
+  work but the others don't. I tried some exaggerated tweaking of delays but
+  never got those to light up. I tried 150/300, and all but lanes 6,7 work. But
+  5,4,3 were metastable. Adding some taps of delay to 6 & 7 did not fix it.
+  The next one down is 125/500: 3 and 4 were metastable but the others were ok.
+  I added a few taps to them and it fixed it, all stable. So let's stick with
+  that clock for now. Taps: 22,29,34,39,35,48,54,54.
+  
 
 3. Configure each lane's OSERDES with the proper tap value. Verify that in write
 leveling mode, all lane's LEDs light up. Remember that the spec says that DQS
@@ -199,4 +213,7 @@ I get the correct value. If it fails, then I'm either capturing on the wrong
 clock cycle or the data is not properly centered on the clock edges.
 
 
-
+- Now that I have done write leveling, I need to move DQS to the 180 deg clock
+  like the command and data. This is because during a write command, I must
+  provide DQS center-aligned to the clock, just like I must provide data
+  center-aligned to the clock.

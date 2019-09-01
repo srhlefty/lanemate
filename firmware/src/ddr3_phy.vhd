@@ -143,29 +143,15 @@ architecture Behavioral of ddr3_phy is
 
 	type delay_array_t is array(0 to 7) of natural;
 	constant LANE_INPUT_DELAY : delay_array_t := (0,0,0,0,0,0,0,0);
-	constant LANE_OUTPUT_DELAY : delay_array_t := (others => 0);
+	constant LANE_OUTPUT_DELAY : delay_array_t := (22,29,34,39,35,48,54,54);
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
-
-	signal dqs_buf1 : burst_t(7 downto 0) := (others => (others => '0'));
-	signal dqs_buf2 : burst_t(7 downto 0) := (others => (others => '0'));
 
 begin
 
 
 	DM <= (others => 'L');
 	
-	process(MCLK) is
-	begin
-	if(rising_edge(MCLK)) then
-		dqs_buf1 <= mDQS_TX;
-		dqs_buf2 <= dqs_buf1;
-	end if;
-	end process;
-
-	-- The clock is on the 180deg phase.
-	-- Pins that should straddle the rising edge (command, data) go on the 0deg phase.
-	-- Pins that should be aligned with the rising edge (dqs) go on the 180deg phase.
 
 	pin_ckp0: ddr_pin_se 
 	generic map (
@@ -490,7 +476,7 @@ begin
 				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
 				BITSLIP => B0_BITSLIP,
-				TXD => dqs_buf2(ln),
+				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
 			);
@@ -525,7 +511,7 @@ begin
 				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
 				BITSLIP => B1_BITSLIP,
-				TXD => dqs_buf2(ln),
+				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
 			);
@@ -561,7 +547,7 @@ begin
 				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
 				BITSLIP => B3_BITSLIP,
-				TXD => dqs_buf2(ln),
+				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
 			);
@@ -587,7 +573,7 @@ begin
 
 		
 		gen_inv : for i in 0 to mDQS_TX'high generate
-			mDQSNout(i) <= not dqs_buf2(i);
+			mDQSNout(i) <= not mDQS_TX(i);
 		end generate;
 		
 		
