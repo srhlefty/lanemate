@@ -54,12 +54,26 @@ ARCHITECTURE behavior OF ddr_pin_tb_bitslip_test IS
 	 
 	COMPONENT clkgen
 	PORT(
-		SYSCLK100 : IN std_logic;          
-		CLK200 : OUT std_logic;
-		CLK800 : OUT std_logic;
-		STROBE800 : OUT std_logic;
-		CLK800_180 : OUT std_logic;
-		STROBE800_180 : OUT std_logic
+		SYSCLK100 : in STD_LOGIC;
+		
+		CLK200 : out STD_LOGIC;
+		
+		B0_CLK800 : out std_logic;
+		B0_STROBE800 : out std_logic;
+		B0_CLK800_180 : out std_logic;
+		B0_STROBE800_180 : out std_logic;
+
+		B1_CLK800 : out std_logic;
+		B1_STROBE800 : out std_logic;
+		B1_CLK800_180 : out std_logic;
+		B1_STROBE800_180 : out std_logic;
+
+		B3_CLK800 : out std_logic;
+		B3_STROBE800 : out std_logic;
+		B3_CLK800_180 : out std_logic;
+		B3_STROBE800_180 : out std_logic;
+		
+		LOCKED : out std_logic
 		);
 	END COMPONENT;
     
@@ -90,10 +104,19 @@ BEGIN
 	Inst_clkgen: clkgen PORT MAP(
 		SYSCLK100 => CLK,
 		CLK200 => clk200,
-		CLK800 => IOCLK,
-		STROBE800 => STROBE,
-		CLK800_180 => IOCLK_180,
-		STROBE800_180 => STROBE_180
+		B0_CLK800 => IOCLK,
+		B0_STROBE800 => STROBE,
+		B0_CLK800_180 => IOCLK_180,
+		B0_STROBE800_180 => STROBE_180,
+		B1_CLK800 => open,
+		B1_STROBE800 => open,
+		B1_CLK800_180 => open,
+		B1_STROBE800_180 => open,
+		B3_CLK800 => open,
+		B3_STROBE800 => open,
+		B3_CLK800_180 => open,
+		B3_STROBE800_180 => open,
+		LOCKED => open
 	);
 
    clk_pin: ddr_pin_se PORT MAP (

@@ -128,9 +128,7 @@ architecture Behavioral of ddr3_mcb is
 		B0_DQ_READING : in std_logic;
 		B1_DQ_READING : in std_logic;
 		B3_DQ_READING : in std_logic;
-		B0_BITSLIP : in std_logic;
-		B1_BITSLIP : in std_logic;
-		B3_BITSLIP : in std_logic;
+		BITSLIP       : in std_logic_vector(7 downto 0);
 	
 		--------------------------------
 	
@@ -185,6 +183,7 @@ architecture Behavioral of ddr3_mcb is
 	signal mDQS_RX : burst_t(7 downto 0);
 	signal mDQ_TX : burst_t(63 downto 0) := (others => (others => '0'));
 	signal mDQ_RX : burst_t(63 downto 0);
+	signal latched_read : std_logic_vector(7 downto 0) := (others => '0');
 
 	attribute keep : string;
 	-- The compiler would typically prefer to optimize away the array into a single register
@@ -202,9 +201,7 @@ architecture Behavioral of ddr3_mcb is
 	signal dq_reading0 : std_logic := '1';
 	signal dq_reading1 : std_logic := '1';
 	signal dq_reading3 : std_logic := '1';
-	signal bitslip0 : std_logic := '0';
-	signal bitslip1 : std_logic := '0';
-	signal bitslip3 : std_logic := '0';
+	signal bitslip : std_logic_vector(7 downto 0) := (others => '0');
 
 	-- Same thing here, I need separate registers to service the different edges of the chip
 	-- in order to meet timing
@@ -214,9 +211,7 @@ architecture Behavioral of ddr3_mcb is
 	attribute keep of dq_reading0 : signal is "true";
 	attribute keep of dq_reading1 : signal is "true";
 	attribute keep of dq_reading3 : signal is "true";
-	attribute keep of bitslip0 : signal is "true";
-	attribute keep of bitslip1 : signal is "true";
-	attribute keep of bitslip3 : signal is "true";
+	attribute keep of bitslip : signal is "true";
 	
 	
 	signal debug_sync : std_logic := '0';
@@ -316,6 +311,7 @@ begin
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
+		signal readout_delay : natural range 0 to 15 := 0;
 		signal debug_string : string(1 to 6);
 		constant INIT1_DELAY_REAL : natural := 40000;
 		constant INIT1_DELAY_DEBUG : natural := 10;
@@ -580,8 +576,8 @@ begin
 			debug_string <= "INIT10";
 
 		when INIT_FINISHED =>
---			state <= READ_PATTERN_ENTER;
-			state <= WRITE_LEVELING_ENTER;
+			state <= READ_PATTERN_ENTER;
+--			state <= WRITE_LEVELING_ENTER;
 			debug_string <= "END   ";
 			
 		when WRITE_LEVELING_ENTER =>
@@ -762,11 +758,87 @@ begin
 				debug_sync <= '0';
 			end if;
 			
+			if(delay_count = 32-readout_delay) then
+				latched_read(0) <= mDQ_RX(0)(0);
+				latched_read(1) <= mDQ_RX(0)(1);
+				latched_read(2) <= mDQ_RX(0)(2);
+				latched_read(3) <= mDQ_RX(0)(3);
+			elsif(delay_count = 32-readout_delay-1) then
+				latched_read(4) <= mDQ_RX(0)(0);
+				latched_read(5) <= mDQ_RX(0)(1);
+				latched_read(6) <= mDQ_RX(0)(2);
+				latched_read(7) <= mDQ_RX(0)(3);
+			end if;
+		
 		
 	
 	end case;
 	end if;
 	end process;
+	
+		read_leveling : block is
+			type lstate_t is (IDLE, SEEK, ERR);
+			signal lstate : lstate_t := IDLE;
+		begin
+		process(MCLK) is
+		begin
+		if(rising_edge(MCLK)) then
+		case lstate is
+			when IDLE =>
+				if(state = ENABLE_PATTERN) then
+					readout_delay <= 1;
+					lstate <= SEEK;
+				end if;
+			
+			-- Incoming data looks like this (CAS latency = 5) (ignoring propagation delays):
+			--  clk  1010 1010 1010 1010 1010
+			--  cmd  1000 0000 0000 0000 0000
+			--  dta  ---- ---- --VV VVVV VV--
+			-- What I want is for the 8 bits to arrive at 2 sequential system clocks.
+			-- So this FSM first determines at what clock data starts to appear.
+			-- In the above example that would be a delay of 2. If the data is 1010,
+			-- then the data is aligned to the system clock and we're done. But in
+			-- general it will be misaligned, so we use the ISERDES bitslip mechanism
+			-- to shift the bits over. In the above example once we've slipped 2 bits
+			-- we'll have alignment and so the FSM will complete.
+			-- If the FSM tries all 4 slips and still doesn't get the right data, it
+			-- must mean that we're not in the data eye.
+			when SEEK =>
+				if(delay_count = 32-readout_delay) then
+					if(mDQ_RX(0) = "1111") then
+						-- Still too soon to find data
+						if(readout_delay = 15) then
+							lstate <= ERR;
+						else
+							readout_delay <= readout_delay + 1;
+							lstate <= SEEK;
+						end if;
+					elsif(mDQ_RX(0) = "1010") then
+						-- Success! The test pattern exits the pin in the order 0,1,0,1
+						lstate <= IDLE;
+					else
+						-- This means we need a bitslip. Slip and then reset the delay counter.
+						-- TODO: more than 4 shift attempts means that the data will never be
+						-- correct. This implies the clock edge is not within the data eye and
+						-- we need to add some input delay to the data.
+						bitslip(0) <= '1';
+						readout_delay <= 1;
+						lstate <= SEEK;
+					end if;
+				else
+					bitslip <= (others => '0');
+					lstate <= SEEK;
+				end if;
+				
+			when ERR =>
+				readout_delay <= 1;
+				lstate <= IDLE;
+		end case;
+		end if;
+		end process;
+		end block;
+	
+	
 	end block;
 
 
@@ -796,9 +868,7 @@ begin
 		B0_DQ_READING => dq_reading0,
 		B1_DQ_READING => dq_reading1,
 		B3_DQ_READING => dq_reading3,
-		B0_BITSLIP    => bitslip0,
-		B1_BITSLIP    => bitslip1,
-		B3_BITSLIP    => bitslip3,
+		BITSLIP       => bitslip,
 		B0_IOCLK      => B0_IOCLK,
 		B0_STROBE     => B0_STROBE,
 		B0_IOCLK_180  => B0_IOCLK_180,
@@ -832,14 +902,27 @@ begin
 	);
 	
 	-- burst_t indexing is pin id then position within burst
-	MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
-	MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
-	MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
-	MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
-	MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
-	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
-	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
-	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
+	-- Write Leveling: output state of DQ, first pin in each lane
+--	MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
+--	MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
+--	MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
+--	MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
+--	MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
+--	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
+--	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
+--	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
+
+	-- Read Leveling: output burst data for one lane.
+	-- If the read is correct, the byte should be 10101010
+	-- (i.e., the first returned bit in time is 0)
+	MDEBUG_LED(0) <= latched_read(0);
+	MDEBUG_LED(1) <= latched_read(1);
+	MDEBUG_LED(2) <= latched_read(2);
+	MDEBUG_LED(3) <= latched_read(3);
+	MDEBUG_LED(4) <= latched_read(4);
+	MDEBUG_LED(5) <= latched_read(5);
+	MDEBUG_LED(6) <= latched_read(6);
+	MDEBUG_LED(7) <= latched_read(7);
 
 	MDEBUG_SYNC <= debug_sync;
 		

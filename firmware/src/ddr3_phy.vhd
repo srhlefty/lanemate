@@ -57,9 +57,7 @@ entity ddr3_phy is
 		B0_DQ_READING : in std_logic;
 		B1_DQ_READING : in std_logic;
 		B3_DQ_READING : in std_logic;
-		B0_BITSLIP : in std_logic;
-		B1_BITSLIP : in std_logic;
-		B3_BITSLIP : in std_logic;
+		BITSLIP : in std_logic_vector(7 downto 0);
 	
 		--------------------------------
 	
@@ -475,7 +473,7 @@ begin
 				IOCLK => B0_IOCLK,
 				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
-				BITSLIP => B0_BITSLIP,
+				BITSLIP => BITSLIP(ln),
 				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
@@ -490,7 +488,7 @@ begin
 				IOCLK => B0_IOCLK,
 				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
-				BITSLIP => B0_BITSLIP,
+				BITSLIP => BITSLIP(ln),
 				TXD => mDQSNout(ln),
 				RXD => open,
 				PIN => DQSN(ln)
@@ -510,7 +508,7 @@ begin
 				IOCLK => B1_IOCLK,
 				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
-				BITSLIP => B1_BITSLIP,
+				BITSLIP => BITSLIP(ln),
 				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
@@ -525,7 +523,7 @@ begin
 				IOCLK => B1_IOCLK,
 				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
-				BITSLIP => B1_BITSLIP,
+				BITSLIP => BITSLIP(ln),
 				TXD => mDQSNout(ln),
 				RXD => open,
 				PIN => DQSN(ln)
@@ -546,7 +544,7 @@ begin
 				IOCLK => B3_IOCLK,
 				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
-				BITSLIP => B3_BITSLIP,
+				BITSLIP => BITSLIP(ln),
 				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
@@ -561,7 +559,7 @@ begin
 				IOCLK => B3_IOCLK,
 				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
-				BITSLIP => B3_BITSLIP,
+				BITSLIP => BITSLIP(ln),
 				TXD => mDQSNout(ln),
 				RXD => open,
 				PIN => DQSN(ln)
@@ -595,7 +593,7 @@ begin
 					IOCLK => B3_IOCLK_180,
 					STROBE => B3_STROBE_180,
 					READING => B3_DQ_READING,
-					BITSLIP => B3_BITSLIP,
+					BITSLIP => BITSLIP(ln),
 					TXD => mDQ_TX(ln*8+b),    -- lane 0: 7 downto 0. lane 1: 15 downto 8. etc.
 					RXD => mDQ_RX(ln*8+b),
 					PIN => DQ(ln*8+b)
@@ -619,7 +617,7 @@ begin
 					IOCLK => B0_IOCLK_180,
 					STROBE => B0_STROBE_180,
 					READING => B3_DQ_READING,
-					BITSLIP => B3_BITSLIP,
+					BITSLIP => BITSLIP(ln),
 					TXD => mDQ_TX(ln*8+b),
 					RXD => mDQ_RX(ln*8+b),
 					PIN => DQ(ln*8+b)
@@ -643,7 +641,7 @@ begin
 					IOCLK => B1_IOCLK_180,
 					STROBE => B1_STROBE_180,
 					READING => B1_DQ_READING,
-					BITSLIP => B1_BITSLIP,
+					BITSLIP => BITSLIP(ln),
 					TXD => mDQ_TX(ln*8+b),
 					RXD => mDQ_RX(ln*8+b),
 					PIN => DQ(ln*8+b)
