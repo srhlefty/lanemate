@@ -22,7 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
@@ -38,6 +38,11 @@ entity ddr3_mcb is
 		MTRANSACTION_SIZE : in std_logic_vector(7 downto 0); -- number of fifo elements to read/write at once
 		MAVAIL : in std_logic_vector(8 downto 0);
 		MFLUSH : in std_logic;
+		
+		-- Interface to register map for communicating leveling results to the outside world
+		REGADDR : out std_logic_vector(7 downto 0);
+		REGDATA : out std_logic_vector(7 downto 0);
+		REGWE   : out std_logic;
 		
 		-- interface to data-to-write fifo
 		MPOP_W : out std_logic;
@@ -779,12 +784,23 @@ begin
 		read_leveling : block is
 			type lstate_t is (IDLE, SEEK, ERR);
 			signal lstate : lstate_t := IDLE;
+			signal raddr : std_logic_vector(7 downto 0) := x"00";
+			signal rdata : std_logic_vector(7 downto 0) := x"00";
+			signal rwe : std_logic := '0';
 		begin
+		
+			REGADDR <= raddr;
+			REGDATA <= rdata;
+			REGWE <= rwe;
+			
 		process(MCLK) is
 		begin
 		if(rising_edge(MCLK)) then
 		case lstate is
 			when IDLE =>
+				raddr <= x"00";
+				rdata <= x"00";
+				rwe <= '0';
 				if(state = ENABLE_PATTERN) then
 					readout_delay <= 1;
 					lstate <= SEEK;
@@ -815,6 +831,9 @@ begin
 						end if;
 					elsif(mDQ_RX(0) = "1010") then
 						-- Success! The test pattern exits the pin in the order 0,1,0,1
+						raddr <= x"10";
+						rdata <= std_logic_vector(to_unsigned(readout_delay, rdata'length));
+						rwe <= '1';
 						lstate <= IDLE;
 					else
 						-- This means we need a bitslip. Slip and then reset the delay counter.

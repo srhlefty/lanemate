@@ -286,6 +286,11 @@ architecture Behavioral of lane_mate is
 		MAVAIL : in std_logic_vector(8 downto 0);
 		MFLUSH : in std_logic;
 		
+		-- Interface to register map for communicating leveling results to the outside world
+		REGADDR : out std_logic_vector(7 downto 0);
+		REGDATA : out std_logic_vector(7 downto 0);
+		REGWE   : out std_logic;
+
 		-- interface to data-to-write fifo
 		MPOP_W : out std_logic;
 		MADDR_W : in std_logic_vector(26 downto 0);   -- ddr address, high 27 bits
@@ -414,6 +419,9 @@ architecture Behavioral of lane_mate is
 	signal internal_reg_we : std_logic := '0';
 	signal internal_reg_addr : natural range 0 to 255 := 0;
 	signal internal_reg_data : std_logic_vector(7 downto 0) := x"00";
+	signal mcb_reg_we : std_logic := '0';
+	signal mcb_reg_addr : std_logic_vector(7 downto 0) := x"00";
+	signal mcb_reg_data : std_logic_vector(7 downto 0) := x"00";
 	
 
 	signal testpat_vs : std_logic;
@@ -867,6 +875,11 @@ begin
 			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
 			MAVAIL    => MAVAIL,
 			MFLUSH    => MFLUSH,
+			
+			REGADDR => mcb_reg_addr,
+			REGDATA => mcb_reg_data,
+			REGWE   => mcb_reg_we,
+			
 			MPOP_W    => MPOP_W,
 			MADDR_W   => MADDR_W,
 			MDATA_W   => MDATA_W,
@@ -989,6 +1002,8 @@ begin
 				register_map(to_integer(unsigned(ram_addr))) <= ram_wdata;
 			elsif(internal_reg_we = '1') then
 				register_map(internal_reg_addr) <= internal_reg_data;
+			elsif(mcb_reg_we = '1') then
+				register_map(to_integer(unsigned(mcb_reg_addr))) <= mcb_reg_data;
 			end if;
 			ram_rdata <= register_map(to_integer(unsigned(ram_addr)));
 		end if;
