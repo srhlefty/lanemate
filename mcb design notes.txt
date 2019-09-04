@@ -46,41 +46,6 @@ to a GPIO LED. Send DQS pulses every 10ish system clocks. View the LED or probe
 the pin for each tap value. Note the delay values when the LED changes state.
 The maximum amount of time DQS can be early is one half-period, 1250 ps.
 
-Taps	Estimated delay (ps)
-0		0 			= 0
-1		8			= 8
-2		40			= 40
-3		95			= 95
-4		108			= 108
-5		171			= 171
-6		207			= 207
-7		212			= 212
-8		322			= 322
-9		1*322+8		= 330
-10		1*322+40	= 362
-11		1*322+95	= 417
-12		1*322+108	= 430
-13		1*322+171	= 493
-14		1*322+207	= 529
-15		1*322+212	= 534
-16		2*322		= 644
-17		2*322+8		= 652
-18		2*322+40	= 684
-19		2*322+95	= 739
-20		2*322+108	= 752
-21		2*322+171	= 815
-22		2*322+207	= 851
-23		2*322+212	= 856
-24		3*322		= 966
-25		3*322+8		= 974
-26		3*322+40	= 1006
-27		3*322+95	= 1061
-28		3*322+108	= 1074
-29		3*322+171	= 1137
-30		3*322+207	= 1173
-31		3*322+212	= 1178
-32		4*322		= 1288
-
 On-board trace lengths
 Clock:  5.100"
 Lane 0: 5.359" (+0.259)
@@ -212,8 +177,18 @@ routine. I configure the DIMM to emit known data and perform a bitslip until
 I get the correct value. If it fails, then I'm either capturing on the wrong
 clock cycle or the data is not properly centered on the clock edges.
 
+- I have basic read leveling working on a single lane. A FSM slides the capture
+  window over until it sees data, and if the data's wrong performs a bitslip.
+  Repeat until 4 bitslips have been tried or success. This does not address the
+  issue of where I am in the data eye however. I can detect when I exit the eye
+  by either recording a failure or a change in the number of bitslips needed
+  to get the right data. I really hope each lane ends up with the same system
+  clock capture window.
 
-- Now that I have done write leveling, I need to move DQS to the 180 deg clock
-  like the command and data. This is because during a write command, I must
-  provide DQS center-aligned to the clock, just like I must provide data
-  center-aligned to the clock.
+  Predicted failure point for lane 0: 37 taps
+  lane 0: taps  readout  slips
+             0        7      1
+			10        7      1
+			20        7      1
+			30        7      1
+			40     fail

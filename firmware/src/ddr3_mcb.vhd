@@ -324,6 +324,8 @@ begin
 		constant INIT2_DELAY_DEBUG : natural := 10;
 		signal INIT1_DELAY : natural;
 		signal INIT2_DELAY : natural;
+		
+		constant LEVELING_LANE : natural := 0;
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -764,15 +766,15 @@ begin
 			end if;
 			
 			if(delay_count = 32-readout_delay) then
-				latched_read(0) <= mDQ_RX(0)(0);
-				latched_read(1) <= mDQ_RX(0)(1);
-				latched_read(2) <= mDQ_RX(0)(2);
-				latched_read(3) <= mDQ_RX(0)(3);
+				latched_read(0) <= mDQ_RX(LEVELING_LANE*8)(0);
+				latched_read(1) <= mDQ_RX(LEVELING_LANE*8)(1);
+				latched_read(2) <= mDQ_RX(LEVELING_LANE*8)(2);
+				latched_read(3) <= mDQ_RX(LEVELING_LANE*8)(3);
 			elsif(delay_count = 32-readout_delay-1) then
-				latched_read(4) <= mDQ_RX(0)(0);
-				latched_read(5) <= mDQ_RX(0)(1);
-				latched_read(6) <= mDQ_RX(0)(2);
-				latched_read(7) <= mDQ_RX(0)(3);
+				latched_read(4) <= mDQ_RX(LEVELING_LANE*8)(0);
+				latched_read(5) <= mDQ_RX(LEVELING_LANE*8)(1);
+				latched_read(6) <= mDQ_RX(LEVELING_LANE*8)(2);
+				latched_read(7) <= mDQ_RX(LEVELING_LANE*8)(3);
 			end if;
 		
 		
@@ -782,8 +784,10 @@ begin
 	end process;
 	
 		read_leveling : block is
-			type lstate_t is (IDLE, SEEK, ERR);
+			type lstate_t is (IDLE, SEEK, VALIDATE, PASS, FAIL);
 			signal lstate : lstate_t := IDLE;
+			signal valid_count : natural range 0 to 1000 := 0;
+			signal slip_attempts : natural range 0 to 4 := 0;
 			signal raddr : std_logic_vector(7 downto 0) := x"00";
 			signal rdata : std_logic_vector(7 downto 0) := x"00";
 			signal rwe : std_logic := '0';
@@ -792,7 +796,7 @@ begin
 			REGADDR <= raddr;
 			REGDATA <= rdata;
 			REGWE <= rwe;
-			
+		
 		process(MCLK) is
 		begin
 		if(rising_edge(MCLK)) then
@@ -803,6 +807,8 @@ begin
 				rwe <= '0';
 				if(state = ENABLE_PATTERN) then
 					readout_delay <= 1;
+					slip_attempts <= 0;
+					valid_count <= 0;
 					lstate <= SEEK;
 				end if;
 			
@@ -821,35 +827,61 @@ begin
 			-- must mean that we're not in the data eye.
 			when SEEK =>
 				if(delay_count = 32-readout_delay) then
-					if(mDQ_RX(0) = "1111") then
+					if(mDQ_RX(LEVELING_LANE*8) = "1111") then
 						-- Still too soon to find data
 						if(readout_delay = 15) then
-							lstate <= ERR;
+							lstate <= FAIL;
 						else
 							readout_delay <= readout_delay + 1;
 							lstate <= SEEK;
 						end if;
-					elsif(mDQ_RX(0) = "1010") then
+					elsif(mDQ_RX(LEVELING_LANE*8) = "1010") then
 						-- Success! The test pattern exits the pin in the order 0,1,0,1
-						raddr <= x"10";
-						rdata <= std_logic_vector(to_unsigned(readout_delay, rdata'length));
-						rwe <= '1';
-						lstate <= IDLE;
+						lstate <= VALIDATE;
 					else
 						-- This means we need a bitslip. Slip and then reset the delay counter.
-						-- TODO: more than 4 shift attempts means that the data will never be
+						-- More than 4 shift attempts means that the data will never be
 						-- correct. This implies the clock edge is not within the data eye and
 						-- we need to add some input delay to the data.
-						bitslip(0) <= '1';
-						readout_delay <= 1;
-						lstate <= SEEK;
+						if(slip_attempts = 4) then
+							lstate <= FAIL;
+						else
+							slip_attempts <= slip_attempts + 1;
+							bitslip(LEVELING_LANE) <= '1';
+							readout_delay <= 1;
+							lstate <= SEEK;
+						end if;
 					end if;
 				else
 					bitslip <= (others => '0');
 					lstate <= SEEK;
 				end if;
 				
-			when ERR =>
+			when VALIDATE =>
+				if(delay_count = 32-readout_delay) then
+					-- Guard against jitter by requiring the read succeed N times
+					if(mDQ_RX(LEVELING_LANE*8) = "1010") then
+						if(valid_count = 1000) then
+							raddr <= x"11";
+							rdata <= std_logic_vector(to_unsigned(slip_attempts, rdata'length));
+							rwe <= '1';
+							lstate <= PASS;
+						else
+							valid_count <= valid_count + 1;
+						end if;
+					else
+						lstate <= FAIL;
+					end if;
+				end if;
+			
+				
+			when PASS =>
+				raddr <= x"10";
+				rdata <= std_logic_vector(to_unsigned(readout_delay, rdata'length));
+				rwe <= '1';
+				lstate <= IDLE;
+				
+			when FAIL =>
 				readout_delay <= 1;
 				lstate <= IDLE;
 		end case;
