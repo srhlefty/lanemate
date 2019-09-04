@@ -325,7 +325,7 @@ begin
 		signal INIT1_DELAY : natural;
 		signal INIT2_DELAY : natural;
 		
-		constant LEVELING_LANE : natural := 0;
+		signal leveling_lane : natural range 0 to 8 := 0;
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -766,15 +766,15 @@ begin
 			end if;
 			
 			if(delay_count = 32-readout_delay) then
-				latched_read(0) <= mDQ_RX(LEVELING_LANE*8)(0);
-				latched_read(1) <= mDQ_RX(LEVELING_LANE*8)(1);
-				latched_read(2) <= mDQ_RX(LEVELING_LANE*8)(2);
-				latched_read(3) <= mDQ_RX(LEVELING_LANE*8)(3);
+				latched_read(0) <= mDQ_RX(leveling_lane*8)(0);
+				latched_read(1) <= mDQ_RX(leveling_lane*8)(1);
+				latched_read(2) <= mDQ_RX(leveling_lane*8)(2);
+				latched_read(3) <= mDQ_RX(leveling_lane*8)(3);
 			elsif(delay_count = 32-readout_delay-1) then
-				latched_read(4) <= mDQ_RX(LEVELING_LANE*8)(0);
-				latched_read(5) <= mDQ_RX(LEVELING_LANE*8)(1);
-				latched_read(6) <= mDQ_RX(LEVELING_LANE*8)(2);
-				latched_read(7) <= mDQ_RX(LEVELING_LANE*8)(3);
+				latched_read(4) <= mDQ_RX(leveling_lane*8)(0);
+				latched_read(5) <= mDQ_RX(leveling_lane*8)(1);
+				latched_read(6) <= mDQ_RX(leveling_lane*8)(2);
+				latched_read(7) <= mDQ_RX(leveling_lane*8)(3);
 			end if;
 		
 		
@@ -805,7 +805,7 @@ begin
 				raddr <= x"00";
 				rdata <= x"00";
 				rwe <= '0';
-				if(state = ENABLE_PATTERN) then
+				if(state = READ_PATTERN and (leveling_lane < 8)) then
 					readout_delay <= 1;
 					slip_attempts <= 0;
 					valid_count <= 0;
@@ -815,7 +815,7 @@ begin
 			-- Incoming data looks like this (CAS latency = 5) (ignoring propagation delays):
 			--  clk  1010 1010 1010 1010 1010
 			--  cmd  1000 0000 0000 0000 0000
-			--  dta  ---- ---- --VV VVVV VV--
+			--  dta  ---- ---- --01 0101 01--
 			-- What I want is for the 8 bits to arrive at 2 sequential system clocks.
 			-- So this FSM first determines at what clock data starts to appear.
 			-- In the above example that would be a delay of 2. If the data is 1010,
@@ -827,7 +827,7 @@ begin
 			-- must mean that we're not in the data eye.
 			when SEEK =>
 				if(delay_count = 32-readout_delay) then
-					if(mDQ_RX(LEVELING_LANE*8) = "1111") then
+					if(mDQ_RX(leveling_lane*8) = "1111") then
 						-- Still too soon to find data
 						if(readout_delay = 15) then
 							lstate <= FAIL;
@@ -835,7 +835,7 @@ begin
 							readout_delay <= readout_delay + 1;
 							lstate <= SEEK;
 						end if;
-					elsif(mDQ_RX(LEVELING_LANE*8) = "1010") then
+					elsif(mDQ_RX(leveling_lane*8) = "1010") then
 						-- Success! The test pattern exits the pin in the order 0,1,0,1
 						lstate <= VALIDATE;
 					else
@@ -847,7 +847,7 @@ begin
 							lstate <= FAIL;
 						else
 							slip_attempts <= slip_attempts + 1;
-							bitslip(LEVELING_LANE) <= '1';
+							bitslip(leveling_lane) <= '1';
 							readout_delay <= 1;
 							lstate <= SEEK;
 						end if;
@@ -860,11 +860,8 @@ begin
 			when VALIDATE =>
 				if(delay_count = 32-readout_delay) then
 					-- Guard against jitter by requiring the read succeed N times
-					if(mDQ_RX(LEVELING_LANE*8) = "1010") then
+					if(mDQ_RX(leveling_lane*8) = "1010") then
 						if(valid_count = 1000) then
-							raddr <= x"11";
-							rdata <= std_logic_vector(to_unsigned(slip_attempts, rdata'length));
-							rwe <= '1';
 							lstate <= PASS;
 						else
 							valid_count <= valid_count + 1;
@@ -876,13 +873,18 @@ begin
 			
 				
 			when PASS =>
-				raddr <= x"10";
-				rdata <= std_logic_vector(to_unsigned(readout_delay, rdata'length));
+				raddr <= std_logic_vector(to_unsigned(16+leveling_lane, raddr'length));
+				rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & std_logic_vector(to_unsigned(slip_attempts, 4));
 				rwe <= '1';
+				leveling_lane <= leveling_lane + 1;
 				lstate <= IDLE;
 				
 			when FAIL =>
+				raddr <= std_logic_vector(to_unsigned(16+leveling_lane, raddr'length));
+				rdata <= x"FF";
+				rwe <= '1';
 				readout_delay <= 1;
+				leveling_lane <= leveling_lane + 1;
 				lstate <= IDLE;
 		end case;
 		end if;

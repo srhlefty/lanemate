@@ -384,10 +384,10 @@ int main (void)
 	probe_ddr_stick();
 	print_debug_registers();
 	i2c_write_reg(lanemate_address, 15, 1); // run test
-	delay_cycles_ms(100);
+	delay_cycles_ms(1000);
 	print_debug_registers();
 
-	print("Waiting for FPGA to boot...\r\n");
+	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
 	
 

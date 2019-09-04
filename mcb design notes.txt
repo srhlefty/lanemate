@@ -185,10 +185,31 @@ clock cycle or the data is not properly centered on the clock edges.
   to get the right data. I really hope each lane ends up with the same system
   clock capture window.
 
-  Predicted failure point for lane 0: 37 taps
-  lane 0: taps  readout  slips
-             0        7      1
-			10        7      1
-			20        7      1
-			30        7      1
-			40     fail
+- I added a mechanism to run the bitslip & window computation machine across
+  each of the lanes in turn and write the results to some registers. In the 
+  table below, the X,Y data is "system clocks delay between command and capture"
+  and "number of bitslips performed". A failure means the clock edge is not in
+  the data eye, e.g. data edge aligned with clock edge. Recall that the data
+  changes at 500MHz, i.e. 2ns period. A 2ns delay corresponds to about 50 taps.
+  Therefore, trying to delay more than that leads to data corruption because the
+  delay line doesn't have memory.
+  
+  Taps  Ln0  Ln1  Ln2  Ln3  Ln4  Ln5  Ln6  Ln7
+     0  7,1  7,1  7,1  fail 7,1  7,1  fail fail
+     8  7,1  fail 7,1  fail fail fail fail fail
+	16  7,1  fail 7,1  fail fail 7,0  7,0  7,0
+	24  7,1  fail fail 7,0  fail 7,0  7,0  7,0
+	32  7,1  fail 7,0  7,0  7,0  7,0  7,0  7,0
+	40  7,4  7,0  7,0  7,0  7,0  7,0  fail 7,0
+    48  7,4  7,0  7,0  7,0  7,0  7,0  fail 7,0
+     
+	     37   30   26   21   28    8    3    3
+	
+  Very interesting results. Based on board trace lengths and the measured output
+  delays, I predicted the clock edges would be at 37, 30, 26, 21, 28, 8, 3, 3
+  taps (copied into the last row for reference). The predictions actually seem
+  to line up well with the measured values. What surprises me is how different
+  the size of the data eye is from lane to lane. The bad zone of lane 0 is less
+  than 0.3ns wide, and yet lanes 1 and 6 have bad zones 4 times larger.
+  
+  It's clear what the input tap values should be: 16, 48, 0, 37, 45, 37, 24, 32
