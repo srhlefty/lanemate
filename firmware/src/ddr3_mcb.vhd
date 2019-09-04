@@ -294,7 +294,9 @@ begin
 
 
 	fsm : block is
-		type state_t is (IDLE, DELAY, 
+		type state_t is (
+			IDLE, 
+			DELAY, 
 			INIT1, 
 			INIT2, 
 			INIT3, 
@@ -311,7 +313,8 @@ begin
 			WRITE_LEVELING_EXIT,
 			READ_PATTERN_ENTER,
 			ENABLE_PATTERN,
-			READ_PATTERN
+			READ_PATTERN,
+			READ_PATTERN_EXIT
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
@@ -325,7 +328,8 @@ begin
 		signal INIT1_DELAY : natural;
 		signal INIT2_DELAY : natural;
 		
-		signal leveling_lane : natural range 0 to 8 := 0;
+		signal leveling_lane : natural range 0 to 7 := 0;
+		signal leveling_finished : std_logic := '0';
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -742,43 +746,73 @@ begin
 			ret <= READ_PATTERN;
 			
 		when READ_PATTERN =>
-			if(delay_count = 0) then
-				mCS0 <= cmd(rRD)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
-				mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
-				mRAS <= cmd(rRD)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
-				mCAS <= cmd(rRD)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
-				mWE  <= cmd(rRD)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-				delay_count <= 32;
-			else
+			if(leveling_finished = '1') then
 				mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 				mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
 				mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 				mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 				mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-				delay_count <= delay_count - 1;
-			end if;
-			mBA <= (others => (others => '0'));
-			mMA <= (others => (others => '0'));
-			if(delay_count < 3) then
-				debug_sync <= '1';
-			else
+				delay_count <= 32; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
 				debug_sync <= '0';
-			end if;
+				state <= DELAY;
+				ret <= READ_PATTERN_EXIT;
+			else
+
+				if(delay_count = 0) then
+					mCS0 <= cmd(rRD)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+					mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+					mRAS <= cmd(rRD)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+					mCAS <= cmd(rRD)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+					mWE  <= cmd(rRD)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+					delay_count <= 32;
+				else
+					mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+					mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+					mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+					mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+					mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+					delay_count <= delay_count - 1;
+				end if;
+				mBA <= (others => (others => '0'));
+				mMA <= (others => (others => '0'));
+				if(delay_count < 3) then
+					debug_sync <= '1';
+				else
+					debug_sync <= '0';
+				end if;
+				
+				if(delay_count = 32-readout_delay) then
+					latched_read(0) <= mDQ_RX(leveling_lane*8)(0);
+					latched_read(1) <= mDQ_RX(leveling_lane*8)(1);
+					latched_read(2) <= mDQ_RX(leveling_lane*8)(2);
+					latched_read(3) <= mDQ_RX(leveling_lane*8)(3);
+				elsif(delay_count = 32-readout_delay-1) then
+					latched_read(4) <= mDQ_RX(leveling_lane*8)(0);
+					latched_read(5) <= mDQ_RX(leveling_lane*8)(1);
+					latched_read(6) <= mDQ_RX(leveling_lane*8)(2);
+					latched_read(7) <= mDQ_RX(leveling_lane*8)(3);
+				end if;
 			
-			if(delay_count = 32-readout_delay) then
-				latched_read(0) <= mDQ_RX(leveling_lane*8)(0);
-				latched_read(1) <= mDQ_RX(leveling_lane*8)(1);
-				latched_read(2) <= mDQ_RX(leveling_lane*8)(2);
-				latched_read(3) <= mDQ_RX(leveling_lane*8)(3);
-			elsif(delay_count = 32-readout_delay-1) then
-				latched_read(4) <= mDQ_RX(leveling_lane*8)(0);
-				latched_read(5) <= mDQ_RX(leveling_lane*8)(1);
-				latched_read(6) <= mDQ_RX(leveling_lane*8)(2);
-				latched_read(7) <= mDQ_RX(leveling_lane*8)(3);
 			end if;
-		
 		
 	
+		when READ_PATTERN_EXIT =>
+			mCS0 <= cmd(rMRS)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
+			mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
+			mRAS <= cmd(rMRS)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
+			mCAS <= cmd(rMRS)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
+			mWE  <= cmd(rMRS)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
+			-- see p.32 of spec
+			mBA(2) <= "0000";
+			mBA(1) <= "1000";
+			mBA(0) <= "1000";
+			mMA <= (others => (others => '0'));
+			delay_count <= 6; -- wait until tMOD (max 12CK, 15ns), tMRD (4CK) satisfied
+			state <= DELAY;
+			ret <= IDLE;
+
+
+
 	end case;
 	end if;
 	end process;
@@ -805,7 +839,13 @@ begin
 				raddr <= x"00";
 				rdata <= x"00";
 				rwe <= '0';
-				if(state = READ_PATTERN and (leveling_lane < 8)) then
+				
+				if(state = READ_PATTERN_ENTER) then
+					leveling_lane <= 0;
+					leveling_finished <= '0';
+				end if;
+				
+				if(state = READ_PATTERN and leveling_finished = '0') then
 					readout_delay <= 1;
 					slip_attempts <= 0;
 					valid_count <= 0;
@@ -876,7 +916,11 @@ begin
 				raddr <= std_logic_vector(to_unsigned(16+leveling_lane, raddr'length));
 				rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & std_logic_vector(to_unsigned(slip_attempts, 4));
 				rwe <= '1';
-				leveling_lane <= leveling_lane + 1;
+				if(leveling_lane = 7) then
+					leveling_finished <= '1';
+				else
+					leveling_lane <= leveling_lane + 1;
+				end if;
 				lstate <= IDLE;
 				
 			when FAIL =>
@@ -884,7 +928,11 @@ begin
 				rdata <= x"FF";
 				rwe <= '1';
 				readout_delay <= 1;
-				leveling_lane <= leveling_lane + 1;
+				if(leveling_lane = 7) then
+					leveling_finished <= '1';
+				else
+					leveling_lane <= leveling_lane + 1;
+				end if;
 				lstate <= IDLE;
 		end case;
 		end if;
