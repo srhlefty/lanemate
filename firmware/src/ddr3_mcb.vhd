@@ -292,8 +292,122 @@ architecture Behavioral of ddr3_mcb is
 		('0', '1', '1', '0'), -- rZQCL
 		('0', '1', '1', '0')  -- rZQCS		
 	);
+	
+	signal MR0_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
+	signal MR1_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
+	signal MR1_SETTINGS_WL : burst_t(15 downto 0) := (others => (others => '0'));
+	signal MR2_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
+	signal MR3_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
+	signal MR3_SETTINGS_RL : burst_t(15 downto 0) := (others => (others => '0'));
 
 begin
+
+	process(MCLK) is
+	begin
+	if(rising_edge(MCLK)) then
+		MR0_SETTINGS(15) <= "0000"; -- A(15 downto 13) = 0
+		MR0_SETTINGS(14) <= "0000";
+		MR0_SETTINGS(13) <= "0000";
+		MR0_SETTINGS(12) <= "1000"; -- A(12) = DLL control for precharge PD (fast exit)
+		MR0_SETTINGS(11) <= "1000"; -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
+		MR0_SETTINGS(10) <= "0000"; 
+		MR0_SETTINGS( 9) <= "0000";
+		MR0_SETTINGS( 8) <= "1000"; -- A(8) = DLL reset; self clearing (reset)
+		MR0_SETTINGS( 7) <= "0000"; -- A(7) = Test mode (normal)
+		MR0_SETTINGS( 6) <= MCAS_LATENCY(3) & "000"; -- A(6 downto 4), A(2) = CAS read latency   [ !!! Micro should tell me if attached device supports this ]
+		MR0_SETTINGS( 5) <= MCAS_LATENCY(2) & "000"; 
+		MR0_SETTINGS( 4) <= MCAS_LATENCY(1) & "000"; 
+		MR0_SETTINGS( 3) <= "0000"; -- A(3) = Read burst type (nibble sequential)
+		MR0_SETTINGS( 2) <= MCAS_LATENCY(0) & "000";
+		MR0_SETTINGS( 1) <= "0000"; -- A(1 downto 0) = burst length (8, fixed)
+		MR0_SETTINGS( 0) <= "0000"; 
+		
+		MR1_SETTINGS(15) <= "0000"; -- A(15 downto 13) = 0
+		MR1_SETTINGS(14) <= "0000";
+		MR1_SETTINGS(13) <= "0000";
+		MR1_SETTINGS(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
+		MR1_SETTINGS(11) <= "0000"; -- A(11) = TDQS (disabled)
+		MR1_SETTINGS(10) <= "0000"; -- A(10) = 0
+		MR1_SETTINGS( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		MR1_SETTINGS( 8) <= "0000"; -- A(8) = 0
+		MR1_SETTINGS( 7) <= "0000"; -- A(7) = Write leveling (disabled)
+		MR1_SETTINGS( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+		MR1_SETTINGS( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
+		MR1_SETTINGS( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
+		MR1_SETTINGS( 3) <= MADDITIVE_LATENCY(0) & "000"; 
+		MR1_SETTINGS( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		MR1_SETTINGS( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
+		MR1_SETTINGS( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+		
+		MR1_SETTINGS_WL(15) <= "0000"; -- A(15 downto 13) = 0
+		MR1_SETTINGS_WL(14) <= "0000";
+		MR1_SETTINGS_WL(13) <= "0000";
+		MR1_SETTINGS_WL(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
+		MR1_SETTINGS_WL(11) <= "0000"; -- A(11) = TDQS (disabled)
+		MR1_SETTINGS_WL(10) <= "0000"; -- A(10) = 0
+		MR1_SETTINGS_WL( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		MR1_SETTINGS_WL( 8) <= "0000"; -- A(8) = 0
+		MR1_SETTINGS_WL( 7) <= "1000"; -- A(7) = Write leveling (enabled)
+		MR1_SETTINGS_WL( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+		MR1_SETTINGS_WL( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
+		MR1_SETTINGS_WL( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
+		MR1_SETTINGS_WL( 3) <= MADDITIVE_LATENCY(0) & "000"; 
+		MR1_SETTINGS_WL( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		MR1_SETTINGS_WL( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
+		MR1_SETTINGS_WL( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+		
+		MR2_SETTINGS(15) <= "0000"; -- A(15 downto 11) = 0
+		MR2_SETTINGS(14) <= "0000";
+		MR2_SETTINGS(13) <= "0000";
+		MR2_SETTINGS(12) <= "0000";
+		MR2_SETTINGS(11) <= "0000";
+		MR2_SETTINGS(10) <= "0000"; -- A(10 downto 9) = Rtt_WR (dynamic ODT off)
+		MR2_SETTINGS( 9) <= "0000";
+		MR2_SETTINGS( 8) <= "0000"; -- A(8) = 0
+		MR2_SETTINGS( 7) <= "0000"; -- A(7) = Self-refresh temperature range (normal)
+		MR2_SETTINGS( 6) <= "0000"; -- A(6) = Auto self-refresh (manual)
+		MR2_SETTINGS( 5) <= "0000"; -- A(5 downto 3) = CAS write latency (5). Must be 5 b/c tCK = 2.5ns
+		MR2_SETTINGS( 4) <= "0000"; 
+		MR2_SETTINGS( 3) <= "0000"; 
+		MR2_SETTINGS( 2) <= "0000"; -- A(2 downto 0) = Partial array self refresh (full array)
+		MR2_SETTINGS( 1) <= "0000"; 
+		MR2_SETTINGS( 0) <= "0000"; 
+
+		MR3_SETTINGS(15) <= "0000"; -- A(15 downto 3) = 0
+		MR3_SETTINGS(14) <= "0000";
+		MR3_SETTINGS(13) <= "0000";
+		MR3_SETTINGS(12) <= "0000";
+		MR3_SETTINGS(11) <= "0000";
+		MR3_SETTINGS(10) <= "0000"; 
+		MR3_SETTINGS( 9) <= "0000";
+		MR3_SETTINGS( 8) <= "0000";
+		MR3_SETTINGS( 7) <= "0000"; 
+		MR3_SETTINGS( 6) <= "0000"; 
+		MR3_SETTINGS( 5) <= "0000"; 
+		MR3_SETTINGS( 4) <= "0000"; 
+		MR3_SETTINGS( 3) <= "0000"; 
+		MR3_SETTINGS( 2) <= "0000"; -- A(2) = Multi-purpose register operation (RD test pattern off) [*** this is used for read leveling]
+		MR3_SETTINGS( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
+		MR3_SETTINGS( 0) <= "0000"; 
+		
+		MR3_SETTINGS_RL(15) <= "0000"; -- A(15 downto 3) = 0
+		MR3_SETTINGS_RL(14) <= "0000";
+		MR3_SETTINGS_RL(13) <= "0000";
+		MR3_SETTINGS_RL(12) <= "0000";
+		MR3_SETTINGS_RL(11) <= "0000";
+		MR3_SETTINGS_RL(10) <= "0000"; 
+		MR3_SETTINGS_RL( 9) <= "0000";
+		MR3_SETTINGS_RL( 8) <= "0000";
+		MR3_SETTINGS_RL( 7) <= "0000"; 
+		MR3_SETTINGS_RL( 6) <= "0000"; 
+		MR3_SETTINGS_RL( 5) <= "0000"; 
+		MR3_SETTINGS_RL( 4) <= "0000"; 
+		MR3_SETTINGS_RL( 3) <= "0000"; 
+		MR3_SETTINGS_RL( 2) <= "1000"; -- A(2) = Multi-purpose register operation (RD test pattern on)
+		MR3_SETTINGS_RL( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
+		MR3_SETTINGS_RL( 0) <= "0000"; 
+	end if;
+	end process;
 
 
 	fsm : block is
@@ -407,7 +521,7 @@ begin
 			-- Clocks need to be started and stabilized for at least 10ns before CKE goes active.
 			-- True by assertion because I gate this FSM on the IOCLK_LOCKED signal
 			mCKE0 <= "1111";
---			mCKE1 <= "1111";
+			mCKE1 <= "1111";
 			state <= INIT4;
 			debug_string <= "INIT3 ";
 			
@@ -437,22 +551,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "1000";
 			mBA(0) <= "0000";
-			mMA(15) <= "0000"; -- A(15 downto 11) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000";
-			mMA(11) <= "0000";
-			mMA(10) <= "0000"; -- A(10 downto 9) = Rtt_WR (dynamic ODT off)
-			mMA( 9) <= "0000";
-			mMA( 8) <= "0000"; -- A(8) = 0
-			mMA( 7) <= "0000"; -- A(7) = Self-refresh temperature range (normal)
-			mMA( 6) <= "0000"; -- A(6) = Auto self-refresh (manual)
-			mMA( 5) <= "0000"; -- A(5 downto 3) = CAS write latency (5). Must be 5 b/c tCK = 2.5ns
-			mMA( 4) <= "0000"; 
-			mMA( 3) <= "0000"; 
-			mMA( 2) <= "0000"; -- A(2 downto 0) = Partial array self refresh (full array)
-			mMA( 1) <= "0000"; 
-			mMA( 0) <= "0000"; 
+			mMA <= MR2_SETTINGS;
 			
 			-- Note: the min time between MRS commands (tMRD) is 4 clocks.
 			-- I can get 4 clocks by using a delay of 0, but there's no real hurry
@@ -473,22 +572,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "1000";
 			mBA(0) <= "1000";
-			mMA(15) <= "0000"; -- A(15 downto 3) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000";
-			mMA(11) <= "0000";
-			mMA(10) <= "0000"; 
-			mMA( 9) <= "0000";
-			mMA( 8) <= "0000";
-			mMA( 7) <= "0000"; 
-			mMA( 6) <= "0000"; 
-			mMA( 5) <= "0000"; 
-			mMA( 4) <= "0000"; 
-			mMA( 3) <= "0000"; 
-			mMA( 2) <= "0000"; -- A(2) = Multi-purpose register operation (RD test pattern off) [*** this is used for read leveling]
-			mMA( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
-			mMA( 0) <= "0000"; 
+			mMA <= MR3_SETTINGS;
 			delay_count <= 1;
 			state <= DELAY;
 			ret <= INIT8;
@@ -505,22 +589,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
 			mBA(0) <= "1000";
-			mMA(15) <= "0000"; -- A(15 downto 13) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
-			mMA(11) <= "0000"; -- A(11) = TDQS (disabled)
-			mMA(10) <= "0000"; -- A(10) = 0
-			mMA( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-			mMA( 8) <= "0000"; -- A(8) = 0
-			mMA( 7) <= "0000"; -- A(7) = Write leveling (disabled)
-			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
-			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-			mMA( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
-			mMA( 3) <= MADDITIVE_LATENCY(0) & "000"; 
-			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
-			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+			mMA <= MR1_SETTINGS;
 			delay_count <= 1;
 			state <= DELAY;
 			ret <= INIT9;
@@ -537,22 +606,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
 			mBA(0) <= "0000";
-			mMA(15) <= "0000"; -- A(15 downto 13) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "1000"; -- A(12) = DLL control for precharge PD (fast exit)
-			mMA(11) <= "1000"; -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
-			mMA(10) <= "0000"; 
-			mMA( 9) <= "0000";
-			mMA( 8) <= "1000"; -- A(8) = DLL reset; self clearing (reset)
-			mMA( 7) <= "0000"; -- A(7) = Test mode (normal)
-			mMA( 6) <= MCAS_LATENCY(3) & "000"; -- A(6 downto 4), A(2) = CAS read latency   [ !!! Micro should tell me if attached device supports this ]
-			mMA( 5) <= MCAS_LATENCY(2) & "000"; 
-			mMA( 4) <= MCAS_LATENCY(1) & "000"; 
-			mMA( 3) <= "0000"; -- A(3) = Read burst type (nibble sequential)
-			mMA( 2) <= MCAS_LATENCY(0) & "000";
-			mMA( 1) <= "0000"; -- A(1 downto 0) = burst length (8, fixed)
-			mMA( 0) <= "0000"; 
+			mMA <= MR0_SETTINGS;
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= INIT10;
@@ -568,22 +622,9 @@ begin
 			mRAS <= cmd(rZQCL)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 			mCAS <= cmd(rZQCL)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 			mWE  <= cmd(rZQCL)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-			mMA(15) <= "0000";
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000";
-			mMA(11) <= "0000";
+			mMA(15 downto 11) <= (others => (others => '0'));
 			mMA(10) <= "1000";
-			mMA( 9) <= "0000";
-			mMA( 8) <= "0000";
-			mMA( 7) <= "0000";
-			mMA( 6) <= "0000";
-			mMA( 5) <= "0000";
-			mMA( 4) <= "0000";
-			mMA( 3) <= "0000";
-			mMA( 2) <= "0000";
-			mMA( 1) <= "0000";
-			mMA( 0) <= "0000";
+			mMA(9 downto 0) <= (others => (others => '0'));
 			delay_count <= 256; -- tZQinit = max(512 clocks, 640ns). 256 system clocks is 512 clocks and 640ns at 400MHz
 			-- tDLLK will be satisfied by the time this delay is finished.
 			state <= DELAY;
@@ -606,22 +647,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
 			mBA(0) <= "1000";
-			mMA(15) <= "0000"; -- A(15 downto 13) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
-			mMA(11) <= "0000"; -- A(11) = TDQS (disabled)
-			mMA(10) <= "0000"; -- A(10) = 0
-			mMA( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-			mMA( 8) <= "0000"; -- A(8) = 0
-			mMA( 7) <= "1000"; -- A(7) = Write leveling (enabled)
-			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
-			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-			mMA( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
-			mMA( 3) <= MADDITIVE_LATENCY(0) & "000"; 
-			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
-			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+			mMA <= MR1_SETTINGS_WL;
 
 			dqs_reading0 <= '0';
 			dqs_reading1 <= '0';
@@ -674,22 +700,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
 			mBA(0) <= "1000";
-			mMA(15) <= "0000"; -- A(15 downto 13) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
-			mMA(11) <= "0000"; -- A(11) = TDQS (disabled)
-			mMA(10) <= "0000"; -- A(10) = 0
-			mMA( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-			mMA( 8) <= "0000"; -- A(8) = 0
-			mMA( 7) <= "0000"; -- A(7) = Write leveling (disabled)
-			mMA( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
-			mMA( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-			mMA( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
-			mMA( 3) <= MADDITIVE_LATENCY(0) & "000"; 
-			mMA( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-			mMA( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
-			mMA( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+			mMA <= MR1_SETTINGS;
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= IDLE;
@@ -729,22 +740,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "1000";
 			mBA(0) <= "1000";
-			mMA(15) <= "0000"; -- A(15 downto 3) = 0
-			mMA(14) <= "0000";
-			mMA(13) <= "0000";
-			mMA(12) <= "0000";
-			mMA(11) <= "0000";
-			mMA(10) <= "0000"; 
-			mMA( 9) <= "0000";
-			mMA( 8) <= "0000";
-			mMA( 7) <= "0000"; 
-			mMA( 6) <= "0000"; 
-			mMA( 5) <= "0000"; 
-			mMA( 4) <= "0000"; 
-			mMA( 3) <= "0000"; 
-			mMA( 2) <= "1000"; -- A(2) = Multi-purpose register operation (RD test pattern on)
-			mMA( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
-			mMA( 0) <= "0000"; 
+			mMA <= MR3_SETTINGS_RL;
 			delay_count <= 6; -- wait tMOD
 			state <= DELAY;
 			ret <= READ_PATTERN;
@@ -807,7 +803,7 @@ begin
 			mBA(2) <= "0000";
 			mBA(1) <= "1000";
 			mBA(0) <= "1000";
-			mMA <= (others => (others => '0'));
+			mMA <= MR3_SETTINGS;
 			delay_count <= 6; -- wait until tMOD (max 12CK, 15ns), tMRD (4CK) satisfied
 			state <= DELAY;
 			ret <= IDLE;
