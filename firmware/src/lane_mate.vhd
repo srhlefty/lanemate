@@ -398,15 +398,15 @@ architecture Behavioral of lane_mate is
 		12 => x"00", -- ddr read pointer (23 downto 16)
 		13 => x"00", -- ddr read pointer (15 downto  8)
 		14 => x"00", -- ddr read pointer ( 7 downto  0)
-		15 => x"00", -- trigger test (self-clearing)
-		16 => x"00", -- debug data
-		17 => x"00", -- debug data
-		18 => x"00", -- debug data
-		19 => x"00", -- debug data
-		20 => x"00", -- debug data
-		21 => x"00", -- debug data
-		22 => x"00", -- debug data
-		23 => x"00", -- debug data
+		15 => x"00", -- force DDR init + read leveling (self-clearing)
+		16 => x"00", -- Lane 0 read leveling result
+		17 => x"00", -- Lane 1 read leveling result
+		18 => x"00", -- Lane 2 read leveling result
+		19 => x"00", -- Lane 3 read leveling result
+		20 => x"00", -- Lane 4 read leveling result
+		21 => x"00", -- Lane 5 read leveling result
+		22 => x"00", -- Lane 6 read leveling result
+		23 => x"00", -- Lane 7 read leveling result
 		others => x"00"
 	);
 	signal ram_addr : std_logic_vector(7 downto 0);
@@ -895,7 +895,7 @@ begin
 			MDEBUG_SYNC => debug_sync,
 			
 			MADDITIVE_LATENCY => "00",
-			MCAS_LATENCY => "0010",
+			MCAS_LATENCY => "0100",
 		
 			B0_IOCLK      => b0_serdesclk,
 			B0_STROBE     => b0_serdesstrobe,
@@ -1023,73 +1023,73 @@ begin
 	end process;
 
 	
-	startup_test : block is
-		type state_t is (IDLE, INIT1, INIT2, INIT3, INIT4, INIT5, INIT6, INIT7, INIT8, CLEAR);
-		signal state : state_t := IDLE;
-	begin
-		process(clk) is
-		begin
-		if(rising_edge(clk)) then
-		case state is
-		
-			when IDLE =>
-				internal_reg_we <= '0';
-				if(i2c_register_write = '1' and i2c_register_addr = x"0f") then
-					state <= INIT1;
-				end if;
-				
-			when INIT1 =>
-				internal_reg_addr <= 16;
-				internal_reg_data <= x"21";
-				internal_reg_we <= '1';
-				state <= INIT2;
-			when INIT2 =>
-				internal_reg_addr <= 17;
-				internal_reg_data <= x"22";
-				internal_reg_we <= '1';
-				state <= INIT3;
-			when INIT3 =>
-				internal_reg_addr <= 18;
-				internal_reg_data <= x"23";
-				internal_reg_we <= '1';
-				state <= INIT4;
-			when INIT4 =>
-				internal_reg_addr <= 19;
-				internal_reg_data <= x"24";
-				internal_reg_we <= '1';
-				state <= INIT5;
-			when INIT5 =>
-				internal_reg_addr <= 20;
-				internal_reg_data <= x"25";
-				internal_reg_we <= '1';
-				state <= INIT6;
-			when INIT6 =>
-				internal_reg_addr <= 21;
-				internal_reg_data <= x"26";
-				internal_reg_we <= '1';
-				state <= INIT7;
-			when INIT7 =>
-				internal_reg_addr <= 22;
-				internal_reg_data <= x"27";
-				internal_reg_we <= '1';
-				state <= INIT8;
-			when INIT8 =>
-				internal_reg_addr <= 23;
-				internal_reg_data <= x"28";
-				internal_reg_we <= '1';
-				state <= CLEAR;
-			
-			when CLEAR =>
-				internal_reg_addr <= 15;
-				internal_reg_data <= x"00";
-				internal_reg_we <= '1';
-				state <= IDLE;
-				
-				
-		end case;
-		end if;
-		end process;
-	end block;
+--	startup_test : block is
+--		type state_t is (IDLE, INIT1, INIT2, INIT3, INIT4, INIT5, INIT6, INIT7, INIT8, CLEAR);
+--		signal state : state_t := IDLE;
+--	begin
+--		process(clk) is
+--		begin
+--		if(rising_edge(clk)) then
+--		case state is
+--		
+--			when IDLE =>
+--				internal_reg_we <= '0';
+--				if(i2c_register_write = '1' and i2c_register_addr = x"0f") then
+--					state <= INIT1;
+--				end if;
+--				
+--			when INIT1 =>
+--				internal_reg_addr <= 16;
+--				internal_reg_data <= x"21";
+--				internal_reg_we <= '1';
+--				state <= INIT2;
+--			when INIT2 =>
+--				internal_reg_addr <= 17;
+--				internal_reg_data <= x"22";
+--				internal_reg_we <= '1';
+--				state <= INIT3;
+--			when INIT3 =>
+--				internal_reg_addr <= 18;
+--				internal_reg_data <= x"23";
+--				internal_reg_we <= '1';
+--				state <= INIT4;
+--			when INIT4 =>
+--				internal_reg_addr <= 19;
+--				internal_reg_data <= x"24";
+--				internal_reg_we <= '1';
+--				state <= INIT5;
+--			when INIT5 =>
+--				internal_reg_addr <= 20;
+--				internal_reg_data <= x"25";
+--				internal_reg_we <= '1';
+--				state <= INIT6;
+--			when INIT6 =>
+--				internal_reg_addr <= 21;
+--				internal_reg_data <= x"26";
+--				internal_reg_we <= '1';
+--				state <= INIT7;
+--			when INIT7 =>
+--				internal_reg_addr <= 22;
+--				internal_reg_data <= x"27";
+--				internal_reg_we <= '1';
+--				state <= INIT8;
+--			when INIT8 =>
+--				internal_reg_addr <= 23;
+--				internal_reg_data <= x"28";
+--				internal_reg_we <= '1';
+--				state <= CLEAR;
+--			
+--			when CLEAR =>
+--				internal_reg_addr <= 15;
+--				internal_reg_data <= x"00";
+--				internal_reg_we <= '1';
+--				state <= IDLE;
+--				
+--				
+--		end case;
+--		end if;
+--		end process;
+--	end block;
 	----------------------------------------------------------------------------
 	
 	

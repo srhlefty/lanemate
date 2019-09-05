@@ -134,6 +134,7 @@ architecture Behavioral of ddr3_mcb is
 		B1_DQ_READING : in std_logic;
 		B3_DQ_READING : in std_logic;
 		BITSLIP       : in std_logic_vector(7 downto 0);
+		BITSLIP_RST : in std_logic_vector(7 downto 0);
 	
 		--------------------------------
 	
@@ -207,6 +208,7 @@ architecture Behavioral of ddr3_mcb is
 	signal dq_reading1 : std_logic := '1';
 	signal dq_reading3 : std_logic := '1';
 	signal bitslip : std_logic_vector(7 downto 0) := (others => '0');
+	signal bitslip_rst : std_logic_vector(7 downto 0) := (others => '0');
 
 	-- Same thing here, I need separate registers to service the different edges of the chip
 	-- in order to meet timing
@@ -217,6 +219,7 @@ architecture Behavioral of ddr3_mcb is
 	attribute keep of dq_reading1 : signal is "true";
 	attribute keep of dq_reading3 : signal is "true";
 	attribute keep of bitslip : signal is "true";
+	attribute keep of bitslip_rst : signal is "true";
 	
 	
 	signal debug_sync : std_logic := '0';
@@ -330,6 +333,7 @@ begin
 		
 		signal leveling_lane : natural range 0 to 7 := 0;
 		signal leveling_finished : std_logic := '0';
+		constant LEVELING_CYCLE : natural := 32;
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -752,7 +756,7 @@ begin
 				mRAS <= cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 				mCAS <= cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 				mWE  <= cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-				delay_count <= 32; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
+				delay_count <= LEVELING_CYCLE; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
 				debug_sync <= '0';
 				state <= DELAY;
 				ret <= READ_PATTERN_EXIT;
@@ -764,7 +768,7 @@ begin
 					mRAS <= cmd(rRD)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS) & cmd(rNOP)(cRAS);
 					mCAS <= cmd(rRD)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS) & cmd(rNOP)(cCAS);
 					mWE  <= cmd(rRD)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE)  & cmd(rNOP)(cWE);
-					delay_count <= 32;
+					delay_count <= LEVELING_CYCLE;
 				else
 					mCS0 <= cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS)  & cmd(rNOP)(cCS);
 					mCS1 <= cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS)  & cmd(rDES)(cCS);
@@ -775,18 +779,15 @@ begin
 				end if;
 				mBA <= (others => (others => '0'));
 				mMA <= (others => (others => '0'));
-				if(delay_count < 3) then
-					debug_sync <= '1';
-				else
-					debug_sync <= '0';
-				end if;
+
+				debug_sync <= '1';
 				
-				if(delay_count = 32-readout_delay) then
+				if(delay_count = LEVELING_CYCLE-readout_delay) then
 					latched_read(0) <= mDQ_RX(leveling_lane*8)(0);
 					latched_read(1) <= mDQ_RX(leveling_lane*8)(1);
 					latched_read(2) <= mDQ_RX(leveling_lane*8)(2);
 					latched_read(3) <= mDQ_RX(leveling_lane*8)(3);
-				elsif(delay_count = 32-readout_delay-1) then
+				elsif(delay_count = LEVELING_CYCLE-readout_delay-1) then
 					latched_read(4) <= mDQ_RX(leveling_lane*8)(0);
 					latched_read(5) <= mDQ_RX(leveling_lane*8)(1);
 					latched_read(6) <= mDQ_RX(leveling_lane*8)(2);
@@ -818,13 +819,14 @@ begin
 	end process;
 	
 		read_leveling : block is
-			type lstate_t is (IDLE, SEEK, VALIDATE, PASS, FAIL);
+			type lstate_t is (IDLE, SEEK, WAIT_FOR_NEXT, VALIDATE, FINISH);
 			signal lstate : lstate_t := IDLE;
 			signal valid_count : natural range 0 to 1000 := 0;
 			signal slip_attempts : natural range 0 to 4 := 0;
 			signal raddr : std_logic_vector(7 downto 0) := x"00";
 			signal rdata : std_logic_vector(7 downto 0) := x"00";
 			signal rwe : std_logic := '0';
+			signal once : std_logic := '0';
 		begin
 		
 			REGADDR <= raddr;
@@ -843,12 +845,15 @@ begin
 				if(state = READ_PATTERN_ENTER) then
 					leveling_lane <= 0;
 					leveling_finished <= '0';
+					bitslip_rst <= (others => '1');
+					once <= '0';
+				else
+					bitslip_rst <= (others => '0');
 				end if;
 				
-				if(state = READ_PATTERN and leveling_finished = '0') then
-					readout_delay <= 1;
+				if(state = READ_PATTERN and leveling_finished = '0' and delay_count = 0) then
+					readout_delay <= 5;
 					slip_attempts <= 0;
-					valid_count <= 0;
 					lstate <= SEEK;
 				end if;
 			
@@ -866,55 +871,73 @@ begin
 			-- If the FSM tries all 4 slips and still doesn't get the right data, it
 			-- must mean that we're not in the data eye.
 			when SEEK =>
-				if(delay_count = 32-readout_delay) then
-					if(mDQ_RX(leveling_lane*8) = "1111") then
+				if(delay_count = LEVELING_CYCLE-readout_delay) then
+					if(mDQ_RX(leveling_lane*8) = "1111") then     -- Here I'm relying on the bus idling high between reads
 						-- Still too soon to find data
 						if(readout_delay = 15) then
-							lstate <= FAIL;
+							rdata <= x"F1";
+							lstate <= FINISH;
 						else
 							readout_delay <= readout_delay + 1;
-							lstate <= SEEK;
+							lstate <= WAIT_FOR_NEXT;
 						end if;
 					elsif(mDQ_RX(leveling_lane*8) = "1010") then
 						-- Success! The test pattern exits the pin in the order 0,1,0,1
+						valid_count <= 0;
 						lstate <= VALIDATE;
 					else
 						-- This means we need a bitslip. Slip and then reset the delay counter.
 						-- More than 4 shift attempts means that the data will never be
 						-- correct. This implies the clock edge is not within the data eye and
 						-- we need to add some input delay to the data.
-						if(slip_attempts = 4) then
-							lstate <= FAIL;
+						
+						-- On this DDR stick at least, the first read in read leveling mode
+						-- doesn't return the data I expect, even if I fix the readout_delay to
+						-- the correct value.
+						if(once = '0') then
+							once <= '1';
+							lstate <= WAIT_FOR_NEXT;
 						else
-							slip_attempts <= slip_attempts + 1;
-							bitslip(leveling_lane) <= '1';
-							readout_delay <= 1;
-							lstate <= SEEK;
+						
+							if(slip_attempts = 4) then
+								rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & x"F";
+								lstate <= FINISH;
+							else
+								slip_attempts <= slip_attempts + 1;
+								bitslip(leveling_lane) <= '1';
+								readout_delay <= 5;
+								lstate <= WAIT_FOR_NEXT;
+							end if;
+						
 						end if;
 					end if;
-				else
-					bitslip <= (others => '0');
+				end if;
+			
+			when WAIT_FOR_NEXT =>
+				bitslip <= (others => '0');
+				if(delay_count = 0) then
 					lstate <= SEEK;
 				end if;
 				
 			when VALIDATE =>
-				if(delay_count = 32-readout_delay) then
+				if(delay_count = LEVELING_CYCLE-readout_delay) then
 					-- Guard against jitter by requiring the read succeed N times
 					if(mDQ_RX(leveling_lane*8) = "1010") then
-						if(valid_count = 1000) then
-							lstate <= PASS;
+						if(valid_count = 100) then
+							rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & std_logic_vector(to_unsigned(slip_attempts, 4));
+							lstate <= FINISH;
 						else
 							valid_count <= valid_count + 1;
 						end if;
 					else
-						lstate <= FAIL;
+						rdata <= x"F3";
+						lstate <= FINISH;
 					end if;
 				end if;
 			
 				
-			when PASS =>
+			when FINISH =>
 				raddr <= std_logic_vector(to_unsigned(16+leveling_lane, raddr'length));
-				rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & std_logic_vector(to_unsigned(slip_attempts, 4));
 				rwe <= '1';
 				if(leveling_lane = 7) then
 					leveling_finished <= '1';
@@ -923,17 +946,6 @@ begin
 				end if;
 				lstate <= IDLE;
 				
-			when FAIL =>
-				raddr <= std_logic_vector(to_unsigned(16+leveling_lane, raddr'length));
-				rdata <= x"FF";
-				rwe <= '1';
-				readout_delay <= 1;
-				if(leveling_lane = 7) then
-					leveling_finished <= '1';
-				else
-					leveling_lane <= leveling_lane + 1;
-				end if;
-				lstate <= IDLE;
 		end case;
 		end if;
 		end process;
@@ -970,6 +982,7 @@ begin
 		B1_DQ_READING => dq_reading1,
 		B3_DQ_READING => dq_reading3,
 		BITSLIP       => bitslip,
+		BITSLIP_RST   => bitslip_rst,
 		B0_IOCLK      => B0_IOCLK,
 		B0_STROBE     => B0_STROBE,
 		B0_IOCLK_180  => B0_IOCLK_180,

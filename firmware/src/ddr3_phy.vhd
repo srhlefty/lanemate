@@ -58,6 +58,7 @@ entity ddr3_phy is
 		B1_DQ_READING : in std_logic;
 		B3_DQ_READING : in std_logic;
 		BITSLIP : in std_logic_vector(7 downto 0);
+		BITSLIP_RST : in std_logic_vector(7 downto 0);
 	
 		--------------------------------
 	
@@ -111,30 +112,11 @@ architecture Behavioral of ddr3_phy is
 		READING : in std_logic;
 		
 		BITSLIP : in std_logic;
+		BITSLIP_RST : in std_logic;
 		
 		TXD : in std_logic_vector(3 downto 0);
 		RXD : out std_logic_vector(3 downto 0);
 		PIN : inout std_logic
-	);
-	end component;
-
-	component ddr_pin_diff is
-	Generic ( 
-		IDELAY_VALUE : natural range 0 to 255 := 0;
-		ODELAY_VALUE : natural range 0 to 255 := 0
-	);
-	Port ( 
-		CLK : in  STD_LOGIC;
-		IOCLK : in std_logic;
-		STROBE : in std_logic;
-		READING : in std_logic;
-		
-		BITSLIP : in std_logic;
-		
-		TXD : in std_logic_vector(3 downto 0);
-		RXD : out std_logic_vector(3 downto 0);
-		PIN_P : inout std_logic;
-		PIN_N : inout std_logic
 	);
 	end component;
 
@@ -144,7 +126,8 @@ architecture Behavioral of ddr3_phy is
 	constant LANE_OUTPUT_DELAY : delay_array_t := (22,29,34,39,35,48,54,54);
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
-
+	
+	signal mDQ_RX_buf : burst_t(63 downto 0) := (others => (others => '0'));
 begin
 
 
@@ -162,6 +145,7 @@ begin
 		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => "1010",
 		RXD => open,
 		PIN => CK0_P
@@ -177,6 +161,7 @@ begin
 		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => "0101",
 		RXD => open,
 		PIN => CK0_N
@@ -193,6 +178,7 @@ begin
 		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => "1010",
 		RXD => open,
 		PIN => CK1_P
@@ -208,6 +194,7 @@ begin
 		STROBE => B0_STROBE,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => "0101",
 		RXD => open,
 		PIN => CK1_N
@@ -230,6 +217,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mDDR_RESET,
 		RXD => open,
 		PIN => DDR_RESET
@@ -247,6 +235,7 @@ begin
 		STROBE => B3_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mCKE0,
 		RXD => open,
 		PIN => CKE0
@@ -262,6 +251,7 @@ begin
 		STROBE => B3_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mCKE1,
 		RXD => open,
 		PIN => CKE1
@@ -280,6 +270,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mCS0,
 		RXD => open,
 		PIN => CS0
@@ -295,6 +286,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mCS1,
 		RXD => open,
 		PIN => CS1
@@ -310,6 +302,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mRAS,
 		RXD => open,
 		PIN => RAS
@@ -325,6 +318,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mCAS,
 		RXD => open,
 		PIN => CAS
@@ -340,6 +334,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mWE,
 		RXD => open,
 		PIN => WE
@@ -359,6 +354,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mBA(0),
 		RXD => open,
 		PIN => BA(0)
@@ -374,6 +370,7 @@ begin
 		STROBE => B0_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mBA(1),
 		RXD => open,
 		PIN => BA(1)
@@ -389,6 +386,7 @@ begin
 		STROBE => B3_STROBE_180,
 		READING => '0',
 		BITSLIP => '0',
+		BITSLIP_RST => '0',
 		TXD => mBA(2),
 		RXD => open,
 		PIN => BA(2)
@@ -413,6 +411,7 @@ begin
 				STROBE => B3_STROBE_180,
 				READING => '0',
 				BITSLIP => '0',
+				BITSLIP_RST => '0',
 				TXD => mMA(i),
 				RXD => open,
 				PIN => MA(i)
@@ -432,6 +431,7 @@ begin
 				STROBE => B0_STROBE_180,
 				READING => '0',
 				BITSLIP => '0',
+				BITSLIP_RST => '0',
 				TXD => mMA(i),
 				RXD => open,
 				PIN => MA(i)
@@ -474,6 +474,7 @@ begin
 				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
 				BITSLIP => BITSLIP(ln),
+				BITSLIP_RST => '0',
 				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
@@ -489,6 +490,7 @@ begin
 				STROBE => B0_STROBE,
 				READING => B0_DQS_READING,
 				BITSLIP => BITSLIP(ln),
+				BITSLIP_RST => '0',
 				TXD => mDQSNout(ln),
 				RXD => open,
 				PIN => DQSN(ln)
@@ -509,6 +511,7 @@ begin
 				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
 				BITSLIP => BITSLIP(ln),
+				BITSLIP_RST => '0',
 				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
@@ -524,6 +527,7 @@ begin
 				STROBE => B1_STROBE,
 				READING => B1_DQS_READING,
 				BITSLIP => BITSLIP(ln),
+				BITSLIP_RST => '0',
 				TXD => mDQSNout(ln),
 				RXD => open,
 				PIN => DQSN(ln)
@@ -545,6 +549,7 @@ begin
 				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
 				BITSLIP => BITSLIP(ln),
+				BITSLIP_RST => '0',
 				TXD => mDQS_TX(ln),
 				RXD => mDQS_RX(ln),
 				PIN => DQSP(ln)
@@ -560,6 +565,7 @@ begin
 				STROBE => B3_STROBE,
 				READING => B3_DQS_READING,
 				BITSLIP => BITSLIP(ln),
+				BITSLIP_RST => '0',
 				TXD => mDQSNout(ln),
 				RXD => open,
 				PIN => DQSN(ln)
@@ -594,8 +600,9 @@ begin
 					STROBE => B3_STROBE_180,
 					READING => B3_DQ_READING,
 					BITSLIP => BITSLIP(ln),
+					BITSLIP_RST => BITSLIP_RST(ln),
 					TXD => mDQ_TX(ln*8+b),    -- lane 0: 7 downto 0. lane 1: 15 downto 8. etc.
-					RXD => mDQ_RX(ln*8+b),
+					RXD => mDQ_RX_buf(ln*8+b),
 					PIN => DQ(ln*8+b)
 				);
 			
@@ -618,8 +625,9 @@ begin
 					STROBE => B0_STROBE_180,
 					READING => B3_DQ_READING,
 					BITSLIP => BITSLIP(ln),
+					BITSLIP_RST => BITSLIP_RST(ln),
 					TXD => mDQ_TX(ln*8+b),
-					RXD => mDQ_RX(ln*8+b),
+					RXD => mDQ_RX_buf(ln*8+b),
 					PIN => DQ(ln*8+b)
 				);
 			
@@ -642,8 +650,9 @@ begin
 					STROBE => B1_STROBE_180,
 					READING => B1_DQ_READING,
 					BITSLIP => BITSLIP(ln),
+					BITSLIP_RST => BITSLIP_RST(ln),
 					TXD => mDQ_TX(ln*8+b),
-					RXD => mDQ_RX(ln*8+b),
+					RXD => mDQ_RX_buf(ln*8+b),
 					PIN => DQ(ln*8+b)
 				);
 			
@@ -657,6 +666,13 @@ begin
 		
 	end generate;
 
+	process(MCLK) is
+	begin
+	if(rising_edge(MCLK)) then
+		-- loosen timing restrictions from ISERDES to the logic that uses the data
+		mDQ_RX <= mDQ_RX_buf;
+	end if;
+	end process;
 
 end Behavioral;
 

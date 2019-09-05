@@ -212,4 +212,19 @@ clock cycle or the data is not properly centered on the clock edges.
   the size of the data eye is from lane to lane. The bad zone of lane 0 is less
   than 0.3ns wide, and yet lanes 1 and 6 have bad zones 4 times larger.
   
-  It's clear what the input tap values should be: 16, 48, 0, 37, 45, 37, 24, 32
+  It's clear what the input tap values should be: 16, 48, 0, 37, 45, 37, 24, 32.
+  
+- I added the ability to run the leveling routine multiple times, and discovered
+  that I was getting different values on the first run than subsequent runs.
+  Investigation with a fixed readout delay revealed that the very first read
+  returns incorrect data through the ISERDES. The way I noticed it was that I
+  could get the right answer for the readout delay if I let the bitslip routine
+  slip 4 times -- equivalent, in theory, to zero slips. Probing on the scope
+  showed that DQ0 idles low until that first read command, after which it idles
+  high. Once the read leveling mode exits, DQ0 returns to idle low. This must
+  have something to do with how the DDR chip controls the impedance state of the
+  data lines. Since it seems to be a property of the entry and exit from read
+  leveling mode, I only need to ignore the very first read on the first lane I
+  level. This is something to watch out for when I graduate to an actual read/
+  write test. After that ignore step, I now have stable values every time I run
+  the leveling routine.

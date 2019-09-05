@@ -41,6 +41,7 @@ entity ddr_pin_se is
 		READING : in std_logic;
 		
 		BITSLIP : in std_logic;
+		BITSLIP_RST : in std_logic;
 		
 		TXD : in std_logic_vector(3 downto 0);
 		RXD : out std_logic_vector(3 downto 0);
@@ -166,7 +167,7 @@ begin
       CLKDIV => CLK,       -- 1-bit input: FPGA logic domain clock input
       D => delay_to_iserdes,                 -- 1-bit input: Input data
       IOCE => STROBE,           -- 1-bit input: Data strobe input
-      RST => '0',             -- 1-bit input: Asynchronous reset input
+      RST => BITSLIP_RST,             -- 1-bit input: Asynchronous reset input
       SHIFTIN => '0'      -- 1-bit input: Cascade input signal for master/slave I/O
    );
 
