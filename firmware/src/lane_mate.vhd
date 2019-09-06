@@ -306,6 +306,7 @@ architecture Behavioral of lane_mate is
 		MPUSH_R : out std_logic;
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
+		MFORCE_INIT : in std_logic;
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		MDEBUG_SYNC : out std_logic;
@@ -380,7 +381,7 @@ architecture Behavioral of lane_mate is
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
-	type ram_t is array(23 downto 0) of std_logic_vector(7 downto 0);
+	type ram_t is array(87 downto 0) of std_logic_vector(7 downto 0);
 	signal register_map : ram_t :=
 	(
 		0 => x"02", -- Register table version
@@ -407,6 +408,71 @@ architecture Behavioral of lane_mate is
 		21 => x"00", -- Lane 5 read leveling result
 		22 => x"00", -- Lane 6 read leveling result
 		23 => x"00", -- Lane 7 read leveling result
+		24 => x"00", -- Burst data, pin 0
+		25 => x"00", -- Burst data, pin 1
+		26 => x"00", -- Burst data, pin 2
+		27 => x"00", -- Burst data, pin 3
+		28 => x"00", -- Burst data, pin 4
+		29 => x"00", -- Burst data, pin 5
+		30 => x"00", -- Burst data, pin 6
+		31 => x"00", -- Burst data, pin 7
+		32 => x"00", -- Burst data, pin 8
+		33 => x"00", -- Burst data, pin 9
+		34 => x"00", -- Burst data, pin 10
+		35 => x"00", -- Burst data, pin 11
+		36 => x"00", -- Burst data, pin 12
+		37 => x"00", -- Burst data, pin 13
+		38 => x"00", -- Burst data, pin 14
+		39 => x"00", -- Burst data, pin 15
+		40 => x"00", -- Burst data, pin 16
+		41 => x"00", -- Burst data, pin 17
+		42 => x"00", -- Burst data, pin 18
+		43 => x"00", -- Burst data, pin 19
+		44 => x"00", -- Burst data, pin 20
+		45 => x"00", -- Burst data, pin 21
+		46 => x"00", -- Burst data, pin 22
+		47 => x"00", -- Burst data, pin 23
+		48 => x"00", -- Burst data, pin 24
+		49 => x"00", -- Burst data, pin 25
+		50 => x"00", -- Burst data, pin 26
+		51 => x"00", -- Burst data, pin 27
+		52 => x"00", -- Burst data, pin 28
+		53 => x"00", -- Burst data, pin 29
+		54 => x"00", -- Burst data, pin 30
+		55 => x"00", -- Burst data, pin 31
+		56 => x"00", -- Burst data, pin 32
+		57 => x"00", -- Burst data, pin 33
+		58 => x"00", -- Burst data, pin 34
+		59 => x"00", -- Burst data, pin 35
+		60 => x"00", -- Burst data, pin 36
+		61 => x"00", -- Burst data, pin 37
+		62 => x"00", -- Burst data, pin 38
+		63 => x"00", -- Burst data, pin 39
+		64 => x"00", -- Burst data, pin 40
+		65 => x"00", -- Burst data, pin 41
+		66 => x"00", -- Burst data, pin 42
+		67 => x"00", -- Burst data, pin 43
+		68 => x"00", -- Burst data, pin 44
+		69 => x"00", -- Burst data, pin 45
+		70 => x"00", -- Burst data, pin 46
+		71 => x"00", -- Burst data, pin 47
+		72 => x"00", -- Burst data, pin 48
+		73 => x"00", -- Burst data, pin 49
+		74 => x"00", -- Burst data, pin 50
+		75 => x"00", -- Burst data, pin 51
+		76 => x"00", -- Burst data, pin 52
+		77 => x"00", -- Burst data, pin 53
+		78 => x"00", -- Burst data, pin 54
+		79 => x"00", -- Burst data, pin 55
+		80 => x"00", -- Burst data, pin 56
+		81 => x"00", -- Burst data, pin 57
+		82 => x"00", -- Burst data, pin 58
+		83 => x"00", -- Burst data, pin 59
+		84 => x"00", -- Burst data, pin 60
+		85 => x"00", -- Burst data, pin 61
+		86 => x"00", -- Burst data, pin 62
+		87 => x"00", -- Burst data, pin 63
+		
 		others => x"00"
 	);
 	signal ram_addr : std_logic_vector(7 downto 0);
@@ -481,6 +547,7 @@ architecture Behavioral of lane_mate is
 	signal mtransaction_size : std_logic_vector(7 downto 0) := x"1e";
 	
 	signal trigger_ddr_init : std_logic := '0';
+	signal trigger_ddr_test : std_logic := '0';
 	signal mcb_debug : std_logic_vector(7 downto 0);
 	signal debug_sync : std_logic;
 	
@@ -890,7 +957,8 @@ begin
 			MPUSH_R   => MPUSH,
 			MDATA_R   => MDATA,
 			
-			MTEST => trigger_ddr_init,
+			MFORCE_INIT => trigger_ddr_init,
+			MTEST => trigger_ddr_test,
 			MDEBUG_LED => mcb_debug,
 			MDEBUG_SYNC => debug_sync,
 			
@@ -1018,6 +1086,12 @@ begin
 			trigger_ddr_init <= '1';
 		else
 			trigger_ddr_init <= '0';
+		end if;
+
+		if(i2c_register_write = '1' and i2c_register_addr = x"18") then
+			trigger_ddr_test <= '1';
+		else
+			trigger_ddr_test <= '0';
 		end if;
 	end if;
 	end process;

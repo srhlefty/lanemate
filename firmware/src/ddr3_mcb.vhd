@@ -59,6 +59,7 @@ entity ddr3_mcb is
 		MPUSH_R : out std_logic;
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
+		MFORCE_INIT : in std_logic;
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		MDEBUG_SYNC : out std_logic;
@@ -498,7 +499,7 @@ begin
 	case state is
 	
 		when IDLE =>
-			if(MTEST = '1' and IOCLK_LOCKED = '1') then
+			if(MFORCE_INIT = '1' and IOCLK_LOCKED = '1') then
 				state <= INIT1;
 			end if;
 			debug_string <= "IDLE  ";
