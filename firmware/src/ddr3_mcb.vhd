@@ -59,6 +59,7 @@ entity ddr3_mcb is
 		MPUSH_R : out std_logic;
 		MDATA_R : out std_logic_vector(255 downto 0);
 		
+		MFORCE_INIT : in std_logic;
 		MTEST : in std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		MDEBUG_SYNC : out std_logic;
@@ -307,15 +308,29 @@ architecture Behavioral of ddr3_mcb is
 		signal WE  : out std_logic_vector(3 downto 0)
 	) is
 	begin
+		-- Normally you'd expect to put the command on the first rising edge, but this
+		-- would create an issue with the write command. The CAS write latency is fixed
+		-- to 5CK by the fact that I'm running at low frequency. Here is what the lines
+		-- should look like with a CAS write latency of 5:
+		--  clk  1010 1010 1010 1010 1010
+		--  cmd  1000 0000 0000 0000 0000
+		--  dta  ---- ---- --VV VVVV VV--
+		-- You can see that the data is not aligned to the words that I feed the OSERDES
+		-- block. Unlike reading data, I can't do the equivalent of bitslip on output.
+		-- So by moving the command over one clock I get this situation instead:
+		--  clk  1010 1010 1010 1010 1010
+		--  cmd  0010 0000 0000 0000 0000
+		--  dta  ---- ---- ---- VVVV VVVV
+		-- This is properly aligned with the system clock and so makes life much easier.
 		if(RANK = RANK0) then
-			CS0 <= cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS);
+			CS0 <= cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS);
 			CS1 <= cmd_table(rDES)(cCS)  & cmd_table(rDES)(cCS)  & cmd_table(rDES)(cCS)  & cmd_table(rDES)(cCS);
 		elsif(RANK = RANK1) then
 			CS0 <= cmd_table(rDES)(cCS)  & cmd_table(rDES)(cCS)  & cmd_table(rDES)(cCS)  & cmd_table(rDES)(cCS);
-			CS1 <= cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS);
+			CS1 <= cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS);
 		elsif(RANK = RANK_BOTH) then
-			CS0 <= cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS);
-			CS1 <= cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS);
+			CS0 <= cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS);
+			CS1 <= cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS);
 		end if;
 		
 		RAS <= cmd_table(CMD)(cRAS) & cmd_table(rNOP)(cRAS) & cmd_table(rNOP)(cRAS) & cmd_table(rNOP)(cRAS);
@@ -339,17 +354,17 @@ begin
 		MR0_SETTINGS(15) <= "0000"; -- A(15 downto 13) = 0
 		MR0_SETTINGS(14) <= "0000";
 		MR0_SETTINGS(13) <= "0000";
-		MR0_SETTINGS(12) <= "1000"; -- A(12) = DLL control for precharge PD (fast exit)
-		MR0_SETTINGS(11) <= "1000"; -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
+		MR0_SETTINGS(12) <= "0010"; -- A(12) = DLL control for precharge PD (fast exit)
+		MR0_SETTINGS(11) <= "0010"; -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
 		MR0_SETTINGS(10) <= "0000"; 
 		MR0_SETTINGS( 9) <= "0000";
-		MR0_SETTINGS( 8) <= "1000"; -- A(8) = DLL reset; self clearing (reset)
+		MR0_SETTINGS( 8) <= "0010"; -- A(8) = DLL reset; self clearing (reset)
 		MR0_SETTINGS( 7) <= "0000"; -- A(7) = Test mode (normal)
-		MR0_SETTINGS( 6) <= MCAS_LATENCY(3) & "000"; -- A(6 downto 4), A(2) = CAS read latency   [ !!! Micro should tell me if attached device supports this ]
-		MR0_SETTINGS( 5) <= MCAS_LATENCY(2) & "000"; 
-		MR0_SETTINGS( 4) <= MCAS_LATENCY(1) & "000"; 
+		MR0_SETTINGS( 6) <= "00" & MCAS_LATENCY(3) & "0"; -- A(6 downto 4), A(2) = CAS read latency   [ !!! Micro should tell me if attached device supports this ]
+		MR0_SETTINGS( 5) <= "00" & MCAS_LATENCY(2) & "0"; 
+		MR0_SETTINGS( 4) <= "00" & MCAS_LATENCY(1) & "0"; 
 		MR0_SETTINGS( 3) <= "0000"; -- A(3) = Read burst type (nibble sequential)
-		MR0_SETTINGS( 2) <= MCAS_LATENCY(0) & "000";
+		MR0_SETTINGS( 2) <= "00" & MCAS_LATENCY(0) & "0";
 		MR0_SETTINGS( 1) <= "0000"; -- A(1 downto 0) = burst length (8, fixed)
 		MR0_SETTINGS( 0) <= "0000"; 
 		
@@ -364,8 +379,8 @@ begin
 		MR1_SETTINGS( 7) <= "0000"; -- A(7) = Write leveling (disabled)
 		MR1_SETTINGS( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
 		MR1_SETTINGS( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-		MR1_SETTINGS( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
-		MR1_SETTINGS( 3) <= MADDITIVE_LATENCY(0) & "000"; 
+		MR1_SETTINGS( 4) <= "00" & MADDITIVE_LATENCY(1) & "0"; -- A(4 downto 3) = Additive latency
+		MR1_SETTINGS( 3) <= "00" & MADDITIVE_LATENCY(0) & "0"; 
 		MR1_SETTINGS( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
 		MR1_SETTINGS( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
 		MR1_SETTINGS( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
@@ -378,11 +393,11 @@ begin
 		MR1_SETTINGS_WL(10) <= "0000"; -- A(10) = 0
 		MR1_SETTINGS_WL( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
 		MR1_SETTINGS_WL( 8) <= "0000"; -- A(8) = 0
-		MR1_SETTINGS_WL( 7) <= "1000"; -- A(7) = Write leveling (enabled)
+		MR1_SETTINGS_WL( 7) <= "0010"; -- A(7) = Write leveling (enabled)
 		MR1_SETTINGS_WL( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
 		MR1_SETTINGS_WL( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-		MR1_SETTINGS_WL( 4) <= MADDITIVE_LATENCY(1) & "000"; -- A(4 downto 3) = Additive latency
-		MR1_SETTINGS_WL( 3) <= MADDITIVE_LATENCY(0) & "000"; 
+		MR1_SETTINGS_WL( 4) <= "00" & MADDITIVE_LATENCY(1) & "0"; -- A(4 downto 3) = Additive latency
+		MR1_SETTINGS_WL( 3) <= "00" & MADDITIVE_LATENCY(0) & "0"; 
 		MR1_SETTINGS_WL( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
 		MR1_SETTINGS_WL( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
 		MR1_SETTINGS_WL( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
@@ -434,7 +449,7 @@ begin
 		MR3_SETTINGS_RL( 5) <= "0000"; 
 		MR3_SETTINGS_RL( 4) <= "0000"; 
 		MR3_SETTINGS_RL( 3) <= "0000"; 
-		MR3_SETTINGS_RL( 2) <= "1000"; -- A(2) = Multi-purpose register operation (RD test pattern on)
+		MR3_SETTINGS_RL( 2) <= "0010"; -- A(2) = Multi-purpose register operation (RD test pattern on)
 		MR3_SETTINGS_RL( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
 		MR3_SETTINGS_RL( 0) <= "0000"; 
 	end if;
@@ -469,9 +484,9 @@ begin
 		signal delay_count : natural := 0;
 		signal readout_delay : natural range 0 to 15 := 0;
 		signal debug_string : string(1 to 6);
-		constant INIT1_DELAY_REAL : natural := 40000;
+		constant INIT1_DELAY_REAL : natural := 25000;
 		constant INIT1_DELAY_DEBUG : natural := 10;
-		constant INIT2_DELAY_REAL : natural := 100000;
+		constant INIT2_DELAY_REAL : natural := 62500;
 		constant INIT2_DELAY_DEBUG : natural := 10;
 		signal INIT1_DELAY : natural;
 		signal INIT2_DELAY : natural;
@@ -498,13 +513,13 @@ begin
 	case state is
 	
 		when IDLE =>
-			if(MTEST = '1' and IOCLK_LOCKED = '1') then
+			if(MFORCE_INIT = '1' and IOCLK_LOCKED = '1') then
 				state <= INIT1;
 			end if;
 			debug_string <= "IDLE  ";
 			
 		when DELAY =>
-			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 			mBA <= (others => (others => '0'));
 			mMA <= (others => (others => '0'));
 			mDQS_TX <= (others => (others => '0'));
@@ -523,7 +538,7 @@ begin
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
-			delay_count <= INIT1_DELAY; -- MCLK has 5ns period, 5ns*40e3 = 200us
+			delay_count <= INIT1_DELAY; -- MCLK has 8ns period, 8ns*25e3 = 200us
 			state <= DELAY;
 			ret <= INIT2;
 			debug_string <= "INIT1 ";
@@ -534,8 +549,8 @@ begin
 			mDDR_RESET <= "1111";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
-			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-			delay_count <= INIT2_DELAY; -- 5ns*100e3 = 500us
+			build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+			delay_count <= INIT2_DELAY; -- 8ns*62.5e3 = 500us
 			state <= DELAY;
 			ret <= INIT3;
 			debug_string <= "INIT2 ";
@@ -557,18 +572,18 @@ begin
 		when INIT5 =>
 			-- After CKE is registered high, wait a minimum of "Reset CKE Exit Time" (tXPR) before
 			-- issuing the first MRS command. tXPR is max(5 clocks, tRFC+10ns). tRFC is 350ns for
-			-- an 8Gb density chip. So the minimum wait time is 360ns, or 72 system clocks.
-			delay_count <= 72;
+			-- an 8Gb density chip. So the minimum wait time is 360ns / 8ns = 45 system clocks.
+			delay_count <= 45;
 			state <= DELAY;
 			ret <= INIT6;
 			debug_string <= "INIT5 ";
 			
 		when INIT6 =>
 			-- Issue MRS command to load MR2 with all application settings
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.30 of spec
 			mBA(2) <= "0000";
-			mBA(1) <= "1000";
+			mBA(1) <= "0010";
 			mBA(0) <= "0000";
 			mMA <= MR2_SETTINGS;
 			
@@ -582,11 +597,11 @@ begin
 			
 		when INIT7 =>
 			-- Issue MRS command to load MR3 with all application settings
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.32 of spec
 			mBA(2) <= "0000";
-			mBA(1) <= "1000";
-			mBA(0) <= "1000";
+			mBA(1) <= "0010";
+			mBA(0) <= "0010";
 			mMA <= MR3_SETTINGS;
 			delay_count <= 1;
 			state <= DELAY;
@@ -595,11 +610,11 @@ begin
 			
 		when INIT8 =>
 			-- Issue MRS command to load MR1 with all application settings and DLL enabled
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.27 of spec
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
-			mBA(0) <= "1000";
+			mBA(0) <= "0010";
 			mMA <= MR1_SETTINGS;
 			delay_count <= 1;
 			state <= DELAY;
@@ -608,7 +623,7 @@ begin
 			
 		when INIT9 =>
 			-- Issue MRS command to load MR0 with all application settings and DLL reset
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.24 of spec
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
@@ -624,9 +639,9 @@ begin
 			
 		when INIT10 =>
 			-- Issue ZQCL command to start ZQ calibration
-			build_command(RANK_BOTH, rZQCL, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(RANK0, rZQCL, mCS0,mCS1,mRAS,mCAS,mWE);
 			mMA(15 downto 11) <= (others => (others => '0'));
-			mMA(10) <= "1000";
+			mMA(10) <= "0010";
 			mMA(9 downto 0) <= (others => (others => '0'));
 			delay_count <= 256; -- tZQinit = max(512 clocks, 640ns). For 250MHz DDR clock, 512CK > 640ns
 			-- tDLLK will be satisfied by the time this delay is finished.
@@ -646,7 +661,7 @@ begin
 			-- see p.27 of spec
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
-			mBA(0) <= "1000";
+			mBA(0) <= "0010";
 			mMA <= MR1_SETTINGS_WL;
 
 			dqs_reading0 <= '0';
@@ -661,7 +676,7 @@ begin
 			
 		when WRITE_LEVELING =>
 			if(delay_count = 0) then
-				mDQS_TX <= (others => "1000");
+				mDQS_TX <= (others => "0010");
 				delay_count <= 16;
 			else
 				mDQS_TX <= (others => "0000");
@@ -695,7 +710,7 @@ begin
 			-- see p.27 of spec
 			mBA(2) <= "0000";
 			mBA(1) <= "0000";
-			mBA(0) <= "1000";
+			mBA(0) <= "0010";
 			mMA <= MR1_SETTINGS;
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
@@ -715,7 +730,7 @@ begin
 			-- precharge all, wait tRP (15ns)
 			build_command(RANK0, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
 			mBA <= (others => (others => '0'));
-			mMA(10) <= "1000";
+			mMA(10) <= "0010";
 			mMA(15 downto 11) <= (others => (others => '0'));
 			mMA(9 downto 0) <= (others => (others => '0'));
 			delay_count <= 2;
@@ -726,8 +741,8 @@ begin
 			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.32 of spec
 			mBA(2) <= "0000";
-			mBA(1) <= "1000";
-			mBA(0) <= "1000";
+			mBA(1) <= "0010";
+			mBA(0) <= "0010";
 			mMA <= MR3_SETTINGS_RL;
 			delay_count <= 6; -- wait tMOD
 			state <= DELAY;
@@ -735,7 +750,7 @@ begin
 			
 		when READ_PATTERN =>
 			if(leveling_finished = '1') then
-				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				delay_count <= LEVELING_CYCLE; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
 				debug_sync <= '0';
 				state <= DELAY;
@@ -746,7 +761,7 @@ begin
 					build_command(RANK0, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
 					delay_count <= LEVELING_CYCLE;
 				else
-					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					delay_count <= delay_count - 1;
 				end if;
 				mBA <= (others => (others => '0'));
@@ -773,8 +788,8 @@ begin
 			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.32 of spec
 			mBA(2) <= "0000";
-			mBA(1) <= "1000";
-			mBA(0) <= "1000";
+			mBA(1) <= "0010";
+			mBA(0) <= "0010";
 			mMA <= MR3_SETTINGS;
 			delay_count <= 6; -- wait until tMOD (max 12CK, 15ns), tMRD (4CK) satisfied
 			state <= DELAY;
@@ -820,7 +835,7 @@ begin
 				end if;
 				
 				if(state = READ_PATTERN and leveling_finished = '0' and delay_count = 0) then
-					readout_delay <= 5;
+					readout_delay <= 1;
 					slip_attempts <= 0;
 					lstate <= SEEK;
 				end if;
@@ -873,7 +888,7 @@ begin
 							else
 								slip_attempts <= slip_attempts + 1;
 								bitslip(leveling_lane) <= '1';
-								readout_delay <= 5;
+								readout_delay <= 1;
 								lstate <= WAIT_FOR_NEXT;
 							end if;
 						
