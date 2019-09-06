@@ -333,9 +333,9 @@ architecture Behavioral of ddr3_mcb is
 			CS1 <= cmd_table(rNOP)(cCS)  & cmd_table(rNOP)(cCS)  & cmd_table( CMD)(cCS)  & cmd_table(rNOP)(cCS);
 		end if;
 		
-		RAS <= cmd_table(CMD)(cRAS) & cmd_table(rNOP)(cRAS) & cmd_table(rNOP)(cRAS) & cmd_table(rNOP)(cRAS);
-		CAS <= cmd_table(CMD)(cCAS) & cmd_table(rNOP)(cCAS) & cmd_table(rNOP)(cCAS) & cmd_table(rNOP)(cCAS);
-		WE  <= cmd_table(CMD)(cWE)  & cmd_table(rNOP)(cWE)  & cmd_table(rNOP)(cWE)  & cmd_table(rNOP)(cWE);
+		RAS <= cmd_table(rNOP)(cRAS) & cmd_table(rNOP)(cRAS) & cmd_table(CMD)(cRAS) & cmd_table(rNOP)(cRAS);
+		CAS <= cmd_table(rNOP)(cCAS) & cmd_table(rNOP)(cCAS) & cmd_table(CMD)(cCAS) & cmd_table(rNOP)(cCAS);
+		WE  <= cmd_table(rNOP)(cWE)  & cmd_table(rNOP)(cWE)  & cmd_table(CMD)(cWE)  & cmd_table(rNOP)(cWE);
 	end procedure;
 		
 	
