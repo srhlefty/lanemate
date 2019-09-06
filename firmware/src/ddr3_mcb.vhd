@@ -750,7 +750,7 @@ begin
 			
 		when READ_PATTERN =>
 			if(leveling_finished = '1') then
-				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				delay_count <= LEVELING_CYCLE; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
 				debug_sync <= '0';
 				state <= DELAY;
@@ -761,7 +761,7 @@ begin
 					build_command(RANK0, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
 					delay_count <= LEVELING_CYCLE;
 				else
-					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					delay_count <= delay_count - 1;
 				end if;
 				mBA <= (others => (others => '0'));
@@ -841,7 +841,7 @@ begin
 				if(state = READ_PATTERN and leveling_finished = '0' and delay_count = 0) then
 					readout_delay <= 5;
 					slip_attempts <= 0;
---					lstate <= SEEK;
+					lstate <= SEEK;
 				end if;
 			
 			-- Incoming data looks like this (CAS latency = 5) (ignoring propagation delays):
@@ -1004,26 +1004,26 @@ begin
 	
 	-- burst_t indexing is pin id then position within burst
 	-- Write Leveling: output state of DQ, first pin in each lane
-	MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
-	MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
-	MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
-	MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
-	MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
-	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
-	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
-	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
+--	MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
+--	MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
+--	MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
+--	MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
+--	MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
+--	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
+--	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
+--	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
 
 	-- Read Leveling: output burst data for one lane.
 	-- If the read is correct, the byte should be 10101010
 	-- (i.e., the first returned bit in time is 0)
---	MDEBUG_LED(0) <= latched_read(0);
---	MDEBUG_LED(1) <= latched_read(1);
---	MDEBUG_LED(2) <= latched_read(2);
---	MDEBUG_LED(3) <= latched_read(3);
---	MDEBUG_LED(4) <= latched_read(4);
---	MDEBUG_LED(5) <= latched_read(5);
---	MDEBUG_LED(6) <= latched_read(6);
---	MDEBUG_LED(7) <= latched_read(7);
+	MDEBUG_LED(0) <= latched_read(0);
+	MDEBUG_LED(1) <= latched_read(1);
+	MDEBUG_LED(2) <= latched_read(2);
+	MDEBUG_LED(3) <= latched_read(3);
+	MDEBUG_LED(4) <= latched_read(4);
+	MDEBUG_LED(5) <= latched_read(5);
+	MDEBUG_LED(6) <= latched_read(6);
+	MDEBUG_LED(7) <= latched_read(7);
 
 	MDEBUG_SYNC <= debug_sync;
 		
