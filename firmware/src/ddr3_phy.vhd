@@ -122,8 +122,10 @@ architecture Behavioral of ddr3_phy is
 
 
 	type delay_array_t is array(0 to 7) of natural;
-	constant LANE_INPUT_DELAY : delay_array_t := (16, 48, 0, 37, 45, 37, 24, 32);
+--	constant LANE_INPUT_DELAY : delay_array_t := (16, 48, 0, 37, 45, 37, 24, 32);
 	constant LANE_OUTPUT_DELAY : delay_array_t := (22,29,34,39,35,48,54,54);
+	constant LANE_INPUT_DELAY : delay_array_t := (others => 0);
+--	constant LANE_OUTPUT_DELAY : delay_array_t := (others => 0);
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
 	
@@ -457,7 +459,9 @@ begin
 
 
 
-
+	-- In normal operation, DQS is aligned to CK (and thus in the center of the data eye).
+	-- During write leveling, we start by putting DQS aligned with data and then delaying
+	-- DQS until we find the clock edge.
 	
 	gen_lane : for ln in 0 to 7 generate
 	

@@ -341,9 +341,9 @@ void probe_ddr_stick(void)
 	
 }
 
-void print_debug_registers()
+void print_leveling_results()
 {
-	print("Debug registers:\r\n");
+	print("Leveling results:\r\n");
 	for(int i=0;i<8;++i)
 	{
 		uint8_t val;
@@ -382,10 +382,10 @@ int main (void)
 	configure_hdmi_tx_for_sd_input();
 
 	probe_ddr_stick();
-	print_debug_registers();
-	i2c_write_reg(lanemate_address, 15, 1); // run test
+	print_leveling_results();
+	i2c_write_reg(lanemate_address, 15, 1); // run ddr init
 	delay_cycles_ms(1000);
-	print_debug_registers();
+	print_leveling_results();
 
 	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);

@@ -228,3 +228,11 @@ clock cycle or the data is not properly centered on the clock edges.
   level. This is something to watch out for when I graduate to an actual read/
   write test. After that ignore step, I now have stable values every time I run
   the leveling routine.
+  
+- I realized that to make writing easier, I would much prefer the clock in which
+  I'm to provide data be aligned to the system clock. The CAS write latency is
+  5, which puts it in a half-system clock zone. DDR3 supports other CAS write
+  latencies, but those are to be used for faster clocks. I can acheive the same
+  effect by just moving where I put the command in my tx burst. For example,
+  instead of sending "1000" I can send "0010" (since the clock is "1010").
+  However, doing so had the effect of breaking *everything*.

@@ -55,6 +55,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
          MDVALID_R : IN  std_logic;
          MPUSH_R : OUT  std_logic;
          MDATA_R : OUT  std_logic_vector(255 downto 0);
+			MFORCE_INIT : in std_logic;
          MTEST : IN  std_logic;
          MDEBUG_LED : OUT  std_logic_vector(7 downto 0);
 			MDEBUG_SYNC : out std_logic;
@@ -119,25 +120,25 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 	);
 	end component;
 	
-	component ddr_pin_se is
-	Generic ( 
-		IDELAY_VALUE : natural range 0 to 255 := 0;
-		ODELAY_VALUE : natural range 0 to 255 := 0
-	);
-	Port ( 
-		CLK : in  STD_LOGIC;
-		IOCLK : in std_logic;
-		STROBE : in std_logic;
-		READING : in std_logic;
-		
-		BITSLIP : in std_logic;
-		
-		TXD : in std_logic_vector(3 downto 0);
-		RXD : out std_logic_vector(3 downto 0);
-		PIN : inout std_logic
-	);
-	end component;
-
+--	component ddr_pin_se is
+--	Generic ( 
+--		IDELAY_VALUE : natural range 0 to 255 := 0;
+--		ODELAY_VALUE : natural range 0 to 255 := 0
+--	);
+--	Port ( 
+--		CLK : in  STD_LOGIC;
+--		IOCLK : in std_logic;
+--		STROBE : in std_logic;
+--		READING : in std_logic;
+--		
+--		BITSLIP : in std_logic;
+--		
+--		TXD : in std_logic_vector(3 downto 0);
+--		RXD : out std_logic_vector(3 downto 0);
+--		PIN : inout std_logic
+--	);
+--	end component;
+--
    --Inputs
    signal MCLK : std_logic := '0';
    signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := x"10";
@@ -148,6 +149,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
    signal MDVALID_W : std_logic := '0';
    signal MADDR_R : std_logic_vector(26 downto 0) := (others => '0');
    signal MDVALID_R : std_logic := '0';
+   signal MFORCE_INIT : std_logic := '0';
    signal MTEST : std_logic := '0';
    signal MADDITIVE_LATENCY : std_logic_vector(1 downto 0) := "00";
    signal MCAS_LATENCY : std_logic_vector(3 downto 0) := "0010";
@@ -257,6 +259,7 @@ BEGIN
           MPUSH_R => MPUSH_R,
           MDATA_R => MDATA_R,
 			 
+          MFORCE_INIT => MFORCE_INIT,
           MTEST => MTEST,
           MDEBUG_LED => MDEBUG_LED,
 			 MDEBUG_SYNC => MDEBUG_SYNC,
@@ -302,62 +305,62 @@ BEGIN
 
 	-- Look at this section in the simulator to verify data/clock phase is set correctly
 	
-	alignment_test : block is
-		signal data0 : std_logic_vector(3 downto 0) := "0000";
-		signal data180 : std_logic_vector(3 downto 0) := "0000";
-		signal pin_0 : std_logic;
-		signal pin_180 : std_logic;
-		signal delay : natural := 0;
-	begin
-	
-		pin_data0: ddr_pin_se 
-		generic map (
-			IDELAY_VALUE => 0,
-			ODELAY_VALUE => 0
-		)
-		port map (
-			CLK => MCLK,
-			IOCLK => b0_serdesclk,
-			STROBE => b0_serdesstrobe,
-			READING => '0',
-			BITSLIP => '0',
-			TXD => data0,
-			RXD => open,
-			PIN => pin_0
-		);
-		
-		pin_data180: ddr_pin_se 
-		generic map (
-			IDELAY_VALUE => 0,
-			ODELAY_VALUE => 0
-		)
-		port map (
-			CLK => MCLK,
-			IOCLK => b0_serdesclk_180,
-			STROBE => b0_serdesstrobe_180,
-			READING => '0',
-			BITSLIP => '0',
-			TXD => data180,
-			RXD => open,
-			PIN => pin_180
-		);
-		
-		process(MCLK) is
-		begin
-		if(rising_edge(MCLK)) then
-			if(delay = 100) then
-				data0 <= "1000";
-				data180 <= "1000";
-				delay <= 0;
-			else
-				data0 <= "0000";
-				data180 <= "0000";
-				delay <= delay + 1;
-			end if;
-		end if;
-		end process;
-	
-	end block;
+--	alignment_test : block is
+--		signal data0 : std_logic_vector(3 downto 0) := "0000";
+--		signal data180 : std_logic_vector(3 downto 0) := "0000";
+--		signal pin_0 : std_logic;
+--		signal pin_180 : std_logic;
+--		signal delay : natural := 0;
+--	begin
+--	
+--		pin_data0: ddr_pin_se 
+--		generic map (
+--			IDELAY_VALUE => 0,
+--			ODELAY_VALUE => 0
+--		)
+--		port map (
+--			CLK => MCLK,
+--			IOCLK => b0_serdesclk,
+--			STROBE => b0_serdesstrobe,
+--			READING => '0',
+--			BITSLIP => '0',
+--			TXD => data0,
+--			RXD => open,
+--			PIN => pin_0
+--		);
+--		
+--		pin_data180: ddr_pin_se 
+--		generic map (
+--			IDELAY_VALUE => 0,
+--			ODELAY_VALUE => 0
+--		)
+--		port map (
+--			CLK => MCLK,
+--			IOCLK => b0_serdesclk_180,
+--			STROBE => b0_serdesstrobe_180,
+--			READING => '0',
+--			BITSLIP => '0',
+--			TXD => data180,
+--			RXD => open,
+--			PIN => pin_180
+--		);
+--		
+--		process(MCLK) is
+--		begin
+--		if(rising_edge(MCLK)) then
+--			if(delay = 100) then
+--				data0 <= "1000";
+--				data180 <= "1000";
+--				delay <= 0;
+--			else
+--				data0 <= "0000";
+--				data180 <= "0000";
+--				delay <= delay + 1;
+--			end if;
+--		end if;
+--		end process;
+--	
+--	end block;
 
 	----------------------------------------------------------------------------
 
@@ -366,9 +369,9 @@ BEGIN
 	if(rising_edge(MCLK) and LOCKED = '1') then
 		count <= count + 1;
 		if(count = 64 or count = 600) then
-			MTEST <= '1';
+			MFORCE_INIT <= '1';
 		else
-			MTEST <= '0';
+			MFORCE_INIT <= '0';
 		end if;
 	end if;
 	end process;
