@@ -484,9 +484,9 @@ begin
 		signal delay_count : natural := 0;
 		signal readout_delay : natural range 0 to 15 := 0;
 		signal debug_string : string(1 to 6);
-		constant INIT1_DELAY_REAL : natural := 40000;
+		constant INIT1_DELAY_REAL : natural := 25000;
 		constant INIT1_DELAY_DEBUG : natural := 10;
-		constant INIT2_DELAY_REAL : natural := 100000;
+		constant INIT2_DELAY_REAL : natural := 62500;
 		constant INIT2_DELAY_DEBUG : natural := 10;
 		signal INIT1_DELAY : natural;
 		signal INIT2_DELAY : natural;
@@ -538,7 +538,7 @@ begin
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
-			delay_count <= INIT1_DELAY; -- MCLK has 5ns period, 5ns*40e3 = 200us
+			delay_count <= INIT1_DELAY; -- MCLK has 8ns period, 8ns*25e3 = 200us
 			state <= DELAY;
 			ret <= INIT2;
 			debug_string <= "INIT1 ";
@@ -550,7 +550,7 @@ begin
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
 			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-			delay_count <= INIT2_DELAY; -- 5ns*100e3 = 500us
+			delay_count <= INIT2_DELAY; -- 8ns*62.5e3 = 500us
 			state <= DELAY;
 			ret <= INIT3;
 			debug_string <= "INIT2 ";
@@ -572,8 +572,8 @@ begin
 		when INIT5 =>
 			-- After CKE is registered high, wait a minimum of "Reset CKE Exit Time" (tXPR) before
 			-- issuing the first MRS command. tXPR is max(5 clocks, tRFC+10ns). tRFC is 350ns for
-			-- an 8Gb density chip. So the minimum wait time is 360ns, or 72 system clocks.
-			delay_count <= 72;
+			-- an 8Gb density chip. So the minimum wait time is 360ns / 8ns = 45 system clocks.
+			delay_count <= 45;
 			state <= DELAY;
 			ret <= INIT6;
 			debug_string <= "INIT5 ";

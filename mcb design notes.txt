@@ -235,4 +235,4 @@ clock cycle or the data is not properly centered on the clock edges.
   latencies, but those are to be used for faster clocks. I can acheive the same
   effect by just moving where I put the command in my tx burst. For example,
   instead of sending "1000" I can send "0010" (since the clock is "1010").
-  However, doing so had the effect of breaking *everything*.
+  
