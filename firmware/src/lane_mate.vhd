@@ -895,7 +895,7 @@ begin
 			MDEBUG_SYNC => debug_sync,
 			
 			MADDITIVE_LATENCY => "00",
-			MCAS_LATENCY => "0100",
+			MCAS_LATENCY => "0010",
 		
 			B0_IOCLK      => b0_serdesclk,
 			B0_STROBE     => b0_serdesstrobe,
