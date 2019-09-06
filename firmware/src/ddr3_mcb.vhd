@@ -337,122 +337,176 @@ architecture Behavioral of ddr3_mcb is
 		CAS <= cmd_table(rNOP)(cCAS) & cmd_table(rNOP)(cCAS) & cmd_table(CMD)(cCAS) & cmd_table(rNOP)(cCAS);
 		WE  <= cmd_table(rNOP)(cWE)  & cmd_table(rNOP)(cWE)  & cmd_table(CMD)(cWE)  & cmd_table(rNOP)(cWE);
 	end procedure;
+	
+	
+	-- !!! Be very careful when using this procedure with constants.
+	-- build_bus(A, "001") will actually give the wrong answer, because the compiler
+	-- treats "001" as (0,0,1): it doesn't know whether you intended the constant to
+	-- be an array ordered "0 to 2" or "2 downto 0", and apparently defaults to the former.
+	procedure build_bus(
+		signal dbus : out burst_t;
+		constant val : in std_logic_vector
+	) is
+	begin
+		for i in 0 to dbus'high loop
+			dbus(i) <= "00" & val(i) & "0";
+		end loop;
+	end procedure;
+
 		
 	
-	signal MR0_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
-	signal MR1_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
-	signal MR1_SETTINGS_WL : burst_t(15 downto 0) := (others => (others => '0'));
-	signal MR2_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
-	signal MR3_SETTINGS : burst_t(15 downto 0) := (others => (others => '0'));
-	signal MR3_SETTINGS_RL : burst_t(15 downto 0) := (others => (others => '0'));
-
+	signal MR0_SETTINGS    : std_logic_vector(15 downto 0) := (others => '0');
+	signal MR1_SETTINGS    : std_logic_vector(15 downto 0) := (others => '0');
+	signal MR1_SETTINGS_WL : std_logic_vector(15 downto 0) := (others => '0');
+	signal MR2_SETTINGS    : std_logic_vector(15 downto 0) := (others => '0');
+	signal MR3_SETTINGS    : std_logic_vector(15 downto 0) := (others => '0');
+	signal MR3_SETTINGS_RL : std_logic_vector(15 downto 0) := (others => '0');
+	signal ZQCL_SETTINGS   : std_logic_vector(15 downto 0) := (others => '0');
+	
+	constant MR0 : std_logic_vector(2 downto 0) := "000";
+	constant MR1 : std_logic_vector(2 downto 0) := "001";
+	constant MR2 : std_logic_vector(2 downto 0) := "010";
+	constant MR3 : std_logic_vector(2 downto 0) := "011";
+	constant PREA_SETTINGS : std_logic_vector(15 downto 0) := "0000010000000000"; -- A10 high, everything else any valid value
 begin
 
 	process(MCLK) is
 	begin
 	if(rising_edge(MCLK)) then
-		MR0_SETTINGS(15) <= "0000"; -- A(15 downto 13) = 0
-		MR0_SETTINGS(14) <= "0000";
-		MR0_SETTINGS(13) <= "0000";
-		MR0_SETTINGS(12) <= "0010"; -- A(12) = DLL control for precharge PD (fast exit)
-		MR0_SETTINGS(11) <= "0010"; -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
-		MR0_SETTINGS(10) <= "0000"; 
-		MR0_SETTINGS( 9) <= "0000";
-		MR0_SETTINGS( 8) <= "0010"; -- A(8) = DLL reset; self clearing (reset)
-		MR0_SETTINGS( 7) <= "0000"; -- A(7) = Test mode (normal)
-		MR0_SETTINGS( 6) <= "00" & MCAS_LATENCY(3) & "0"; -- A(6 downto 4), A(2) = CAS read latency   [ !!! Micro should tell me if attached device supports this ]
-		MR0_SETTINGS( 5) <= "00" & MCAS_LATENCY(2) & "0"; 
-		MR0_SETTINGS( 4) <= "00" & MCAS_LATENCY(1) & "0"; 
-		MR0_SETTINGS( 3) <= "0000"; -- A(3) = Read burst type (nibble sequential)
-		MR0_SETTINGS( 2) <= "00" & MCAS_LATENCY(0) & "0";
-		MR0_SETTINGS( 1) <= "0000"; -- A(1 downto 0) = burst length (8, fixed)
-		MR0_SETTINGS( 0) <= "0000"; 
+		MR0_SETTINGS <= (
+		'0',             -- A(15 downto 13) = 0
+		'0',
+		'0',
+		'1',             -- A(12) = DLL control for precharge PD (fast exit)
+		'1',             -- A(11 downto 9) = Write recovery for autoprecharge. Min possible with 400MHz is 6. (8)
+		'0', 
+		'0',
+		'1',             -- A(8) = DLL reset; self clearing (reset)
+		'0',             -- A(7) = Test mode (normal)
+		MCAS_LATENCY(3), -- A(6 downto 4), A(2) = CAS read latency   [ !!! Micro should tell me if attached device supports this ]
+		MCAS_LATENCY(2), 
+		MCAS_LATENCY(1), 
+		'0',             -- A(3) = Read burst type (nibble sequential)
+		MCAS_LATENCY(0),
+		'0',             -- A(1 downto 0) = burst length (8, fixed)
+		'0' 
+		);
 		
-		MR1_SETTINGS(15) <= "0000"; -- A(15 downto 13) = 0
-		MR1_SETTINGS(14) <= "0000";
-		MR1_SETTINGS(13) <= "0000";
-		MR1_SETTINGS(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
-		MR1_SETTINGS(11) <= "0000"; -- A(11) = TDQS (disabled)
-		MR1_SETTINGS(10) <= "0000"; -- A(10) = 0
-		MR1_SETTINGS( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-		MR1_SETTINGS( 8) <= "0000"; -- A(8) = 0
-		MR1_SETTINGS( 7) <= "0000"; -- A(7) = Write leveling (disabled)
-		MR1_SETTINGS( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
-		MR1_SETTINGS( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-		MR1_SETTINGS( 4) <= "00" & MADDITIVE_LATENCY(1) & "0"; -- A(4 downto 3) = Additive latency
-		MR1_SETTINGS( 3) <= "00" & MADDITIVE_LATENCY(0) & "0"; 
-		MR1_SETTINGS( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-		MR1_SETTINGS( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
-		MR1_SETTINGS( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
+		MR1_SETTINGS <= (
+		'0',                  -- A(15 downto 13) = 0
+		'0',
+		'0',
+		'0',                  -- A(12) = Qoff (output buffer enabled)
+		'0',                  -- A(11) = TDQS (disabled)
+		'0',                  -- A(10) = 0
+		'0',                  -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		'0',                  -- A(8) = 0
+		'0',                  -- A(7) = Write leveling (disabled)
+		'0',                  -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+		'0',                  -- A(5), A(1) = Output driver impedance control (RZQ/6)
+		MADDITIVE_LATENCY(1), -- A(4 downto 3) = Additive latency
+		MADDITIVE_LATENCY(0), 
+		'0',                  -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		'0',                  -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
+		'0'                   -- A(0) = DLL Enable (enabled)
+		);
 		
-		MR1_SETTINGS_WL(15) <= "0000"; -- A(15 downto 13) = 0
-		MR1_SETTINGS_WL(14) <= "0000";
-		MR1_SETTINGS_WL(13) <= "0000";
-		MR1_SETTINGS_WL(12) <= "0000"; -- A(12) = Qoff (output buffer enabled)
-		MR1_SETTINGS_WL(11) <= "0000"; -- A(11) = TDQS (disabled)
-		MR1_SETTINGS_WL(10) <= "0000"; -- A(10) = 0
-		MR1_SETTINGS_WL( 9) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-		MR1_SETTINGS_WL( 8) <= "0000"; -- A(8) = 0
-		MR1_SETTINGS_WL( 7) <= "0010"; -- A(7) = Write leveling (enabled)
-		MR1_SETTINGS_WL( 6) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
-		MR1_SETTINGS_WL( 5) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)
-		MR1_SETTINGS_WL( 4) <= "00" & MADDITIVE_LATENCY(1) & "0"; -- A(4 downto 3) = Additive latency
-		MR1_SETTINGS_WL( 3) <= "00" & MADDITIVE_LATENCY(0) & "0"; 
-		MR1_SETTINGS_WL( 2) <= "0000"; -- A(9), A(6), A(2) = Rtt_Nom (disabled)
-		MR1_SETTINGS_WL( 1) <= "0000"; -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
-		MR1_SETTINGS_WL( 0) <= "0000"; -- A(0) = DLL Enable (enabled)
-		
-		MR2_SETTINGS(15) <= "0000"; -- A(15 downto 11) = 0
-		MR2_SETTINGS(14) <= "0000";
-		MR2_SETTINGS(13) <= "0000";
-		MR2_SETTINGS(12) <= "0000";
-		MR2_SETTINGS(11) <= "0000";
-		MR2_SETTINGS(10) <= "0000"; -- A(10 downto 9) = Rtt_WR (dynamic ODT off)
-		MR2_SETTINGS( 9) <= "0000";
-		MR2_SETTINGS( 8) <= "0000"; -- A(8) = 0
-		MR2_SETTINGS( 7) <= "0000"; -- A(7) = Self-refresh temperature range (normal)
-		MR2_SETTINGS( 6) <= "0000"; -- A(6) = Auto self-refresh (manual)
-		MR2_SETTINGS( 5) <= "0000"; -- A(5 downto 3) = CAS write latency (5). Must be 5 b/c tCK = 2.5ns
-		MR2_SETTINGS( 4) <= "0000"; 
-		MR2_SETTINGS( 3) <= "0000"; 
-		MR2_SETTINGS( 2) <= "0000"; -- A(2 downto 0) = Partial array self refresh (full array)
-		MR2_SETTINGS( 1) <= "0000"; 
-		MR2_SETTINGS( 0) <= "0000"; 
+		MR1_SETTINGS_WL <= (
+		'0',                  -- A(15 downto 13) = 0
+		'0',
+		'0',
+		'0',                  -- A(12) = Qoff (output buffer enabled)
+		'0',                  -- A(11) = TDQS (disabled)
+		'0',                  -- A(10) = 0
+		'0',                  -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		'0',                  -- A(8) = 0
+		'1',                  -- A(7) = Write leveling (enabled)
+		'0',                  -- A(9), A(6), A(2) = Rtt_Nom (disabled) 
+		'0',                  -- A(5), A(1) = Output driver impedance control (RZQ/6)
+		MADDITIVE_LATENCY(1), -- A(4 downto 3) = Additive latency
+		MADDITIVE_LATENCY(0), 
+		'0',                  -- A(9), A(6), A(2) = Rtt_Nom (disabled)
+		'0',                  -- A(5), A(1) = Output driver impedance control (RZQ/6)    [ I don't know what the right setting for this is ]
+		'0'                   -- A(0) = DLL Enable (enabled)
+		);
 
-		MR3_SETTINGS(15) <= "0000"; -- A(15 downto 3) = 0
-		MR3_SETTINGS(14) <= "0000";
-		MR3_SETTINGS(13) <= "0000";
-		MR3_SETTINGS(12) <= "0000";
-		MR3_SETTINGS(11) <= "0000";
-		MR3_SETTINGS(10) <= "0000"; 
-		MR3_SETTINGS( 9) <= "0000";
-		MR3_SETTINGS( 8) <= "0000";
-		MR3_SETTINGS( 7) <= "0000"; 
-		MR3_SETTINGS( 6) <= "0000"; 
-		MR3_SETTINGS( 5) <= "0000"; 
-		MR3_SETTINGS( 4) <= "0000"; 
-		MR3_SETTINGS( 3) <= "0000"; 
-		MR3_SETTINGS( 2) <= "0000"; -- A(2) = Multi-purpose register operation (RD test pattern off) [*** this is used for read leveling]
-		MR3_SETTINGS( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
-		MR3_SETTINGS( 0) <= "0000"; 
+		MR2_SETTINGS <= (
+		'0', -- A(15 downto 11) = 0
+		'0',
+		'0',
+		'0',
+		'0',
+		'0', -- A(10 downto 9) = Rtt_WR (dynamic ODT off)
+		'0',
+		'0', -- A(8) = 0
+		'0', -- A(7) = Self-refresh temperature range (normal)
+		'0', -- A(6) = Auto self-refresh (manual)
+		'0', -- A(5 downto 3) = CAS write latency (5). Must be 5 b/c tCK = 2.5ns
+		'0', 
+		'0', 
+		'0', -- A(2 downto 0) = Partial array self refresh (full array)
+		'0', 
+		'0' 
+		);
+
+		MR3_SETTINGS <= (
+		'0', -- A(15 downto 3) = 0
+		'0',
+		'0',
+		'0',
+		'0',
+		'0', 
+		'0',
+		'0',
+		'0', 
+		'0', 
+		'0', 
+		'0', 
+		'0', 
+		'0', -- A(2) = Multi-purpose register operation (RD test pattern off) [*** this is used for read leveling]
+		'0', -- A(1 downto 0) = MPR location (predefined pattern)
+		'0' 
+		);
 		
-		MR3_SETTINGS_RL(15) <= "0000"; -- A(15 downto 3) = 0
-		MR3_SETTINGS_RL(14) <= "0000";
-		MR3_SETTINGS_RL(13) <= "0000";
-		MR3_SETTINGS_RL(12) <= "0000";
-		MR3_SETTINGS_RL(11) <= "0000";
-		MR3_SETTINGS_RL(10) <= "0000"; 
-		MR3_SETTINGS_RL( 9) <= "0000";
-		MR3_SETTINGS_RL( 8) <= "0000";
-		MR3_SETTINGS_RL( 7) <= "0000"; 
-		MR3_SETTINGS_RL( 6) <= "0000"; 
-		MR3_SETTINGS_RL( 5) <= "0000"; 
-		MR3_SETTINGS_RL( 4) <= "0000"; 
-		MR3_SETTINGS_RL( 3) <= "0000"; 
-		MR3_SETTINGS_RL( 2) <= "0010"; -- A(2) = Multi-purpose register operation (RD test pattern on)
-		MR3_SETTINGS_RL( 1) <= "0000"; -- A(1 downto 0) = MPR location (predefined pattern)
-		MR3_SETTINGS_RL( 0) <= "0000"; 
-	end if;
+		MR3_SETTINGS_RL <= (
+		'0', -- A(15 downto 3) = 0
+		'0',
+		'0',
+		'0',
+		'0',
+		'0', 
+		'0',
+		'0',
+		'0', 
+		'0', 
+		'0', 
+		'0', 
+		'0', 
+		'1', -- A(2) = Multi-purpose register operation (RD test pattern on)
+		'0', -- A(1 downto 0) = MPR location (predefined pattern)
+		'0' 
+		);	
+
+		ZQCL_SETTINGS <= (
+		'0',
+		'0',
+		'0',
+		'0',
+		'0',
+		'1', 
+		'0',
+		'0',
+		'0', 
+		'0', 
+		'0', 
+		'0', 
+		'0', 
+		'0',
+		'0',
+		'0' 
+		);	
+		
+		end if;
 	end process;
 
 
@@ -580,12 +634,10 @@ begin
 			
 		when INIT6 =>
 			-- Issue MRS command to load MR2 with all application settings
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.30 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0010";
-			mBA(0) <= "0000";
-			mMA <= MR2_SETTINGS;
+			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR2);
+			build_bus(mMA, MR2_SETTINGS);
 			
 			-- Note: the min time between MRS commands (tMRD) is 4 clocks.
 			-- I can get 4 clocks by using a delay of 0, but there's no real hurry
@@ -597,12 +649,10 @@ begin
 			
 		when INIT7 =>
 			-- Issue MRS command to load MR3 with all application settings
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.32 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0010";
-			mBA(0) <= "0010";
-			mMA <= MR3_SETTINGS;
+			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR3);
+			build_bus(mMA, MR3_SETTINGS);
 			delay_count <= 1;
 			state <= DELAY;
 			ret <= INIT8;
@@ -610,12 +660,10 @@ begin
 			
 		when INIT8 =>
 			-- Issue MRS command to load MR1 with all application settings and DLL enabled
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.27 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0000";
-			mBA(0) <= "0010";
-			mMA <= MR1_SETTINGS;
+			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR1);
+			build_bus(mMA, MR1_SETTINGS);
 			delay_count <= 1;
 			state <= DELAY;
 			ret <= INIT9;
@@ -623,12 +671,10 @@ begin
 			
 		when INIT9 =>
 			-- Issue MRS command to load MR0 with all application settings and DLL reset
-			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.24 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0000";
-			mBA(0) <= "0000";
-			mMA <= MR0_SETTINGS;
+			build_command(RANK_BOTH, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR0);
+			build_bus(mMA, MR0_SETTINGS);
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= INIT10;
@@ -640,9 +686,8 @@ begin
 		when INIT10 =>
 			-- Issue ZQCL command to start ZQ calibration
 			build_command(RANK_BOTH, rZQCL, mCS0,mCS1,mRAS,mCAS,mWE);
-			mMA(15 downto 11) <= (others => (others => '0'));
-			mMA(10) <= "0010";
-			mMA(9 downto 0) <= (others => (others => '0'));
+			mBA <= (others => (others => '0')); -- BA is "don't care" during ZQCL
+			build_bus(mMA, ZQCL_SETTINGS);
 			delay_count <= 256; -- tZQinit = max(512 clocks, 640ns). For 250MHz DDR clock, 512CK > 640ns
 			-- tDLLK will be satisfied by the time this delay is finished.
 			state <= DELAY;
@@ -657,12 +702,10 @@ begin
 		when WRITE_LEVELING_ENTER =>
 			-- Set MR1 again to enable write leveling.
 			-- Note that since the ranks share DQ and DQS, I can only turn one rank on.
-			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.27 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0000";
-			mBA(0) <= "0010";
-			mMA <= MR1_SETTINGS_WL;
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR1);
+			build_bus(mMA, MR1_SETTINGS_WL);
 
 			dqs_reading0 <= '0';
 			dqs_reading1 <= '0';
@@ -692,7 +735,7 @@ begin
 				debug_sync <= '0';
 			end if;
 			
-			if(MTEST = '1') then
+			if(MFORCE_INIT = '1') then
 				state <= WRITE_LEVELING_EXIT;
 			else
 				state <= WRITE_LEVELING;
@@ -706,12 +749,10 @@ begin
 			mDQS_TX <= (others => (others => '0'));
 			debug_sync <= '0';
 			-- This is a copy of INIT8
-			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.27 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0000";
-			mBA(0) <= "0010";
-			mMA <= MR1_SETTINGS;
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR1);
+			build_bus(mMA, MR1_SETTINGS);
 			delay_count <= 6; -- If the next command is going to be non-MRS, must wait tMOD (min 12 clocks)
 			state <= DELAY;
 			ret <= IDLE;
@@ -729,21 +770,17 @@ begin
 			dqs_reading3 <= '1';
 			-- precharge all, wait tRP (15ns)
 			build_command(RANK0, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
-			mBA <= (others => (others => '0'));
-			mMA(10) <= "0010";
-			mMA(15 downto 11) <= (others => (others => '0'));
-			mMA(9 downto 0) <= (others => (others => '0'));
+			mBA <= (others => (others => '0')); -- BA can be anything during precharge all
+			build_bus(mMA, PREA_SETTINGS); -- A10 high, everything else any valid value
 			delay_count <= 2;
 			state <= DELAY;
 			ret <= ENABLE_PATTERN;
 			
 		when ENABLE_PATTERN =>
-			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.32 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0010";
-			mBA(0) <= "0010";
-			mMA <= MR3_SETTINGS_RL;
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR3);
+			build_bus(mMA, MR3_SETTINGS_RL);
 			delay_count <= 6; -- wait tMOD
 			state <= DELAY;
 			ret <= READ_PATTERN;
@@ -789,12 +826,10 @@ begin
 		
 	
 		when READ_PATTERN_EXIT =>
-			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			-- see p.32 of spec
-			mBA(2) <= "0000";
-			mBA(1) <= "0010";
-			mBA(0) <= "0010";
-			mMA <= MR3_SETTINGS;
+			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_bus(mBA, MR3);
+			build_bus(mMA, MR3_SETTINGS);
 			delay_count <= 6; -- wait until tMOD (max 12CK, 15ns), tMRD (4CK) satisfied
 			state <= DELAY;
 			ret <= IDLE;
