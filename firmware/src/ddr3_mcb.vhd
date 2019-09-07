@@ -451,10 +451,12 @@ architecture Behavioral of ddr3_mcb is
 	signal pop_count : natural range 0 to 255 := 0;
 	signal write_count : natural range 0 to 255 := 0;
 	signal saved : std_logic := '0';
-	signal saved_addr1 : std_logic_vector(26 downto 0) := (others => '0');
+	signal saved_addr : std_logic_vector(26 downto 0) := (others => '0');
 	signal saved_addr2 : std_logic_vector(26 downto 0) := (others => '0');
 	signal saved_data1 : std_logic_vector(255 downto 0) := (others => '0');
 	signal saved_data2 : std_logic_vector(255 downto 0) := (others => '0');
+	signal debug_data : std_logic_vector(255 downto 0) := (others => '0');
+	signal debug_we : std_logic := '0';
 	signal have_open_row : std_logic := '0';
 	signal open_row : std_logic_vector((1+3+16)-1 downto 0); -- rank + bank + row uniquely identifies what's open
 	
@@ -625,15 +627,12 @@ begin
 			READ_PATTERN,
 			READ_PATTERN_EXIT,
 			BEGIN_TRANSACTION,
-			WRITE_TEST1,
-			WRITE_TEST2,
-			WRITE_TEST3,
-			WRITE_TEST4,
-			WRITE_TEST5,
-			WRITE_TEST6,
-			READ_TEST1,
-			READ_TEST2,
-			READ_TEST3
+			BEGIN2,
+			WRITE_A,
+			WRITE_B,
+			CLOSE_ROW,
+			ACT_ROW,
+			WRITE_FINISH
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
@@ -675,6 +674,8 @@ begin
 		variable vrow : std_logic_vector(15 downto 0);
 		variable vcol : std_logic_vector(9 downto 0);
 		variable vrowid : std_logic_vector((1+3+16)-1 downto 0);
+		variable vaddr : std_logic_vector(26 downto 0);
+		variable vdata : std_logic_vector(255 downto 0);
 		variable words_available : natural;
 		variable transaction_size : natural;
 	begin
@@ -961,9 +962,8 @@ begin
 				state <= IDLE;
 			else
 				saved <= '0';
-				saved_addr1 <= (others => '0');
+				saved_addr <= (others => '0');
 				saved_data1 <= (others => '0');
-				saved_addr2 <= (others => '0');
 				saved_data2 <= (others => '0');
 				have_open_row <= '0';
 				open_row <= (others => '0');
@@ -975,28 +975,39 @@ begin
 			
 		when BEGIN2 =>
 			popw <= '1';
+			pop_count <= pop_count + 1;
 			state <= WRITE_A;
 			
 		when WRITE_A =>
 			if(write_count < actual_transaction_size) then
 			
-				get_rowid(vrowid, MADDR_W);
-				get_rank(vrank, MADDR_W);
-				get_bank(vbank, MADDR_W);
-				get_col(vcol, MADDR_W);
+				-- saved data is left over from elements we popped from the fifo
+				-- but had to hold off on writing because their row wasn't open yet
+				if(saved = '1') then
+					vaddr := saved_addr;
+					vdata := saved_data1;
+				else
+					vaddr := MADDR_W;
+					vdata := MDATA_W;
+				end if;
+				
+				get_rowid(vrowid, vaddr);
+				get_rank(vrank, vaddr);
+				get_bank(vbank, vaddr);
+				get_col(vcol, vaddr);
 				
 				if(have_open_row = '1' and vrowid = open_row) then
 					-- This is the most common case, when the row is already open
 					debug_we <= '1';
 					if(vrank = '0') then
-						build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+						build_command(RANK0, rWR, mCS0,mCS1,mRAS,mCAS,mWE);
 					else
-						build_command(RANK1, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+						build_command(RANK1, rWR, mCS0,mCS1,mRAS,mCAS,mWE);
 					end if;
 					build_bus(mBA, vbank);
 					build_col_bus(mMA, vcol);
 					-- data goes into a shift register to account for CAS write latency
-					debug_data <= MDATA_W;
+					debug_data <= vdata;
 					write_count <= write_count + 1;
 					
 					if(pop_count < actual_transaction_size) then
@@ -1021,8 +1032,8 @@ begin
 					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					popw <= '0';
 					saved <= '1';
-					saved_addr1 <= MADDR_W;
-					saved_data1 <= MDATA_W;
+					saved_addr <= MADDR_W;
+					saved_data1 <= MDATA_W; -- second data saved in CLOSE_ROW
 					delay_count <= 4;       -- 2 clocks to let data finish escaping, 2 to meet tWR
 					state <= CLOSE_ROW;
 					ret <= WRITE_A;
@@ -1042,23 +1053,45 @@ begin
 			-- stream data out. The write-to-write time is 4CK.
 			debug_we <= '0';
 			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-			debug_data <= MDATA_W;
+			
+			if(saved = '1') then
+				debug_data <= saved_data2;
+				saved <= '0';
+			else
+				debug_data <= MDATA_W;
+			end if;
 			write_count <= write_count + 1;
+			
+			if(pop_count < actual_transaction_size) then
+				popw <= '1';
+				pop_count <= pop_count + 1;
+			else
+				popw <= '0';
+			end if;
+			
 			state <= WRITE_A;
 
 		when CLOSE_ROW =>
+			if(delay_count = 4) then
+				saved_data2 <= MDATA_W;
+			end if;
+			
 			if(delay_count = 0) then
 				build_command(RANK_BOTH, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
 				mBA <= (others => (others => '0')); -- BA can be anything during precharge all
 				build_bus(mMA, PREA_SETTINGS); -- A10 high, everything else any valid value
+				
+				have_open_row <= '0';
+				open_row <= (others => '0');
+				
 				delay_count <= 2; -- meet tRP
-				state <= OPEN_ROW;
+				state <= ACT_ROW;
 			else
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				delay_count <= delay_count - 1;
 			end if;
 		
-		when OPEN_ROW =>
+		when ACT_ROW =>
 			-- There's 3 ways to reach here. We could be doing a close-open cycle from a write
 			-- or from a read. Or we could be trying to switch from writing to reading. In the
 			-- latter case, we don't actually want to do an ACT yet. I can skip the ACT by
@@ -1066,10 +1099,26 @@ begin
 			-- data put on hold while the PREA/ACT takes place.
 			
 			if(delay_count = 0) then
-				if(saved = '1') then
+				if(saved = '0') then
+					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					state <= ret;
 				else
-					-- ACT
+					get_rank(vrank, saved_addr);
+					get_bank(vbank, saved_addr);
+					get_row(vrow, saved_addr);
+					get_rowid(vrowid, saved_addr);
+					
+					if(vrank = '0') then
+						build_command(RANK0, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
+					else
+						build_command(RANK1, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
+					end if;
+					build_bus(mBA, vbank);
+					build_bus(mMA, vrow);
+					
+					have_open_row <= '1';
+					open_row <= vrowid;
+					
 					delay_count <= 2;
 					state <= DELAY;
 					-- ret was set by WRITE_A or the read state, this allows the close-open cycle
@@ -1083,6 +1132,7 @@ begin
 			
 		when WRITE_FINISH =>
 			-- move on to reading
+			state <= WRITE_FINISH;
 				
 
 	end case;
