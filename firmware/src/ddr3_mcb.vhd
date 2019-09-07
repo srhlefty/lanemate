@@ -353,6 +353,19 @@ architecture Behavioral of ddr3_mcb is
 		end loop;
 	end procedure;
 
+	procedure build_col_bus(
+		signal addrbus : out burst_t(15 downto 0);
+		constant col : in std_logic_vector(9 downto 0) 
+	) is
+	begin
+		for i in 10 to addrbus'high loop
+			addrbus(i) <= "0000";
+		end loop;
+		for i in 0 to col'high loop
+			addrbus(i) <= "00" & col(i) & "0";
+		end loop;
+	end procedure;
+
 		
 	
 	signal MR0_SETTINGS    : std_logic_vector(15 downto 0) := (others => '0');
@@ -368,7 +381,86 @@ architecture Behavioral of ddr3_mcb is
 	constant MR2 : std_logic_vector(2 downto 0) := "010";
 	constant MR3 : std_logic_vector(2 downto 0) := "011";
 	constant PREA_SETTINGS : std_logic_vector(15 downto 0) := "0000010000000000"; -- A10 high, everything else any valid value
+	
+	constant TEST_WORD1 : burst_t(63 downto 0) := 
+	(
+		x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
+		x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
+		x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
+		x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
+	);
+	constant TEST_WORD2 : burst_t(63 downto 0) :=
+	(
+		x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
+		x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
+		x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
+		x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
+	);
+	constant TEST_ADDR : std_logic_vector(26 downto 0) := "0" & "000" & x"0000" & "0000000";
+	alias TEST_RANK : std_logic is TEST_ADDR(26);
+	alias TEST_BANK : std_logic_vector(2 downto 0) is TEST_ADDR(25 downto 23);
+	alias TEST_ROW  : std_logic_vector(15 downto 0) is TEST_ADDR(22 downto 7);
+	alias TEST_COL  : std_logic_vector(6 downto 0) is TEST_ADDR(6 downto 0);
+	
+	
+	
+	
+	
+	procedure get_rank( 
+		variable rank : out std_logic;
+		constant addr : in std_logic_vector(26 downto 0)
+	) is
+	begin
+		rank := addr(26);
+	end procedure;
+	
+	procedure get_bank( 
+		variable bank : out std_logic_vector(2 downto 0);
+		constant addr : in std_logic_vector(26 downto 0)
+	) is
+	begin
+		bank := addr(25 downto 23);
+	end procedure;
+	
+	procedure get_row( 
+		variable row : out std_logic_vector(15 downto 0);
+		constant addr : in std_logic_vector(26 downto 0)
+	) is
+	begin
+		row := addr(22 downto 7);
+	end procedure;
+	
+	procedure get_col( 
+		variable col : out std_logic_vector(9 downto 0);
+		constant addr : in std_logic_vector(26 downto 0)
+	) is
+	begin
+		col := addr(6 downto 0) & "000";
+	end procedure;
+	
+	procedure get_rowid( 
+		variable rowid : out std_logic_vector((1+3+16)-1 downto 0);
+		constant addr : in std_logic_vector(26 downto 0)
+	) is
+	begin
+		rowid := addr(26 downto 7);
+	end procedure;
+	
+	
+	signal popw : std_logic := '0';
+	signal pop_count : natural range 0 to 255 := 0;
+	signal write_count : natural range 0 to 255 := 0;
+	signal saved : std_logic := '0';
+	signal saved_addr1 : std_logic_vector(26 downto 0) := (others => '0');
+	signal saved_addr2 : std_logic_vector(26 downto 0) := (others => '0');
+	signal saved_data1 : std_logic_vector(255 downto 0) := (others => '0');
+	signal saved_data2 : std_logic_vector(255 downto 0) := (others => '0');
+	signal have_open_row : std_logic := '0';
+	signal open_row : std_logic_vector((1+3+16)-1 downto 0); -- rank + bank + row uniquely identifies what's open
+	
 begin
+
+	MPOP_W <= popw;
 
 	process(MCLK) is
 	begin
@@ -531,7 +623,17 @@ begin
 			READ_PATTERN_ENTER,
 			ENABLE_PATTERN,
 			READ_PATTERN,
-			READ_PATTERN_EXIT
+			READ_PATTERN_EXIT,
+			BEGIN_TRANSACTION,
+			WRITE_TEST1,
+			WRITE_TEST2,
+			WRITE_TEST3,
+			WRITE_TEST4,
+			WRITE_TEST5,
+			WRITE_TEST6,
+			READ_TEST1,
+			READ_TEST2,
+			READ_TEST3
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
@@ -548,6 +650,12 @@ begin
 		signal leveling_lane : natural range 0 to 7 := 0;
 		signal leveling_finished : std_logic := '0';
 		constant LEVELING_CYCLE : natural := 32;
+		
+		constant tWR : natural := 2; -- write recovery
+		constant tRCD : natural := 2; -- ACT to RD/WR
+		
+		signal actual_transaction_size : natural range 0 to 255 := 0;
+		signal words_transferred : natural range 0 to 255 := 0;
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -562,6 +670,13 @@ begin
 		end generate;
 	
 	process(MCLK) is
+		variable vrank : std_logic;
+		variable vbank : std_logic_vector(2 downto 0);
+		variable vrow : std_logic_vector(15 downto 0);
+		variable vcol : std_logic_vector(9 downto 0);
+		variable vrowid : std_logic_vector((1+3+16)-1 downto 0);
+		variable words_available : natural;
+		variable transaction_size : natural;
 	begin
 	if(rising_edge(MCLK)) then
 	case state is
@@ -569,6 +684,10 @@ begin
 		when IDLE =>
 			if(MFORCE_INIT = '1' and IOCLK_LOCKED = '1') then
 				state <= INIT1;
+			elsif(MTEST = '1' and IOCLK_LOCKED = '1') then
+				actual_transaction_size <= to_integer(unsigned(MAVAIL(7 downto 0)));
+				words_transferred <= 0;
+				state <= BEGIN_TRANSACTION;
 			end if;
 			debug_string <= "IDLE  ";
 			
@@ -835,6 +954,136 @@ begin
 			ret <= IDLE;
 
 
+
+
+		when BEGIN_TRANSACTION =>
+			if(actual_transaction_size = 0) then
+				state <= IDLE;
+			else
+				saved <= '0';
+				saved_addr1 <= (others => '0');
+				saved_data1 <= (others => '0');
+				saved_addr2 <= (others => '0');
+				saved_data2 <= (others => '0');
+				have_open_row <= '0';
+				open_row <= (others => '0');
+				popw <= '1';
+				pop_count <= 1;
+				write_count <= 0;
+				state <= BEGIN2;
+			end if;
+			
+		when BEGIN2 =>
+			popw <= '1';
+			state <= WRITE_A;
+			
+		when WRITE_A =>
+			if(write_count < actual_transaction_size) then
+			
+				get_rowid(vrowid, MADDR_W);
+				get_rank(vrank, MADDR_W);
+				get_bank(vbank, MADDR_W);
+				get_col(vcol, MADDR_W);
+				
+				if(have_open_row = '1' and vrowid = open_row) then
+					-- This is the most common case, when the row is already open
+					debug_we <= '1';
+					if(vrank = '0') then
+						build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					else
+						build_command(RANK1, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					end if;
+					build_bus(mBA, vbank);
+					build_col_bus(mMA, vcol);
+					-- data goes into a shift register to account for CAS write latency
+					debug_data <= MDATA_W;
+					write_count <= write_count + 1;
+					
+					if(pop_count < actual_transaction_size) then
+						popw <= '1';
+						pop_count <= pop_count + 1;
+					else
+						popw <= '0';
+					end if;
+					
+					state <= WRITE_B;
+				
+				else
+					-- If there's no row open, or the open row isn't the one we want,
+					-- then we need to pause and open it. For simplicity, I don't
+					-- distinguish between these two cases, and always do PREA then ACT.
+					
+					-- Note that I have some data from the FIFO in-flight: it's likely
+					-- that on the previous two clock cycles popw was high. So here I
+					-- need to both shut off the FIFO emptying process, and save the
+					-- two data that will emerge anyway.
+					debug_we <= '0';
+					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					popw <= '0';
+					saved <= '1';
+					saved_addr1 <= MADDR_W;
+					saved_data1 <= MDATA_W;
+					delay_count <= 4;       -- 2 clocks to let data finish escaping, 2 to meet tWR
+					state <= CLOSE_ROW;
+					ret <= WRITE_A;
+				end if;
+
+			else
+				-- The correct number of words have been written, time to proceed to the
+				-- next stage of the transaction.
+				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				delay_count <= 2; -- meet tWR
+				state <= CLOSE_ROW;
+				ret <= WRITE_FINISH;
+			end if;
+		
+		when WRITE_B =>
+			-- Write commands only escape every other system clock in order to fully
+			-- stream data out. The write-to-write time is 4CK.
+			debug_we <= '0';
+			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+			debug_data <= MDATA_W;
+			write_count <= write_count + 1;
+			state <= WRITE_A;
+
+		when CLOSE_ROW =>
+			if(delay_count = 0) then
+				build_command(RANK_BOTH, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
+				mBA <= (others => (others => '0')); -- BA can be anything during precharge all
+				build_bus(mMA, PREA_SETTINGS); -- A10 high, everything else any valid value
+				delay_count <= 2; -- meet tRP
+				state <= OPEN_ROW;
+			else
+				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				delay_count <= delay_count - 1;
+			end if;
+		
+		when OPEN_ROW =>
+			-- There's 3 ways to reach here. We could be doing a close-open cycle from a write
+			-- or from a read. Or we could be trying to switch from writing to reading. In the
+			-- latter case, we don't actually want to do an ACT yet. I can skip the ACT by
+			-- detecting whether it's a close-open cycle. In those there's always some saved
+			-- data put on hold while the PREA/ACT takes place.
+			
+			if(delay_count = 0) then
+				if(saved = '1') then
+					state <= ret;
+				else
+					-- ACT
+					delay_count <= 2;
+					state <= DELAY;
+					-- ret was set by WRITE_A or the read state, this allows the close-open cycle
+					-- to be shared between the two paths
+				end if;
+			else
+				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				delay_count <= delay_count - 1;
+			end if;
+			
+			
+		when WRITE_FINISH =>
+			-- move on to reading
+				
 
 	end case;
 	end if;
