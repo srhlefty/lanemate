@@ -250,8 +250,8 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 	
 BEGIN
 
-	SYSCLK <= not SYSCLK after 8 ns;
-	PCLK <= not PCLK after 6.734 ns;
+	SYSCLK <= not SYSCLK after 5 ns; -- external crystal is 100MHz
+	PCLK <= not PCLK after 3.367 ns; -- 148.5MHz (1080p60)
 	
 	Inst_clkgen: clkgen PORT MAP(
 		SYSCLK100        => SYSCLK,
@@ -432,15 +432,27 @@ BEGIN
 			end loop;
 		end procedure;
 		
+		procedure build_addr(
+			variable addr : out std_logic_vector(26 downto 0);
+			constant rank : in std_logic;
+			constant bank : in std_logic_vector(2 downto 0);
+			constant row  : in std_logic_vector(15 downto 0);
+			constant col  : in std_logic_vector(6 downto 0)
+		) is
+		begin
+			addr := rank & bank & row & col;
+		end procedure;
+		
 		
 		signal count : natural := 0;
 	begin
 		process(PCLK) is
 			variable wdata : std_logic_vector(255 downto 0);
 			variable vcount : std_logic_vector(255 downto 0);
+			variable base_addr : std_logic_vector(26 downto 0);
 			variable vaddr : natural;
 			variable vaddrinc : natural;
-			variable newaddr : std_logic_vector(TEST_WORD1'high downto 0);
+			variable newaddr : std_logic_vector(26 downto 0);
 		begin
 		if(rising_edge(PCLK)) then
 		case state is
@@ -452,7 +464,12 @@ BEGIN
 				state <= IDLE;
 			
 			when FILLING =>
-				vaddr := to_integer(unsigned(TEST_ADDR));
+				if(count < 16) then
+					base_addr := '0' & "000" & x"0000" & "0000000";
+				else
+					base_addr := '0' & "000" & x"1000" & "0000000";
+				end if;
+				vaddr := to_integer(unsigned(base_addr));
 				vaddrinc := vaddr + count / 2;
 				newaddr := std_logic_vector(to_unsigned(vaddrinc, newaddr'length));
 				if(count mod 2 = 0) then

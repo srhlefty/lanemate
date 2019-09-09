@@ -627,8 +627,10 @@ begin
 		signal leveling_finished : std_logic := '0';
 		constant LEVELING_CYCLE : natural := 32;
 		
-		constant tWR : natural := 2; -- write recovery
-		constant tRCD : natural := 2; -- ACT to RD/WR
+		-- For the time delays, I subtract 1 because one clock is consumed by switching to the DELAY state
+		constant tWR  : natural := 2 - 1; -- Write recovery time. 15ns
+		constant tRP  : natural := 2 - 1; -- PRE duration. 15ns
+		constant tRCD : natural := 0; -- ACT to RD/WR. 15ns min. (1 clock to get to DELAY, 1 clock to get to WRITE)
 		
 		signal actual_transaction_size : natural range 0 to 255 := 0;
 	begin
@@ -1009,7 +1011,7 @@ begin
 					saved <= '1';
 					saved_addr <= MADDR_W;
 					saved_data1 <= MDATA_W; -- second data saved in CLOSE_ROW
-					delay_count <= 4;       -- 2 clocks to let data finish escaping, 2 to meet tWR
+					delay_count <= tWR+2;       -- 2 clocks to let data finish escaping, 2 to meet tWR
 					state <= CLOSE_ROW;
 					ret <= WRITE_A;
 				end if;
@@ -1018,7 +1020,7 @@ begin
 				-- The correct number of words have been written, time to proceed to the
 				-- next stage of the transaction.
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-				delay_count <= 2; -- meet tWR
+				delay_count <= tWR; -- meet tWR
 				state <= CLOSE_ROW;
 				ret <= WRITE_FINISH;
 			end if;
@@ -1047,7 +1049,7 @@ begin
 			state <= WRITE_A;
 
 		when CLOSE_ROW =>
-			if(delay_count = 4) then
+			if(delay_count = tWR+2) then
 				saved_data2 <= MDATA_W;
 			end if;
 			
@@ -1060,7 +1062,7 @@ begin
 					have_open_row <= '0';
 					open_row <= (others => '0');
 					
-					delay_count <= 2; -- meet tRP
+					delay_count <= tRP; -- meet tRP
 				else
 					delay_count <= 0;
 				end if;
@@ -1103,7 +1105,7 @@ begin
 				have_open_row <= '1';
 				open_row <= vrowid;
 				
-				delay_count <= 2;
+				delay_count <= tRCD;
 				state <= DELAY;
 				-- ret was set by WRITE_A or the read state, this allows the close-open cycle
 				-- to be shared between the two paths
