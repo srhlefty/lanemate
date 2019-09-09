@@ -435,7 +435,7 @@ architecture Behavioral of ddr3_mcb is
 	signal saved_addr2 : std_logic_vector(26 downto 0) := (others => '0');
 	signal saved_data1 : std_logic_vector(255 downto 0) := (others => '0');
 	signal saved_data2 : std_logic_vector(255 downto 0) := (others => '0');
-	signal debug_data : std_logic_vector(255 downto 0) := (others => '0');
+	signal out_data : std_logic_vector(255 downto 0) := (others => '0');
 	signal debug_we : std_logic := '0';
 	signal have_open_row : std_logic := '0';
 	signal open_row : std_logic_vector((1+3+16)-1 downto 0); -- rank + bank + row uniquely identifies what's open
@@ -947,7 +947,7 @@ begin
 				saved_data2 <= (others => '0');
 				have_open_row <= '0';
 				open_row <= (others => '0');
-				debug_data <= (others => '0');
+				out_data <= (others => '0');
 				popw <= '1';
 				pop_count <= 1;
 				write_count <= 0;
@@ -994,7 +994,7 @@ begin
 					build_bus(mBA, vbank);
 					build_col_bus(mMA, vcol);
 					-- data goes into a shift register to account for CAS write latency
-					debug_data <= vdata;
+					out_data <= vdata;
 					write_count <= write_count + 1;
 					
 					if(pop_count < actual_transaction_size) then
@@ -1017,7 +1017,7 @@ begin
 					-- two data that will emerge anyway.
 					debug_we <= '0';
 					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-					debug_data <= (others => '0');
+					out_data <= (others => '0');
 					popw <= '0';
 					saved <= '1';
 					saved_addr <= MADDR_W;
@@ -1031,7 +1031,7 @@ begin
 				-- The correct number of words have been written, time to proceed to the
 				-- next stage of the transaction.
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-				debug_data <= (others => '0');
+				out_data <= (others => '0');
 				delay_count <= tWR; -- meet tWR
 				state <= CLOSE_ROW;
 				ret <= WRITE_FINISH;
@@ -1044,10 +1044,10 @@ begin
 			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 			
 			if(saved = '1') then
-				debug_data <= saved_data2;
+				out_data <= saved_data2;
 				saved <= '0';
 			else
-				debug_data <= MDATA_W;
+				out_data <= MDATA_W;
 			end if;
 			write_count <= write_count + 1;
 			
@@ -1061,7 +1061,7 @@ begin
 			state <= WRITE_A;
 
 		when CLOSE_ROW =>
-			debug_data <= (others => '0');
+			out_data <= (others => '0');
 			if(delay_count = tWR) then
 				saved_data2 <= MDATA_W;
 			end if;
@@ -1101,7 +1101,7 @@ begin
 			end if;
 		
 		when ACT_ROW =>
-			debug_data <= (others => '0');
+			out_data <= (others => '0');
 			if(delay_count = 0) then
 				get_rank(vrank, saved_addr);
 				get_bank(vbank, saved_addr);
@@ -1131,7 +1131,7 @@ begin
 			
 		when WRITE_FINISH =>
 			-- move on to reading
-			debug_data <= (others => '0');
+			out_data <= (others => '0');
 			dq_reading0 <= '1';
 			dq_reading1 <= '1';
 			dq_reading3 <= '1';
@@ -1164,7 +1164,7 @@ begin
 			variable dout : burst_t(63 downto 0);
 		begin
 		if(rising_edge(MCLK)) then
-			d1 <= debug_data;
+			d1 <= out_data;
 			d2 <= d1;
 			flat_to_burst(dout, d2);
 			mDQ_TX <= dout;
