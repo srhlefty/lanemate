@@ -32,6 +32,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use work.pkg_types.all;
 
 entity ddr3_phy is
+	Generic (
+		DEBUG : boolean := false
+	);
 	Port ( 
 		MCLK : in  STD_LOGIC;
 	
@@ -120,16 +123,28 @@ architecture Behavioral of ddr3_phy is
 	);
 	end component;
 
-
 	type delay_array_t is array(0 to 7) of natural;
-	constant LANE_INPUT_DELAY  : delay_array_t := (16,48, 0,37,45,37,24,32);
-	constant LANE_OUTPUT_DELAY : delay_array_t := (22,29,34,39,35,48,54,54);
+	constant LANE_INPUT_DELAY_REAL  : delay_array_t := (16,48, 0,37,45,37,24,32);
+	constant LANE_OUTPUT_DELAY_REAL : delay_array_t := (22,29,34,39,35,48,54,54);
+	constant LANE_INPUT_DELAY_DEBUG  : delay_array_t := (others => 0);
+	constant LANE_OUTPUT_DELAY_DEBUG : delay_array_t := (others => 0);
+	signal LANE_INPUT_DELAY : delay_array_t;
+	signal LANE_OUTPUT_DELAY : delay_array_t;
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
 	
 	signal mDQ_RX_buf : burst_t(63 downto 0) := (others => (others => '0'));
 begin
 
+	gen_const_real : if(DEBUG = false) generate
+		LANE_INPUT_DELAY <= LANE_INPUT_DELAY_REAL;
+		LANE_OUTPUT_DELAY <= LANE_OUTPUT_DELAY_REAL;
+	end generate;
+
+	gen_const_debug : if(DEBUG = true) generate
+		LANE_INPUT_DELAY <= LANE_INPUT_DELAY_DEBUG;
+		LANE_OUTPUT_DELAY <= LANE_OUTPUT_DELAY_DEBUG;
+	end generate;
 
 	DM <= (others => 'L');
 	

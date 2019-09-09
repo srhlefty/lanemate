@@ -21,7 +21,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="30" />
+   <WVObjectSize size="31" />
    <wvobject fp_name="/ddr3_mcb_tb/uut/mclk" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mclk</obj_property>
       <obj_property name="ObjectShortName">mclk</obj_property>
@@ -79,6 +79,10 @@
    <wvobject fp_name="/ddr3_mcb_tb/uut/dqsp" type="array" db_ref_id="1">
       <obj_property name="ElementShortName">dqsp[7:0]</obj_property>
       <obj_property name="ObjectShortName">dqsp[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/dq" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">dq[63:0]</obj_property>
+      <obj_property name="ObjectShortName">dq[63:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/ddr3_mcb_tb/uut/mdebug_sync" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mdebug_sync</obj_property>

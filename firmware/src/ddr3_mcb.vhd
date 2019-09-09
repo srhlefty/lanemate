@@ -109,6 +109,9 @@ end ddr3_mcb;
 architecture Behavioral of ddr3_mcb is
 
 	component ddr3_phy is
+	Generic (
+		DEBUG : boolean := false
+	);
 	Port ( 
 		MCLK : in  STD_LOGIC;
 	
@@ -628,7 +631,7 @@ begin
 		constant LEVELING_CYCLE : natural := 32;
 		
 		-- For the time delays, I subtract 1 because one clock is consumed by switching to the DELAY state
-		constant tWR  : natural := 2 - 1; -- Write recovery time. 15ns
+		constant tWR  : natural := 4; -- Write recovery time. 15ns but in this case I need to let data finish actually coming out
 		constant tRP  : natural := 2 - 1; -- PRE duration. 15ns
 		constant tRCD : natural := 0; -- ACT to RD/WR. 15ns min. (1 clock to get to DELAY, 1 clock to get to WRITE)
 		
@@ -944,6 +947,7 @@ begin
 				saved_data2 <= (others => '0');
 				have_open_row <= '0';
 				open_row <= (others => '0');
+				debug_data <= (others => '0');
 				popw <= '1';
 				pop_count <= 1;
 				write_count <= 0;
@@ -956,6 +960,12 @@ begin
 			state <= WRITE_A;
 			
 		when WRITE_A =>
+			dq_reading0 <= '0';
+			dq_reading1 <= '0';
+			dq_reading3 <= '0';
+			dqs_reading0 <= '0';
+			dqs_reading1 <= '0';
+			dqs_reading3 <= '0';
 			if(write_count < actual_transaction_size) then
 			
 				-- saved data is left over from elements we popped from the fifo
@@ -1007,11 +1017,12 @@ begin
 					-- two data that will emerge anyway.
 					debug_we <= '0';
 					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					debug_data <= (others => '0');
 					popw <= '0';
 					saved <= '1';
 					saved_addr <= MADDR_W;
 					saved_data1 <= MDATA_W; -- second data saved in CLOSE_ROW
-					delay_count <= tWR+2;       -- 2 clocks to let data finish escaping, 2 to meet tWR
+					delay_count <= tWR;       -- 2 clocks to let data finish escaping, 2 to meet tWR
 					state <= CLOSE_ROW;
 					ret <= WRITE_A;
 				end if;
@@ -1020,6 +1031,7 @@ begin
 				-- The correct number of words have been written, time to proceed to the
 				-- next stage of the transaction.
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				debug_data <= (others => '0');
 				delay_count <= tWR; -- meet tWR
 				state <= CLOSE_ROW;
 				ret <= WRITE_FINISH;
@@ -1049,7 +1061,8 @@ begin
 			state <= WRITE_A;
 
 		when CLOSE_ROW =>
-			if(delay_count = tWR+2) then
+			debug_data <= (others => '0');
+			if(delay_count = tWR) then
 				saved_data2 <= MDATA_W;
 			end if;
 			
@@ -1088,6 +1101,7 @@ begin
 			end if;
 		
 		when ACT_ROW =>
+			debug_data <= (others => '0');
 			if(delay_count = 0) then
 				get_rank(vrank, saved_addr);
 				get_bank(vbank, saved_addr);
@@ -1117,12 +1131,46 @@ begin
 			
 		when WRITE_FINISH =>
 			-- move on to reading
+			debug_data <= (others => '0');
+			dq_reading0 <= '1';
+			dq_reading1 <= '1';
+			dq_reading3 <= '1';
+			dqs_reading0 <= '1';
+			dqs_reading1 <= '1';
+			dqs_reading3 <= '1';
 			state <= WRITE_FINISH;
 				
 
 	end case;
 	end if;
 	end process;
+	
+		cas_delay : block is
+			signal d1 : std_logic_vector(255 downto 0) := (others => '0');
+			signal d2 : std_logic_vector(255 downto 0) := (others => '0');
+			
+			procedure flat_to_burst(
+				variable d : out burst_t(63 downto 0);
+				constant din : in std_logic_vector(255 downto 0)
+			) is
+			begin
+				for i in 0 to d'high loop
+					d(i) := din(4*i+3 downto 4*i);
+				end loop;
+			end procedure;
+			
+		begin
+		process(MCLK) is
+			variable dout : burst_t(63 downto 0);
+		begin
+		if(rising_edge(MCLK)) then
+			d1 <= debug_data;
+			d2 <= d1;
+			flat_to_burst(dout, d2);
+			mDQ_TX <= dout;
+		end if;
+		end process;
+		end block;
 	
 		read_leveling : block is
 			type lstate_t is (IDLE, SEEK, WAIT_FOR_NEXT, VALIDATE, FINISH);
@@ -1265,7 +1313,9 @@ begin
 
 
 
-	Inst_ddr3_phy: ddr3_phy PORT MAP(
+	Inst_ddr3_phy: ddr3_phy 
+	generic map ( DEBUG => DEBUG )
+	PORT MAP(
 		MCLK          => MCLK,
 		mDDR_RESET    => mDDR_RESET,
 		mCKE0         => mCKE0,
