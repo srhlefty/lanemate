@@ -21,7 +21,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="10" />
+   <WVObjectSize size="30" />
    <wvobject fp_name="/ddr3_mcb_tb/uut/mclk" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mclk</obj_property>
       <obj_property name="ObjectShortName">mclk</obj_property>
@@ -83,5 +83,91 @@
    <wvobject fp_name="/ddr3_mcb_tb/uut/mdebug_sync" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mdebug_sync</obj_property>
       <obj_property name="ObjectShortName">mdebug_sync</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider84" type="divider">
+      <obj_property name="label">New Divider</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/paddr_w" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">paddr_w[26:0]</obj_property>
+      <obj_property name="ObjectShortName">paddr_w[26:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/pdata_w" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">pdata_w[255:0]</obj_property>
+      <obj_property name="ObjectShortName">pdata_w[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/ppush_w" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">ppush_w</obj_property>
+      <obj_property name="ObjectShortName">ppush_w</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider88" type="divider">
+      <obj_property name="label">New Divider</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/mpop_w" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mpop_w</obj_property>
+      <obj_property name="ObjectShortName">mpop_w</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/maddr_w" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">maddr_w[26:0]</obj_property>
+      <obj_property name="ObjectShortName">maddr_w[26:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/mdata_w" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">mdata_w[255:0]</obj_property>
+      <obj_property name="ObjectShortName">mdata_w[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/mdvalid_w" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">mdvalid_w</obj_property>
+      <obj_property name="ObjectShortName">mdvalid_w</obj_property>
+   </wvobject>
+   <wvobject fp_name="divider94" type="divider">
+      <obj_property name="label">New Divider</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="BkColor">128 128 255</obj_property>
+      <obj_property name="TextColor">230 230 230</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/fsm/state" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">state</obj_property>
+      <obj_property name="ObjectShortName">state</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/write_count" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">write_count</obj_property>
+      <obj_property name="ObjectShortName">write_count</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/pop_count" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">pop_count</obj_property>
+      <obj_property name="ObjectShortName">pop_count</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/have_open_row" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">have_open_row</obj_property>
+      <obj_property name="ObjectShortName">have_open_row</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/open_row" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">open_row[19:0]</obj_property>
+      <obj_property name="ObjectShortName">open_row[19:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/saved" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">saved</obj_property>
+      <obj_property name="ObjectShortName">saved</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/saved_data1" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">saved_data1[255:0]</obj_property>
+      <obj_property name="ObjectShortName">saved_data1[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/saved_data2" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">saved_data2[255:0]</obj_property>
+      <obj_property name="ObjectShortName">saved_data2[255:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/debug_we" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">debug_we</obj_property>
+      <obj_property name="ObjectShortName">debug_we</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/debug_data" type="array" db_ref_id="1">
+      <obj_property name="ElementShortName">debug_data[255:0]</obj_property>
+      <obj_property name="ObjectShortName">debug_data[255:0]</obj_property>
    </wvobject>
 </wave_config>

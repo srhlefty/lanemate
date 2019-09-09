@@ -382,29 +382,6 @@ architecture Behavioral of ddr3_mcb is
 	constant MR3 : std_logic_vector(2 downto 0) := "011";
 	constant PREA_SETTINGS : std_logic_vector(15 downto 0) := "0000010000000000"; -- A10 high, everything else any valid value
 	
-	constant TEST_WORD1 : burst_t(63 downto 0) := 
-	(
-		x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
-		x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
-		x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
-		x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
-	);
-	constant TEST_WORD2 : burst_t(63 downto 0) :=
-	(
-		x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
-		x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
-		x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
-		x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
-	);
-	constant TEST_ADDR : std_logic_vector(26 downto 0) := "0" & "000" & x"0000" & "0000000";
-	alias TEST_RANK : std_logic is TEST_ADDR(26);
-	alias TEST_BANK : std_logic_vector(2 downto 0) is TEST_ADDR(25 downto 23);
-	alias TEST_ROW  : std_logic_vector(15 downto 0) is TEST_ADDR(22 downto 7);
-	alias TEST_COL  : std_logic_vector(6 downto 0) is TEST_ADDR(6 downto 0);
-	
-	
-	
-	
 	
 	procedure get_rank( 
 		variable rank : out std_logic;
@@ -654,7 +631,6 @@ begin
 		constant tRCD : natural := 2; -- ACT to RD/WR
 		
 		signal actual_transaction_size : natural range 0 to 255 := 0;
-		signal words_transferred : natural range 0 to 255 := 0;
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -687,7 +663,6 @@ begin
 				state <= INIT1;
 			elsif(MTEST = '1' and IOCLK_LOCKED = '1') then
 				actual_transaction_size <= to_integer(unsigned(MAVAIL(7 downto 0)));
-				words_transferred <= 0;
 				state <= BEGIN_TRANSACTION;
 			end if;
 			debug_string <= "IDLE  ";
@@ -1077,53 +1052,61 @@ begin
 			end if;
 			
 			if(delay_count = 0) then
-				build_command(RANK_BOTH, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
-				mBA <= (others => (others => '0')); -- BA can be anything during precharge all
-				build_bus(mMA, PREA_SETTINGS); -- A10 high, everything else any valid value
+				if(have_open_row = '1') then
+					build_command(RANK_BOTH, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
+					mBA <= (others => (others => '0')); -- BA can be anything during precharge all
+					build_bus(mMA, PREA_SETTINGS); -- A10 high, everything else any valid value
+					
+					have_open_row <= '0';
+					open_row <= (others => '0');
+					
+					delay_count <= 2; -- meet tRP
+				else
+					delay_count <= 0;
+				end if;
 				
-				have_open_row <= '0';
-				open_row <= (others => '0');
+				if(saved = '0') then
+					-- If saved is zero, that means we're not waiting for a row to be opened,
+					-- meaning the next step is not ACT. In this case, ret has been set before
+					-- getting here, so I can skip the ACT state once tRP is satisfied.
+					if(have_open_row = '1') then
+						-- actual delay needed b/c we did the PRE
+						state <= DELAY;
+					else
+						state <= ret;
+					end if;
+				else
+					-- Data is waiting which means we need an ACT
+					state <= ACT_ROW;
+				end if;
 				
-				delay_count <= 2; -- meet tRP
-				state <= ACT_ROW;
 			else
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				delay_count <= delay_count - 1;
 			end if;
 		
 		when ACT_ROW =>
-			-- There's 3 ways to reach here. We could be doing a close-open cycle from a write
-			-- or from a read. Or we could be trying to switch from writing to reading. In the
-			-- latter case, we don't actually want to do an ACT yet. I can skip the ACT by
-			-- detecting whether it's a close-open cycle. In those there's always some saved
-			-- data put on hold while the PREA/ACT takes place.
-			
 			if(delay_count = 0) then
-				if(saved = '0') then
-					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
-					state <= ret;
+				get_rank(vrank, saved_addr);
+				get_bank(vbank, saved_addr);
+				get_row(vrow, saved_addr);
+				get_rowid(vrowid, saved_addr);
+				
+				if(vrank = '0') then
+					build_command(RANK0, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
 				else
-					get_rank(vrank, saved_addr);
-					get_bank(vbank, saved_addr);
-					get_row(vrow, saved_addr);
-					get_rowid(vrowid, saved_addr);
-					
-					if(vrank = '0') then
-						build_command(RANK0, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
-					else
-						build_command(RANK1, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
-					end if;
-					build_bus(mBA, vbank);
-					build_bus(mMA, vrow);
-					
-					have_open_row <= '1';
-					open_row <= vrowid;
-					
-					delay_count <= 2;
-					state <= DELAY;
-					-- ret was set by WRITE_A or the read state, this allows the close-open cycle
-					-- to be shared between the two paths
+					build_command(RANK1, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
 				end if;
+				build_bus(mBA, vbank);
+				build_bus(mMA, vrow);
+				
+				have_open_row <= '1';
+				open_row <= vrowid;
+				
+				delay_count <= 2;
+				state <= DELAY;
+				-- ret was set by WRITE_A or the read state, this allows the close-open cycle
+				-- to be shared between the two paths
 			else
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				delay_count <= delay_count - 1;

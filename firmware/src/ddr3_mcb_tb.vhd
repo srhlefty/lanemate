@@ -30,7 +30,9 @@ USE ieee.std_logic_1164.ALL;
  
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
+USE ieee.numeric_std.ALL;
+
+use work.pkg_types.all;
  
 ENTITY ddr3_mcb_tb IS
 END ddr3_mcb_tb;
@@ -119,26 +121,53 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 		LOCKED : out std_logic
 	);
 	end component;
+
+	component bram_simple_dual_port is
+	generic (
+		ADDR_WIDTH : natural;
+		DATA_WIDTH : natural
+	);
+    Port ( 
+		CLK1 : in std_logic;
+		WADDR1 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
+		WDATA1 : in std_logic_vector (DATA_WIDTH-1 downto 0);
+		WE1    : in std_logic;
+
+		CLK2 : in std_logic;
+		RADDR2 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
+		RDATA2 : out std_logic_vector (DATA_WIDTH-1 downto 0)
+	);
+	end component;
 	
---	component ddr_pin_se is
---	Generic ( 
---		IDELAY_VALUE : natural range 0 to 255 := 0;
---		ODELAY_VALUE : natural range 0 to 255 := 0
---	);
---	Port ( 
---		CLK : in  STD_LOGIC;
---		IOCLK : in std_logic;
---		STROBE : in std_logic;
---		READING : in std_logic;
---		
---		BITSLIP : in std_logic;
---		
---		TXD : in std_logic_vector(3 downto 0);
---		RXD : out std_logic_vector(3 downto 0);
---		PIN : inout std_logic
---	);
---	end component;
---
+	component fifo_2clk is
+	generic (
+		ADDR_WIDTH : natural;
+		DATA_WIDTH : natural
+	);
+    Port ( 
+		WRITE_CLK  : in std_logic;
+		RESET      : in std_logic;
+		FREE       : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+		DIN        : in std_logic_vector (DATA_WIDTH-1 downto 0);
+		PUSH       : in std_logic;
+
+		READ_CLK : in std_logic;
+		USED     : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+		DOUT     : out std_logic_vector (DATA_WIDTH-1 downto 0);
+		DVALID   : out std_logic;
+		POP      : in std_logic;
+		
+		-- Dual port ram interface, optionally erasable. Note you wire clocks.
+		RAM_WADDR : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+		RAM_WDATA : out std_logic_vector(DATA_WIDTH-1 downto 0);
+		RAM_WE    : out std_logic;
+		RAM_RESET : out std_logic;
+		
+		RAM_RADDR : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+		RAM_RDATA : in std_logic_vector(DATA_WIDTH-1 downto 0)
+	);
+	end component;
+	
    --Inputs
    signal MCLK : std_logic := '0';
    signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := x"10";
@@ -197,6 +226,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 
 
 	signal SYSCLK : std_logic := '0';
+	signal PCLK : std_logic := '0';
 
 	signal b0_serdesclk : std_logic;
 	signal b0_serdesstrobe : std_logic;
@@ -212,11 +242,16 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 	signal b3_serdesstrobe_180 : std_logic;
 	
 
+	signal PADDR_W :std_logic_vector(26 downto 0) := (others => '0');
+	signal PDATA_W : std_logic_vector(255 downto 0) := (others => '0');
+	signal PPUSH_W : std_logic := '0';
+
 	signal count : natural := 0;
 	
 BEGIN
 
-	SYSCLK <= not SYSCLK after 5 ns;
+	SYSCLK <= not SYSCLK after 8 ns;
+	PCLK <= not PCLK after 6.734 ns;
 	
 	Inst_clkgen: clkgen PORT MAP(
 		SYSCLK100        => SYSCLK,
@@ -303,75 +338,153 @@ BEGIN
         );
 
 
-	-- Look at this section in the simulator to verify data/clock phase is set correctly
+	writer_fifo_block : block is
+		constant ram_addr_width : natural := 9;
+		constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
+		constant ram_data_width_r : natural := 27; -- just address
+		
+		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_wdata1 : std_logic_vector(ram_data_width_w-1 downto 0);
+		signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_rdata2 : std_logic_vector(ram_data_width_w-1 downto 0);
+		signal ram_we : std_logic;
+		signal bus_in : std_logic_vector(ram_data_width_w-1 downto 0);
+		signal bus_out : std_logic_vector(ram_data_width_w-1 downto 0);
+	begin
 	
---	alignment_test : block is
---		signal data0 : std_logic_vector(3 downto 0) := "0000";
---		signal data180 : std_logic_vector(3 downto 0) := "0000";
---		signal pin_0 : std_logic;
---		signal pin_180 : std_logic;
---		signal delay : natural := 0;
---	begin
---	
---		pin_data0: ddr_pin_se 
---		generic map (
---			IDELAY_VALUE => 0,
---			ODELAY_VALUE => 0
---		)
---		port map (
---			CLK => MCLK,
---			IOCLK => b0_serdesclk,
---			STROBE => b0_serdesstrobe,
---			READING => '0',
---			BITSLIP => '0',
---			TXD => data0,
---			RXD => open,
---			PIN => pin_0
---		);
---		
---		pin_data180: ddr_pin_se 
---		generic map (
---			IDELAY_VALUE => 0,
---			ODELAY_VALUE => 0
---		)
---		port map (
---			CLK => MCLK,
---			IOCLK => b0_serdesclk_180,
---			STROBE => b0_serdesstrobe_180,
---			READING => '0',
---			BITSLIP => '0',
---			TXD => data180,
---			RXD => open,
---			PIN => pin_180
---		);
---		
---		process(MCLK) is
---		begin
---		if(rising_edge(MCLK)) then
---			if(delay = 100) then
---				data0 <= "1000";
---				data180 <= "1000";
---				delay <= 0;
---			else
---				data0 <= "0000";
---				data180 <= "0000";
---				delay <= delay + 1;
---			end if;
---		end if;
---		end process;
---	
---	end block;
+		write_bram: bram_simple_dual_port 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_w
+		)
+		PORT MAP(
+			CLK1 => PCLK,
+			WADDR1 => ram_waddr1,
+			WDATA1 => ram_wdata1,
+			WE1 => ram_we,
+			CLK2 => MCLK,
+			RADDR2 => ram_raddr2,
+			RDATA2 => ram_rdata2
+		);
+		
+		bus_in(ram_data_width_w-1 downto ram_data_width_w-27) <= PADDR_W;
+		bus_in(ram_data_width_w-27-1 downto 0)                <= PDATA_W;
+	
+		write_fifo: fifo_2clk 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_w
+		)
+		PORT MAP(
+			WRITE_CLK => PCLK,
+			RESET => '0',
+			FREE => open,
+			DIN => bus_in,
+			PUSH => PPUSH_W,
+			READ_CLK => MCLK,
+			USED => MAVAIL,
+			DOUT => bus_out,
+			DVALID => MDVALID_W,
+			POP => MPOP_W,
+			RAM_WADDR => ram_waddr1,
+			RAM_WDATA => ram_wdata1,
+			RAM_WE => ram_we,
+			RAM_RESET => open,
+			RAM_RADDR => ram_raddr2,
+			RAM_RDATA => ram_rdata2
+		);
+		
+		MADDR_W <= bus_out(ram_data_width_w-1 downto ram_data_width_w-27); -- 27 bits wide
+		MDATA_W <= bus_out(ram_data_width_w-27-1 downto 0);                -- 256 bits wide
+		
+	end block;
+
 
 	----------------------------------------------------------------------------
+
+	-- Fill FIFO with data-to-write
+	filler : block is
+		type state_t is (IDLE, FILLING);
+		signal state : state_t := FILLING;
+		constant TEST_WORD1 : burst_t(63 downto 0) := 
+		(
+			x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
+			x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
+			x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
+			x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
+		);
+		constant TEST_WORD2 : burst_t(63 downto 0) :=
+		(
+			x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
+			x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
+			x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
+			x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
+		);
+		constant TEST_ADDR : std_logic_vector(26 downto 0) := "0" & "000" & x"0000" & "0000000";
+		
+		procedure burst_to_flat(
+			variable flat : out std_logic_vector(255 downto 0);
+			constant burst : in burst_t(63 downto 0)
+		) is
+		begin
+			for i in 0 to burst'high loop
+				flat(4*i+3 downto 4*i) := burst(i);
+			end loop;
+		end procedure;
+		
+		
+		signal count : natural := 0;
+	begin
+		process(PCLK) is
+			variable wdata : std_logic_vector(255 downto 0);
+			variable vcount : std_logic_vector(255 downto 0);
+			variable vaddr : natural;
+			variable vaddrinc : natural;
+			variable newaddr : std_logic_vector(TEST_WORD1'high downto 0);
+		begin
+		if(rising_edge(PCLK)) then
+		case state is
+		
+			when IDLE =>
+				PADDR_W <= (others => '0');
+				PDATA_W <= (others => '0');
+				PPUSH_W <= '0';
+				state <= IDLE;
+			
+			when FILLING =>
+				vaddr := to_integer(unsigned(TEST_ADDR));
+				vaddrinc := vaddr + count / 2;
+				newaddr := std_logic_vector(to_unsigned(vaddrinc, newaddr'length));
+				if(count mod 2 = 0) then
+					burst_to_flat(wdata, TEST_WORD1);
+					PADDR_W <= newaddr;
+					PDATA_W <= wdata;
+					PPUSH_W <= '1';
+				else
+					burst_to_flat(wdata, TEST_WORD2);
+					PADDR_W <= newaddr;
+					PDATA_W <= wdata;
+					PPUSH_W <= '1';
+				end if;
+				
+				if(count = 29) then
+					state <= IDLE;
+				else
+					count <= count + 1;
+				end if;
+		end case;
+		end if;
+		end process;
+	end block;
 
 	process(MCLK) is
 	begin
 	if(rising_edge(MCLK) and LOCKED = '1') then
 		count <= count + 1;
-		if(count = 64 or count = 600) then
-			MFORCE_INIT <= '1';
+		if(count = 64) then
+			MTEST <= '1';
 		else
-			MFORCE_INIT <= '0';
+			MTEST <= '0';
 		end if;
 	end if;
 	end process;
