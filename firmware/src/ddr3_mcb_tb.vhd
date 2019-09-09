@@ -464,7 +464,7 @@ BEGIN
 				state <= IDLE;
 			
 			when FILLING =>
-				if(count < 28) then
+				if(count < 2) then
 					base_addr := '0' & "000" & x"0000" & "0000000";
 				else
 					base_addr := '0' & "000" & x"1000" & "0000000";
