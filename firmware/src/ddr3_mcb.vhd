@@ -195,6 +195,11 @@ architecture Behavioral of ddr3_mcb is
 	signal mDQ_RX : burst_t(63 downto 0);
 	signal latched_read : std_logic_vector(7 downto 0) := (others => '0');
 
+	type dqs_source_t is (IMMEDIATE, DELAYED);
+	signal dqs_source : dqs_source_t := IMMEDIATE;
+	signal dqs_immediate : burst_t(7 downto 0) := (others => (others => '0'));
+	signal dqs_delayed : burst_t(7 downto 0) := (others => (others => '0'));
+
 	attribute keep : string;
 	-- The compiler would typically prefer to optimize away the array into a single register
 	-- that gets passed to the OSERDES blocks. This is a problem because I'm using OSERDES
@@ -636,6 +641,7 @@ begin
 		constant tRCD : natural := 0; -- ACT to RD/WR. 15ns min. (1 clock to get to DELAY, 1 clock to get to WRITE)
 		
 		signal actual_transaction_size : natural range 0 to 255 := 0;
+		
 	begin
 		
 		gen_const_d : if(DEBUG = true) generate
@@ -676,7 +682,7 @@ begin
 			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 			mBA <= (others => (others => '0'));
 			mMA <= (others => (others => '0'));
-			mDQS_TX <= (others => (others => '0'));
+			dqs_immediate <= (others => (others => '0'));
 			if(delay_count = 0) then
 				state <= ret;
 			else
@@ -689,6 +695,7 @@ begin
 			-- Apply power. RESET# needs to be maintained (low) for a minimum 200us 
 			-- with stable power. CKE must be low at least 10ns before RESET# is
 			-- de-asserted, but this time can be a part of the 200us.
+			dqs_source <= IMMEDIATE;
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
@@ -810,7 +817,7 @@ begin
 			dqs_reading0 <= '0';
 			dqs_reading1 <= '0';
 			dqs_reading3 <= '0';
-			mDQS_TX <= (others => (others => '0'));
+			dqs_immediate <= (others => (others => '0'));
 			-- Need to wait at least tWLDQSEN (25 clocks) before the first DQS pulse
 			delay_count <= 13;
 			state <= DELAY;
@@ -819,13 +826,13 @@ begin
 			
 		when WRITE_LEVELING =>
 			if(delay_count = 0) then
-				mDQS_TX <= (others => "0010");
+				dqs_immediate <= (others => "0010");
 				delay_count <= 16;
 			else
-				mDQS_TX <= (others => "0000");
+				dqs_immediate <= (others => "0000");
 				delay_count <= delay_count - 1;
 			end if;
---			mDQS_TX <= (others => "1010");
+--			dqs_immediate <= (others => "1010");
 			
 			-- This is brought out to a test point to let me trigger off of on the scope.
 			-- Wider than 1 clock to reduce bandwidth requirements.
@@ -846,7 +853,7 @@ begin
 			dqs_reading0 <= '1';
 			dqs_reading1 <= '1';
 			dqs_reading3 <= '1';
-			mDQS_TX <= (others => (others => '0'));
+			dqs_immediate <= (others => (others => '0'));
 			debug_sync <= '0';
 			-- This is a copy of INIT8
 			-- see p.27 of spec
@@ -951,6 +958,8 @@ begin
 				popw <= '1';
 				pop_count <= 1;
 				write_count <= 0;
+				dqs_source <= DELAYED;
+				dqs_delayed <= (others => (others => '0'));
 				state <= BEGIN2;
 			end if;
 			
@@ -995,6 +1004,7 @@ begin
 					build_col_bus(mMA, vcol);
 					-- data goes into a shift register to account for CAS write latency
 					out_data <= vdata;
+					dqs_delayed <= (others => "1010");
 					write_count <= write_count + 1;
 					
 					if(pop_count < actual_transaction_size) then
@@ -1018,6 +1028,7 @@ begin
 					debug_we <= '0';
 					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					out_data <= (others => '0');
+					dqs_delayed <= (others => (others => '0'));
 					popw <= '0';
 					saved <= '1';
 					saved_addr <= MADDR_W;
@@ -1032,6 +1043,7 @@ begin
 				-- next stage of the transaction.
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				out_data <= (others => '0');
+				dqs_delayed <= (others => (others => '0'));
 				delay_count <= tWR; -- meet tWR
 				state <= CLOSE_ROW;
 				ret <= WRITE_FINISH;
@@ -1049,6 +1061,7 @@ begin
 			else
 				out_data <= MDATA_W;
 			end if;
+			dqs_delayed <= (others => "1010");
 			write_count <= write_count + 1;
 			
 			if(pop_count < actual_transaction_size) then
@@ -1062,6 +1075,7 @@ begin
 
 		when CLOSE_ROW =>
 			out_data <= (others => '0');
+			dqs_delayed <= (others => (others => '0'));
 			if(delay_count = tWR) then
 				saved_data2 <= MDATA_W;
 			end if;
@@ -1102,6 +1116,7 @@ begin
 		
 		when ACT_ROW =>
 			out_data <= (others => '0');
+			dqs_delayed <= (others => (others => '0'));
 			if(delay_count = 0) then
 				get_rank(vrank, saved_addr);
 				get_bank(vbank, saved_addr);
@@ -1132,6 +1147,7 @@ begin
 		when WRITE_FINISH =>
 			-- move on to reading
 			out_data <= (others => '0');
+			dqs_delayed <= (others => (others => '0'));
 			dq_reading0 <= '1';
 			dq_reading1 <= '1';
 			dq_reading3 <= '1';
@@ -1146,8 +1162,11 @@ begin
 	end process;
 	
 		cas_delay : block is
-			signal d1 : std_logic_vector(255 downto 0) := (others => '0');
-			signal d2 : std_logic_vector(255 downto 0) := (others => '0');
+			signal dq1 : std_logic_vector(255 downto 0) := (others => '0');
+			signal dq2 : std_logic_vector(255 downto 0) := (others => '0');
+			signal dqs1 : burst_t(7 downto 0) := (others => (others => '0'));
+			signal dqs2 : burst_t(7 downto 0) := (others => (others => '0'));
+			signal dqs_out : burst_t(7 downto 0) := (others => (others => '0'));
 			
 			procedure flat_to_burst(
 				variable d : out burst_t(63 downto 0);
@@ -1160,16 +1179,32 @@ begin
 			end procedure;
 			
 		begin
-		process(MCLK) is
-			variable dout : burst_t(63 downto 0);
-		begin
-		if(rising_edge(MCLK)) then
-			d1 <= out_data;
-			d2 <= d1;
-			flat_to_burst(dout, d2);
-			mDQ_TX <= dout;
-		end if;
-		end process;
+		
+			process(MCLK) is
+				variable dqout : burst_t(63 downto 0);
+			begin
+			if(rising_edge(MCLK)) then
+				dq1 <= out_data;
+				dq2 <= dq1;
+				flat_to_burst(dqout, dq2);
+				mDQ_TX <= dqout;
+				
+				dqs1 <= dqs_delayed;
+				dqs2 <= dqs1;
+				dqs_out <= dqs2;
+				
+			end if;
+			end process;
+			
+			process(dqs_source, dqs_immediate, dqs_out) is
+			begin
+			if(dqs_source = IMMEDIATE) then
+				mDQS_TX <= dqs_immediate;
+			elsif(dqs_source = DELAYED) then
+				mDQS_TX <= dqs_out;
+			end if;
+			end process;
+		
 		end block;
 	
 		read_leveling : block is
