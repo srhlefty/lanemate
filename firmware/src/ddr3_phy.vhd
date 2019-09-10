@@ -124,21 +124,13 @@ architecture Behavioral of ddr3_phy is
 	end component;
 
 	type delay_array_t is array(0 to 7) of natural;
-	constant LANE_INPUT_DELAY_REAL  : delay_array_t := (16,48, 0,37,45,37,24,32);
-	constant LANE_OUTPUT_DELAY_REAL : delay_array_t := (22,29,34,39,35,48,54,54);
-	constant LANE_INPUT_DELAY_DEBUG  : delay_array_t := (others => 0);
-	constant LANE_OUTPUT_DELAY_DEBUG : delay_array_t := (others => 0);
-	
-	constant LANE_INPUT_DELAY : delay_array_t := LANE_INPUT_DELAY_REAL;
-	constant LANE_OUTPUT_DELAY : delay_array_t := LANE_OUTPUT_DELAY_REAL;
---	constant LANE_INPUT_DELAY : delay_array_t := LANE_INPUT_DELAY_DEBUG;
---	constant LANE_OUTPUT_DELAY : delay_array_t := LANE_OUTPUT_DELAY_DEBUG;
-
+--	constant LANE_INPUT_DELAY  : delay_array_t := (others => 0);
+--	constant LANE_OUTPUT_DELAY : delay_array_t := (others => 0);
+	constant LANE_INPUT_DELAY  : delay_array_t := (16,48, 0,37,45,37,24,32);
+	constant LANE_OUTPUT_DELAY : delay_array_t := (22,29,34,39,35,48,54,54);
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
-	
 	signal mDQ_RX_buf : burst_t(63 downto 0) := (others => (others => '0'));
 begin
-
 
 	DM <= (others => 'L');
 	
