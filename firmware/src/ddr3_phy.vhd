@@ -129,10 +129,10 @@ architecture Behavioral of ddr3_phy is
 	constant LANE_INPUT_DELAY_DEBUG  : delay_array_t := (others => 0);
 	constant LANE_OUTPUT_DELAY_DEBUG : delay_array_t := (others => 0);
 	
---	constant LANE_INPUT_DELAY : delay_array_t := LANE_INPUT_DELAY_REAL;
---	constant LANE_OUTPUT_DELAY : delay_array_t := LANE_OUTPUT_DELAY_REAL;
-	constant LANE_INPUT_DELAY : delay_array_t := LANE_INPUT_DELAY_DEBUG;
-	constant LANE_OUTPUT_DELAY : delay_array_t := LANE_OUTPUT_DELAY_DEBUG;
+	constant LANE_INPUT_DELAY : delay_array_t := LANE_INPUT_DELAY_REAL;
+	constant LANE_OUTPUT_DELAY : delay_array_t := LANE_OUTPUT_DELAY_REAL;
+--	constant LANE_INPUT_DELAY : delay_array_t := LANE_INPUT_DELAY_DEBUG;
+--	constant LANE_OUTPUT_DELAY : delay_array_t := LANE_OUTPUT_DELAY_DEBUG;
 
 	signal mDQSNout : burst_t(7 downto 0) := (others => (others => 'L'));
 	

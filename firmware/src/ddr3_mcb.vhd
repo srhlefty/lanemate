@@ -623,6 +623,9 @@ begin
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
 		signal readout_delay : natural range 0 to 15 := 0;
+		signal read_enable : std_logic := '0';
+		signal capture_read1 : std_logic;
+		signal capture_read2 : std_logic;
 		signal debug_string : string(1 to 6);
 		constant INIT1_DELAY_REAL : natural := 25000;
 		constant INIT1_DELAY_DEBUG : natural := 10;
@@ -895,6 +898,7 @@ begin
 		when READ_PATTERN =>
 			if(leveling_finished = '1') then
 				build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				read_enable <= '0';
 				delay_count <= LEVELING_CYCLE; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
 				debug_sync <= '0';
 				state <= DELAY;
@@ -903,9 +907,11 @@ begin
 
 				if(delay_count = 0) then
 					build_command(RANK0, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
+					read_enable <= '1'; -- this gets sent through a shift register
 					delay_count <= LEVELING_CYCLE;
 				else
 					build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					read_enable <= '0';
 					delay_count <= delay_count - 1;
 				end if;
 				mBA <= (others => (others => '0'));
@@ -1161,7 +1167,7 @@ begin
 	end if;
 	end process;
 	
-		cas_delay : block is
+		cwl_delay : block is
 			signal dq1 : std_logic_vector(255 downto 0) := (others => '0');
 			signal dq2 : std_logic_vector(255 downto 0) := (others => '0');
 			signal dqs1 : burst_t(7 downto 0) := (others => (others => '0'));
@@ -1206,6 +1212,41 @@ begin
 			end process;
 		
 		end block;
+		
+		
+		
+		cl_delay : block is
+			signal shiftreg1 : std_logic_vector(16 downto 0) := (others => '0');
+			signal shiftreg2 : std_logic_vector(16 downto 0) := (others => '0');
+		begin
+			
+			process(MCLK) is
+			begin
+			if(rising_edge(MCLK)) then
+
+				for i in 0 to shiftreg1'high-1 loop
+					if(i = readout_delay) then
+						shiftreg1(i) <= read_enable;
+					else
+						shiftreg1(i) <= shiftreg1(i+1);
+					end if;
+				end loop;
+
+				for i in 0 to shiftreg2'high-1 loop
+					if(i = readout_delay+1) then
+						shiftreg2(i) <= read_enable;
+					else
+						shiftreg2(i) <= shiftreg2(i+1);
+					end if;
+				end loop;
+			end if;
+			end process;
+
+			capture_read1 <= shiftreg1(0);
+			capture_read2 <= shiftreg2(0);
+			
+		end block;
+		
 	
 		read_leveling : block is
 			type lstate_t is (IDLE, SEEK, WAIT_FOR_NEXT, VALIDATE, FINISH);
@@ -1240,7 +1281,7 @@ begin
 					bitslip_rst <= (others => '0');
 				end if;
 				
-				if(state = READ_PATTERN and leveling_finished = '0' and delay_count = 0) then
+				if(state = READ_PATTERN and leveling_finished = '0' and read_enable = '1') then
 					readout_delay <= 5;
 					slip_attempts <= 0;
 					lstate <= SEEK;
@@ -1260,7 +1301,7 @@ begin
 			-- If the FSM tries all 4 slips and still doesn't get the right data, it
 			-- must mean that we're not in the data eye.
 			when SEEK =>
-				if(delay_count = LEVELING_CYCLE-readout_delay) then
+				if(capture_read1 = '1') then
 					if(mDQ_RX(leveling_lane*8) = "1111") then     -- Here I'm relying on the bus idling high between reads
 						-- Still too soon to find data
 						if(readout_delay = 15) then
@@ -1304,12 +1345,12 @@ begin
 			
 			when WAIT_FOR_NEXT =>
 				bitslip <= (others => '0');
-				if(delay_count = 0) then
+				if(read_enable = '1') then
 					lstate <= SEEK;
 				end if;
 				
 			when VALIDATE =>
-				if(delay_count = LEVELING_CYCLE-readout_delay) then
+				if(capture_read1 = '1') then
 					-- Guard against jitter by requiring the read succeed N times
 					if(mDQ_RX(leveling_lane*8) = "1010") then
 						if(valid_count = 100) then
