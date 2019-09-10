@@ -420,7 +420,6 @@ BEGIN
 			x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
 			x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
 		);
-		constant TEST_ADDR : std_logic_vector(26 downto 0) := "0" & "000" & x"0000" & "0000000";
 		
 		procedure burst_to_flat(
 			variable flat : out std_logic_vector(255 downto 0);
@@ -467,7 +466,7 @@ BEGIN
 				if(count < 2) then
 					base_addr := '0' & "000" & x"0000" & "0000000";
 				else
-					base_addr := '0' & "000" & x"1000" & "0000000";
+					base_addr := '1' & "000" & x"1000" & "0000000";
 				end if;
 				vaddr := to_integer(unsigned(base_addr));
 				vaddrinc := vaddr + count / 2;
