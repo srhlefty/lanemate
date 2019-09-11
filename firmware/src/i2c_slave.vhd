@@ -70,6 +70,7 @@ architecture Behavioral of i2c_slave is
 
 	
 	constant CLK_FREQ : natural := 125e6;
+--	constant CLK_FREQ : natural := 50e6;
 	constant I2C_FREQ : natural := 100e3; -- standard I2C mode 100kHz
 	constant SCL_PERIOD : natural := CLK_FREQ / I2C_FREQ;
 	constant SCL_HALF_PERIOD : natural := SCL_PERIOD / 2;

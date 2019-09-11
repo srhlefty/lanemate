@@ -1279,9 +1279,7 @@ begin
 				dq1 <= out_data;
 				dq2 <= dq1;
 				flat_to_burst(dqout, dq2);
---				mDQ_TX <= dqout;
-				mDQ_TX(63 downto 1) <= dqout(63 downto 1);
-				mDQ_TX(0) <= "1111";
+				mDQ_TX <= dqout;
 				
 				dqs1 <= dqs_delayed;
 				dqs2 <= dqs1;
@@ -1311,7 +1309,8 @@ begin
 			process(MCLK) is
 			begin
 			if(rising_edge(MCLK)) then
-
+				
+				shiftreg1(16) <= '0';
 				for i in 0 to shiftreg1'high-1 loop
 					if(i = readout_delay) then
 						shiftreg1(i) <= read_enable;
@@ -1320,6 +1319,7 @@ begin
 					end if;
 				end loop;
 
+				shiftreg2(16) <= '0';
 				for i in 0 to shiftreg2'high-1 loop
 					if(i = readout_delay+1) then
 						shiftreg2(i) <= read_enable;
@@ -1375,6 +1375,8 @@ begin
 			signal rdata : std_logic_vector(7 downto 0) := x"00";
 			signal rwe : std_logic := '0';
 			signal once : std_logic := '0';
+			constant pattern : std_logic_vector(7 downto 0) := "01010101";
+			signal capture : std_logic_vector(3 downto 0) := "0000";
 		begin
 		
 			REGADDR <= raddr;
@@ -1382,6 +1384,7 @@ begin
 			REGWE <= rwe;
 		
 		process(MCLK) is
+			variable combined : std_logic_vector(7 downto 0);
 		begin
 		if(rising_edge(MCLK)) then
 		case lstate is
@@ -1411,7 +1414,7 @@ begin
 			--  dta  ---- ---- --01 0101 01--
 			-- What I want is for the 8 bits to arrive at 2 sequential system clocks.
 			-- So this FSM first determines at what clock data starts to appear.
-			-- In the above example that would be a delay of 2. If the data is 1010,
+			-- In the above example that would be a delay of 2. If the data is 0101,
 			-- then the data is aligned to the system clock and we're done. But in
 			-- general it will be misaligned, so we use the ISERDES bitslip mechanism
 			-- to shift the bits over. In the above example once we've slipped 2 bits
@@ -1420,43 +1423,46 @@ begin
 			-- must mean that we're not in the data eye.
 			when SEEK =>
 				if(capture_read1 = '1') then
-					if(mDQ_RX(leveling_lane*8) = "1111") then     -- Here I'm relying on the bus idling high between reads
-						-- Still too soon to find data
-						if(readout_delay = 15) then
-							rdata <= x"F1";
-							lstate <= FINISH;
-						else
-							readout_delay <= readout_delay + 1;
-							lstate <= WAIT_FOR_NEXT;
-						end if;
-					elsif(mDQ_RX(leveling_lane*8) = "1010") then
-						-- Success! The test pattern exits the pin in the order 0,1,0,1
+					capture <= mDQ_RX(leveling_lane*8);
+				end if;
+				if(capture_read2 = '1') then
+					combined := capture & mDQ_RX(leveling_lane*8);
+					if(combined = pattern) then
+						-- Success! Validate the results with a brief consistency test.
 						valid_count <= 0;
 						lstate <= VALIDATE;
 					else
-						-- This means we need a bitslip. Slip and then reset the delay counter.
-						-- More than 4 shift attempts means that the data will never be
-						-- correct. This implies the clock edge is not within the data eye and
-						-- we need to add some input delay to the data.
-						
-						-- On this DDR stick at least, the first read in read leveling mode
-						-- doesn't return the data I expect, even if I fix the readout_delay to
-						-- the correct value.
-						if(once = '0') then
-							once <= '1';
-							lstate <= WAIT_FOR_NEXT;
-						else
-						
-							if(slip_attempts = 4) then
-								rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & x"F";
-								lstate <= FINISH;
-							else
-								slip_attempts <= slip_attempts + 1;
-								bitslip(leveling_lane) <= '1';
-								readout_delay <= 5;
+						if(readout_delay = 10) then
+							-- I tried all reasonable offsets and still didn't find the right data.
+							-- This means we need a bitslip. Slip and then reset the delay counter.
+							-- More than 4 shift attempts means that the data will never be
+							-- correct. This implies the clock edge is not within the data eye and
+							-- we need to add some input delay to the data.
+							
+							-- On this DDR stick at least, the first read in read leveling mode
+							-- doesn't return the data I expect, even if I fix the readout_delay to
+							-- the correct value.
+							if(once = '0') then
+								once <= '1';
 								lstate <= WAIT_FOR_NEXT;
+							else
+							
+								if(slip_attempts = 4) then
+									rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & x"F";
+									lstate <= FINISH;
+								else
+									slip_attempts <= slip_attempts + 1;
+									bitslip(leveling_lane) <= '1';
+									readout_delay <= 5;
+									lstate <= WAIT_FOR_NEXT;
+								end if;
+							
 							end if;
-						
+							
+						else
+							-- This slot didn't contain the right data, so increment and try again
+							readout_delay <= readout_delay + 1;
+							lstate <= WAIT_FOR_NEXT;
 						end if;
 					end if;
 				end if;
@@ -1469,8 +1475,12 @@ begin
 				
 			when VALIDATE =>
 				if(capture_read1 = '1') then
+					capture <= mDQ_RX(leveling_lane*8);
+				end if;
+				if(capture_read2 = '1') then
+					combined := capture & mDQ_RX(leveling_lane*8);
 					-- Guard against jitter by requiring the read succeed N times
-					if(mDQ_RX(leveling_lane*8) = "1010") then
+					if(combined = pattern) then
 						if(valid_count = 100) then
 							rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & std_logic_vector(to_unsigned(slip_attempts, 4));
 							lstate <= FINISH;
