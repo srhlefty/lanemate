@@ -482,6 +482,20 @@ BEGIN
 			x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
 			x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
 		);
+		constant TEST_WORD3 : burst_t(63 downto 0) := 
+		(
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"B",x"A"
+		);
+		constant TEST_WORD4 : burst_t(63 downto 0) :=
+		(
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+			x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0"
+		);
 		
 		procedure burst_to_flat(
 			variable flat : out std_logic_vector(255 downto 0);
@@ -536,14 +550,14 @@ BEGIN
 				vaddrinc := vaddr + count / 2;
 				newaddr := std_logic_vector(to_unsigned(vaddrinc, newaddr'length));
 				if(count mod 2 = 0) then
-					burst_to_flat(wdata, TEST_WORD1);
+					burst_to_flat(wdata, TEST_WORD3);
 					PADDR_W <= newaddr;
 					PADDR_R <= newaddr;
 					PDATA_W <= wdata;
 					PPUSH_W <= '1';
 					PPUSH_R <= '1';
 				else
-					burst_to_flat(wdata, TEST_WORD2);
+					burst_to_flat(wdata, TEST_WORD4);
 					PADDR_W <= newaddr;
 					PADDR_R <= newaddr;
 					PDATA_W <= wdata;

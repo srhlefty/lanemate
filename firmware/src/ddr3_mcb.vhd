@@ -1279,7 +1279,9 @@ begin
 				dq1 <= out_data;
 				dq2 <= dq1;
 				flat_to_burst(dqout, dq2);
-				mDQ_TX <= dqout;
+--				mDQ_TX <= dqout;
+				mDQ_TX(63 downto 1) <= dqout(63 downto 1);
+				mDQ_TX(0) <= "1111";
 				
 				dqs1 <= dqs_delayed;
 				dqs2 <= dqs1;

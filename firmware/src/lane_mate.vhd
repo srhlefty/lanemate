@@ -956,6 +956,20 @@ begin
 				x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
 				x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
 			);
+			constant TEST_WORD3 : burst_t(63 downto 0) := 
+			(
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F"
+			);
+			constant TEST_WORD4 : burst_t(63 downto 0) :=
+			(
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0"
+			);
 			procedure burst_to_flat(
 				variable flat : out std_logic_vector(255 downto 0);
 				constant burst : in burst_t(63 downto 0)
@@ -1049,7 +1063,7 @@ begin
 				
 				when FILL1 =>
 					base_addr := '0' & "000" & x"0000" & "0000000";
-					burst_to_flat(wdata, TEST_WORD1);
+					burst_to_flat(wdata, TEST_WORD3);
 					PADDR_W <= base_addr;
 					PADDR_R <= base_addr;
 					PDATA_W <= wdata;
@@ -1059,7 +1073,7 @@ begin
 					
 				when FILL2 =>
 					base_addr := '0' & "000" & x"0000" & "0000000";
-					burst_to_flat(wdata, TEST_WORD2);
+					burst_to_flat(wdata, TEST_WORD4);
 					PADDR_W <= base_addr;
 					PADDR_R <= base_addr;
 					PDATA_W <= wdata;
