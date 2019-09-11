@@ -61,6 +61,9 @@ entity ddr3_mcb is
 		
 		MFORCE_INIT : in std_logic;
 		MTEST : in std_logic;
+		MTRANSACTION_ACTIVE : out std_logic;
+		MWRITE_ACTIVE : out std_logic;
+		MREAD_ACTIVE : out std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		MDEBUG_SYNC : out std_logic;
 		
@@ -446,10 +449,16 @@ architecture Behavioral of ddr3_mcb is
 	signal have_open_row : std_logic := '0';
 	signal open_row : std_logic_vector((1+3+16)-1 downto 0); -- rank + bank + row uniquely identifies what's open
 	
+	signal transaction_active : std_logic := '0';
+	signal read_active : std_logic := '0';
+	signal write_active : std_logic := '0';
 begin
 
 	MPOP_W <= popw;
 	MPOP_R <= popr;
+	MTRANSACTION_ACTIVE <= transaction_active;
+	MREAD_ACTIVE <= read_active;
+	MWRITE_ACTIVE <= write_active;
 
 	process(MCLK) is
 	begin
@@ -698,6 +707,7 @@ begin
 			end if;
 			init_active <= '0';
 			debug_sync <= '0';
+			transaction_active <= '0';
 			debug_string <= "IDLE  ";
 			
 		when DELAY =>
@@ -993,11 +1003,14 @@ begin
 				state <= OP_INIT;
 			end if;
 			debug_sync <= '1';
+			transaction_active <= '1';
 		
 		when OP_INIT =>
 			if(cmd_op = WR) then
+				write_active <= '1';
 				popw <= '1';
 			elsif(cmd_op = RD) then
+				read_active <= '1';
 				popr <= '1';
 			end if;
 			pop_count <= pop_count + 1;
@@ -1236,6 +1249,7 @@ begin
 			out_data <= (others => '0');
 			dqs_delayed <= (others => (others => '0'));
 			cmd_op <= RD;
+			write_active <= '0';
 			state <= BEGIN_TRANSACTION;
 			
 			
@@ -1248,6 +1262,7 @@ begin
 			out_data <= (others => '0');
 			dqs_delayed <= (others => (others => '0'));
 			cmd_op <= WR;
+			read_active <= '0';
 			state <= IDLE;
 				
 

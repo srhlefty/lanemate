@@ -310,6 +310,9 @@ architecture Behavioral of lane_mate is
 		
 		MFORCE_INIT : in std_logic;
 		MTEST : in std_logic;
+		MTRANSACTION_ACTIVE : out std_logic;
+		MWRITE_ACTIVE : out std_logic;
+		MREAD_ACTIVE : out std_logic;
 		MDEBUG_LED : out std_logic_vector(7 downto 0);
 		MDEBUG_SYNC : out std_logic;
 		
@@ -553,6 +556,9 @@ architecture Behavioral of lane_mate is
 	signal trigger_ddr_test : std_logic := '0'; -- put some data in the fifo
 	signal run_ddr_test : std_logic := '0';
 	signal mcb_debug : std_logic_vector(7 downto 0);
+	signal mcb_transaction_active : std_logic;
+	signal mcb_write_active : std_logic;
+	signal mcb_read_active : std_logic;
 	signal debug_sync : std_logic;
 	
 	signal delay_debug : std_logic;
@@ -1273,14 +1279,6 @@ begin
 		
 		end block;
 
-		B1_GPIO8 <= MAVAIL(0);
-		B1_GPIO9 <= MAVAIL(1);
-		B1_GPIO10 <= MAVAIL(2);
-		B1_GPIO11 <= MAVAIL(3);
-		B1_GPIO12 <= MAVAIL(4);
-		B1_GPIO13 <= MAVAIL(5);
-		B1_GPIO14 <= MAVAIL(6);
-		B1_GPIO15 <= MAVAIL(7);
 
 --		Inst_mcb: trivial_mcb PORT MAP(
 --		Inst_mcb: internal_mcb PORT MAP(
@@ -1308,6 +1306,9 @@ begin
 			
 			MFORCE_INIT => trigger_ddr_init,
 			MTEST => run_ddr_test,
+			MTRANSACTION_ACTIVE => mcb_transaction_active,
+			MWRITE_ACTIVE => mcb_write_active,
+			MREAD_ACTIVE => mcb_read_active,
 			MDEBUG_LED => mcb_debug,
 			MDEBUG_SYNC => debug_sync,
 			
@@ -1447,73 +1448,6 @@ begin
 
 
 
---	startup_test : block is
---		type state_t is (IDLE, INIT1, INIT2, INIT3, INIT4, INIT5, INIT6, INIT7, INIT8, CLEAR);
---		signal state : state_t := IDLE;
---	begin
---		process(clk) is
---		begin
---		if(rising_edge(clk)) then
---		case state is
---		
---			when IDLE =>
---				internal_reg_we <= '0';
---				if(i2c_register_write = '1' and i2c_register_addr = x"0f") then
---					state <= INIT1;
---				end if;
---				
---			when INIT1 =>
---				internal_reg_addr <= 16;
---				internal_reg_data <= x"21";
---				internal_reg_we <= '1';
---				state <= INIT2;
---			when INIT2 =>
---				internal_reg_addr <= 17;
---				internal_reg_data <= x"22";
---				internal_reg_we <= '1';
---				state <= INIT3;
---			when INIT3 =>
---				internal_reg_addr <= 18;
---				internal_reg_data <= x"23";
---				internal_reg_we <= '1';
---				state <= INIT4;
---			when INIT4 =>
---				internal_reg_addr <= 19;
---				internal_reg_data <= x"24";
---				internal_reg_we <= '1';
---				state <= INIT5;
---			when INIT5 =>
---				internal_reg_addr <= 20;
---				internal_reg_data <= x"25";
---				internal_reg_we <= '1';
---				state <= INIT6;
---			when INIT6 =>
---				internal_reg_addr <= 21;
---				internal_reg_data <= x"26";
---				internal_reg_we <= '1';
---				state <= INIT7;
---			when INIT7 =>
---				internal_reg_addr <= 22;
---				internal_reg_data <= x"27";
---				internal_reg_we <= '1';
---				state <= INIT8;
---			when INIT8 =>
---				internal_reg_addr <= 23;
---				internal_reg_data <= x"28";
---				internal_reg_we <= '1';
---				state <= CLEAR;
---			
---			when CLEAR =>
---				internal_reg_addr <= 15;
---				internal_reg_data <= x"00";
---				internal_reg_we <= '1';
---				state <= IDLE;
---				
---				
---		end case;
---		end if;
---		end process;
---	end block;
 	----------------------------------------------------------------------------
 	
 	
@@ -1540,32 +1474,22 @@ begin
 		end if;
 		end process;
 		
-		--B0_GPIO0 <= val(0);
-		B1_GPIO1 <= val(1);
-		B1_GPIO2 <= val(2);
-		B1_GPIO3 <= val(3);
-		B1_GPIO4 <= val(4);
-		B1_GPIO5 <= val(5);
-		B1_GPIO6 <= val(6);
-		B1_GPIO7 <= val(7);
-		--B1_GPIO8 <= val(8);
-		--B1_GPIO9 <= val(9);
-		--B1_GPIO10 <= val(10);
-		--B1_GPIO11 <= val(11);
-		--B1_GPIO12 <= val(12);
-		--B1_GPIO13 <= val(13);
-		--B1_GPIO14 <= val(14);
-		--B1_GPIO15 <= val(15);
-
-		B0_GPIO0 <= debug_sync;
---		B1_GPIO8 <= mcb_debug(0);
---		B1_GPIO9 <= mcb_debug(1);
---		B1_GPIO10 <= mcb_debug(2);
---		B1_GPIO11 <= mcb_debug(3);
---		B1_GPIO12 <= mcb_debug(4);
---		B1_GPIO13 <= mcb_debug(5);
---		B1_GPIO14 <= mcb_debug(6);
---		B1_GPIO15 <= mcb_debug(7);
+		B0_GPIO0 <= mcb_transaction_active;
+		B1_GPIO1 <= val(0);
+		B1_GPIO2 <= val(1);
+		B1_GPIO3 <= val(2);
+		B1_GPIO4 <= val(3);
+		B1_GPIO5 <= val(4);
+		B1_GPIO6 <= mcb_write_active;
+		B1_GPIO7 <= mcb_read_active;
+		B1_GPIO8 <= mcb_debug(0);
+		B1_GPIO9 <= mcb_debug(1);
+		B1_GPIO10 <= mcb_debug(2);
+		B1_GPIO11 <= mcb_debug(3);
+		B1_GPIO12 <= mcb_debug(4);
+		B1_GPIO13 <= mcb_debug(5);
+		B1_GPIO14 <= mcb_debug(6);
+		B1_GPIO15 <= mcb_debug(7);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
