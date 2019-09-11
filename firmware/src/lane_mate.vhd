@@ -1083,6 +1083,11 @@ begin
 					state <= DELAY;
 				
 				when DELAY =>
+					PADDR_W <= (others => '0');
+					PADDR_R <= (others => '0');
+					PDATA_W <= (others => '0');
+					PPUSH_W <= '0';
+					PPUSH_R <= '0';
 					if(count = 0) then
 						state <= LAUNCH;
 					else
@@ -1267,6 +1272,15 @@ begin
 		
 		
 		end block;
+
+		B1_GPIO8 <= MAVAIL(0);
+		B1_GPIO9 <= MAVAIL(1);
+		B1_GPIO10 <= MAVAIL(2);
+		B1_GPIO11 <= MAVAIL(3);
+		B1_GPIO12 <= MAVAIL(4);
+		B1_GPIO13 <= MAVAIL(5);
+		B1_GPIO14 <= MAVAIL(6);
+		B1_GPIO15 <= MAVAIL(7);
 
 --		Inst_mcb: trivial_mcb PORT MAP(
 --		Inst_mcb: internal_mcb PORT MAP(
@@ -1544,14 +1558,14 @@ begin
 		--B1_GPIO15 <= val(15);
 
 		B0_GPIO0 <= debug_sync;
-		B1_GPIO8 <= mcb_debug(0);
-		B1_GPIO9 <= mcb_debug(1);
-		B1_GPIO10 <= mcb_debug(2);
-		B1_GPIO11 <= mcb_debug(3);
-		B1_GPIO12 <= mcb_debug(4);
-		B1_GPIO13 <= mcb_debug(5);
-		B1_GPIO14 <= mcb_debug(6);
-		B1_GPIO15 <= mcb_debug(7);
+--		B1_GPIO8 <= mcb_debug(0);
+--		B1_GPIO9 <= mcb_debug(1);
+--		B1_GPIO10 <= mcb_debug(2);
+--		B1_GPIO11 <= mcb_debug(3);
+--		B1_GPIO12 <= mcb_debug(4);
+--		B1_GPIO13 <= mcb_debug(5);
+--		B1_GPIO14 <= mcb_debug(6);
+--		B1_GPIO15 <= mcb_debug(7);
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
