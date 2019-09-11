@@ -1063,7 +1063,7 @@ begin
 				
 				when FILL1 =>
 					base_addr := '0' & "000" & x"0000" & "0000000";
-					burst_to_flat(wdata, TEST_WORD3);
+					burst_to_flat(wdata, TEST_WORD1);
 					PADDR_W <= base_addr;
 					PADDR_R <= base_addr;
 					PDATA_W <= wdata;
@@ -1073,7 +1073,7 @@ begin
 					
 				when FILL2 =>
 					base_addr := '0' & "000" & x"0000" & "0000000";
-					burst_to_flat(wdata, TEST_WORD4);
+					burst_to_flat(wdata, TEST_WORD2);
 					PADDR_W <= base_addr;
 					PADDR_R <= base_addr;
 					PDATA_W <= wdata;
