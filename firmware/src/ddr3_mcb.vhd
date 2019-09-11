@@ -848,13 +848,13 @@ begin
 			
 		when WRITE_LEVELING =>
 			if(delay_count = 0) then
-				dqs_immediate <= (others => "0010");
+--				dqs_immediate <= (others => "0010");
 				delay_count <= 16;
 			else
-				dqs_immediate <= (others => "0000");
+--				dqs_immediate <= (others => "0000");
 				delay_count <= delay_count - 1;
 			end if;
---			dqs_immediate <= (others => "1010");
+			dqs_immediate <= (others => "1010");
 			
 			-- This is brought out to a test point to let me trigger off of on the scope.
 			-- Wider than 1 clock to reduce bandwidth requirements.
@@ -1496,7 +1496,39 @@ begin
 		end if;
 		end process;
 		end block;
+
+
+
 	
+		process(MCLK) is
+		begin
+		if(rising_edge(MCLK)) then
+			if(state = WRITE_LEVELING) then
+				-- burst_t indexing is pin id then position within burst
+				-- Write Leveling: output state of DQ, first pin in each lane
+				MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
+				MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
+				MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
+				MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
+				MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
+				MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
+				MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
+				MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
+			elsif(state = READ_PATTERN) then
+				-- Read Leveling: output burst data for one lane.
+				-- If the read is correct, the byte should be 10101010
+				-- (i.e., the first returned bit in time is 0)
+				MDEBUG_LED(0) <= latched_read(0);
+				MDEBUG_LED(1) <= latched_read(1);
+				MDEBUG_LED(2) <= latched_read(2);
+				MDEBUG_LED(3) <= latched_read(3);
+				MDEBUG_LED(4) <= latched_read(4);
+				MDEBUG_LED(5) <= latched_read(5);
+				MDEBUG_LED(6) <= latched_read(6);
+				MDEBUG_LED(7) <= latched_read(7);
+			end if;
+		end if;
+		end process;
 	
 	end block;
 
@@ -1563,28 +1595,6 @@ begin
 		DQ            => DQ 
 	);
 	
-	-- burst_t indexing is pin id then position within burst
-	-- Write Leveling: output state of DQ, first pin in each lane
---	MDEBUG_LED(0) <= mDQ_RX(0*8)(0);
---	MDEBUG_LED(1) <= mDQ_RX(1*8)(0);
---	MDEBUG_LED(2) <= mDQ_RX(2*8)(0);
---	MDEBUG_LED(3) <= mDQ_RX(3*8)(0);
---	MDEBUG_LED(4) <= mDQ_RX(4*8)(0);
---	MDEBUG_LED(5) <= mDQ_RX(5*8)(0);
---	MDEBUG_LED(6) <= mDQ_RX(6*8)(0);
---	MDEBUG_LED(7) <= mDQ_RX(7*8)(0);
-
-	-- Read Leveling: output burst data for one lane.
-	-- If the read is correct, the byte should be 10101010
-	-- (i.e., the first returned bit in time is 0)
-	MDEBUG_LED(0) <= latched_read(0);
-	MDEBUG_LED(1) <= latched_read(1);
-	MDEBUG_LED(2) <= latched_read(2);
-	MDEBUG_LED(3) <= latched_read(3);
-	MDEBUG_LED(4) <= latched_read(4);
-	MDEBUG_LED(5) <= latched_read(5);
-	MDEBUG_LED(6) <= latched_read(6);
-	MDEBUG_LED(7) <= latched_read(7);
 
 	MDEBUG_SYNC <= debug_sync;
 		

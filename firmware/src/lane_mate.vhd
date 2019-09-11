@@ -1100,49 +1100,52 @@ begin
 
 	
 	
-	ddr_test : block is
-		type state_t is (IDLE, FILL1, FILL2, WAIT_FOR_FINISHED, READOUT);
-		signal state : state_t := IDLE;
-		constant TEST_WORD1 : burst_t(63 downto 0) := 
-		(
-			x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
-			x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
-			x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
-			x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
-		);
-		constant TEST_WORD2 : burst_t(63 downto 0) :=
-		(
-			x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
-			x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
-			x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
-			x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
-		);
-		procedure burst_to_flat(
-			variable flat : out std_logic_vector(255 downto 0);
-			constant burst : in burst_t(63 downto 0)
-		) is
-		begin
-			for i in 0 to burst'high loop
-				flat(4*i+3 downto 4*i) := burst(i);
-			end loop;
-		end procedure;
-	begin
-	process(clk) is
-		variable flat : std_logic_vector(255 downto 0);
-	begin
-	if(rising_edge(clk)) then
-	case state is
-		when IDLE =>
-			if(trigger_ddr_test = '1') then
-				state <= FILL1;
-			end if;
-		
-		when FILL1 =>
-		
-	end case;
-	end if;
-	end process;
-	end block;
+--	ddr_test : block is
+--		type state_t is (IDLE, FILL1, FILL2, WAIT_FOR_FINISHED, READOUT);
+--		signal state : state_t := IDLE;
+--		constant TEST_WORD1 : burst_t(63 downto 0) := 
+--		(
+--			x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
+--			x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
+--			x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
+--			x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
+--		);
+--		constant TEST_WORD2 : burst_t(63 downto 0) :=
+--		(
+--			x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
+--			x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
+--			x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
+--			x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
+--		);
+--		procedure burst_to_flat(
+--			variable flat : out std_logic_vector(255 downto 0);
+--			constant burst : in burst_t(63 downto 0)
+--		) is
+--		begin
+--			for i in 0 to burst'high loop
+--				flat(4*i+3 downto 4*i) := burst(i);
+--			end loop;
+--		end procedure;
+--	begin
+--	process(clk) is
+--		variable flat : std_logic_vector(255 downto 0);
+--	begin
+--	if(rising_edge(clk)) then
+--	case state is
+--		when IDLE =>
+--			if(trigger_ddr_test = '1') then
+--				state <= FILL1;
+--			end if;
+--		
+--		when FILL1 =>
+--		
+--	end case;
+--	end if;
+--	end process;
+--	end block;
+
+
+
 --	startup_test : block is
 --		type state_t is (IDLE, INIT1, INIT2, INIT3, INIT4, INIT5, INIT6, INIT7, INIT8, CLEAR);
 --		signal state : state_t := IDLE;
