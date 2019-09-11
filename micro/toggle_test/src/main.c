@@ -414,6 +414,8 @@ int main (void)
 	i2c_write_reg(lanemate_address, 24, 1); // run ddr mcb test
 	delay_cycles_ms(1000);
 	print_register_content();
+	i2c_write_reg(lanemate_address, 24, 1); // run ddr mcb test
+	print_register_content();
 
 	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);

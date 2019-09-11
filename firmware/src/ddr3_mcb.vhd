@@ -697,6 +697,7 @@ begin
 				state <= BEGIN_TRANSACTION;
 			end if;
 			init_active <= '0';
+			debug_sync <= '0';
 			debug_string <= "IDLE  ";
 			
 		when DELAY =>
@@ -991,6 +992,7 @@ begin
 				dqs_delayed <= (others => (others => '0'));
 				state <= OP_INIT;
 			end if;
+			debug_sync <= '1';
 		
 		when OP_INIT =>
 			if(cmd_op = WR) then

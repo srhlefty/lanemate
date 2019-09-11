@@ -980,7 +980,7 @@ begin
 				end loop;
 			end procedure;
 			
-			type state_t is (IDLE, FILL1, FILL2, LAUNCH, WAIT_FOR_FINISH, READOUT);
+			type state_t is (IDLE, FILL1, FILL2, DELAY, LAUNCH, WAIT_FOR_FINISH, READOUT);
 			signal state : state_t := IDLE;
 			signal catch : ram_t(0 to 63) := (others => x"00");
 			signal count : natural := 0;
@@ -1079,7 +1079,15 @@ begin
 					PDATA_W <= wdata;
 					PPUSH_W <= '1';
 					PPUSH_R <= '1';
-					state <= LAUNCH;
+					count <= 4; -- it takes a few clocks for the number of words available in the FIFO to be updated
+					state <= DELAY;
+				
+				when DELAY =>
+					if(count = 0) then
+						state <= LAUNCH;
+					else
+						count <= count - 1;
+					end if;
 				
 				when LAUNCH =>
 					PADDR_W <= (others => '0');
@@ -1266,7 +1274,7 @@ begin
 		generic map ( DEBUG => false )
 		PORT MAP(
 			MCLK => clk,
-			MTRANSACTION_SIZE => MTRANSACTION_SIZE,
+			MTRANSACTION_SIZE => mtransaction_size,
 			MAVAIL    => MAVAIL,
 			MFLUSH    => MFLUSH,
 			
