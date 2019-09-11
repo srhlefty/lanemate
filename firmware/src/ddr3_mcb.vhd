@@ -433,8 +433,9 @@ architecture Behavioral of ddr3_mcb is
 	
 	
 	signal popw : std_logic := '0';
+	signal popr : std_logic := '0';
 	signal pop_count : natural range 0 to 255 := 0;
-	signal write_count : natural range 0 to 255 := 0;
+	signal cmd_count : natural range 0 to 255 := 0;
 	signal saved : std_logic := '0';
 	signal saved_addr : std_logic_vector(26 downto 0) := (others => '0');
 	signal saved_addr2 : std_logic_vector(26 downto 0) := (others => '0');
@@ -448,6 +449,7 @@ architecture Behavioral of ddr3_mcb is
 begin
 
 	MPOP_W <= popw;
+	MPOP_R <= popr;
 
 	process(MCLK) is
 	begin
@@ -612,20 +614,25 @@ begin
 			READ_PATTERN,
 			READ_PATTERN_EXIT,
 			BEGIN_TRANSACTION,
-			BEGIN2,
-			WRITE_A,
-			WRITE_B,
+			OP_INIT,
+			OP_A,
+			OP_B,
 			CLOSE_ROW,
 			ACT_ROW,
-			WRITE_FINISH
+			WRITE_FINISH,
+			READ_FINISH
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
-		signal readout_delay : natural range 0 to 15 := 0;
+		signal readout_delay : natural range 0 to 15 := 8;
 		signal read_enable : std_logic := '0';
 		signal capture_read1 : std_logic;
 		signal capture_read2 : std_logic;
+		
+		type cmd_op_t is (WR, RD);
+		signal cmd_op : cmd_op_t := WR;
+		
 		signal debug_string : string(1 to 6);
 		constant INIT1_DELAY_REAL : natural := 25000;
 		constant INIT1_DELAY_DEBUG : natural := 10;
@@ -642,6 +649,7 @@ begin
 		constant tWR  : natural := 4; -- Write recovery time. 15ns but in this case I need to let data finish actually coming out
 		constant tRP  : natural := 2 - 1; -- PRE duration. 15ns
 		constant tRCD : natural := 0; -- ACT to RD/WR. 15ns min. (1 clock to get to DELAY, 1 clock to get to WRITE)
+		constant tRTP : natural := 1; -- RD to PRE. max(4CK, 7.5ns)
 		
 		signal actual_transaction_size : natural range 0 to 255 := 0;
 		
@@ -677,6 +685,7 @@ begin
 				state <= INIT1;
 			elsif(MTEST = '1' and IOCLK_LOCKED = '1') then
 				actual_transaction_size <= to_integer(unsigned(MAVAIL(7 downto 0)));
+				cmd_op <= WR;
 				state <= BEGIN_TRANSACTION;
 			end if;
 			debug_string <= "IDLE  ";
@@ -907,7 +916,7 @@ begin
 
 				if(delay_count = 0) then
 					build_command(RANK0, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
-					read_enable <= '1'; -- this gets sent through a shift register
+					read_enable <= '1'; -- this gets sent through a shift register to generate capture_read1/2
 					delay_count <= LEVELING_CYCLE;
 				else
 					build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
@@ -917,18 +926,18 @@ begin
 				mBA <= (others => (others => '0'));
 				mMA <= (others => (others => '0'));
 
-			if(delay_count < 5) then
-				debug_sync <= '1';
-			else
-				debug_sync <= '0';
-			end if;
+				if(delay_count < 5) then
+					debug_sync <= '1';
+				else
+					debug_sync <= '0';
+				end if;
 				
-				if(delay_count = LEVELING_CYCLE-readout_delay) then
+				if(capture_read1 = '1') then
 					latched_read(0) <= mDQ_RX(leveling_lane*8)(0);
 					latched_read(1) <= mDQ_RX(leveling_lane*8)(1);
 					latched_read(2) <= mDQ_RX(leveling_lane*8)(2);
 					latched_read(3) <= mDQ_RX(leveling_lane*8)(3);
-				elsif(delay_count = LEVELING_CYCLE-readout_delay-1) then
+				elsif(capture_read2 = '1') then
 					latched_read(4) <= mDQ_RX(leveling_lane*8)(0);
 					latched_read(5) <= mDQ_RX(leveling_lane*8)(1);
 					latched_read(6) <= mDQ_RX(leveling_lane*8)(2);
@@ -961,36 +970,59 @@ begin
 				have_open_row <= '0';
 				open_row <= (others => '0');
 				out_data <= (others => '0');
-				popw <= '1';
+				if(cmd_op = WR) then
+					popw <= '1';
+				elsif(cmd_op = RD) then
+					popr <= '1';
+				end if;
 				pop_count <= 1;
-				write_count <= 0;
+				cmd_count <= 0;
 				dqs_source <= DELAYED;
 				dqs_delayed <= (others => (others => '0'));
-				state <= BEGIN2;
+				state <= OP_INIT;
+			end if;
+		
+		when OP_INIT =>
+			if(cmd_op = WR) then
+				popw <= '1';
+			elsif(cmd_op = RD) then
+				popr <= '1';
+			end if;
+			pop_count <= pop_count + 1;
+			state <= OP_A;
+			
+		when OP_A =>
+			if(cmd_op = WR) then
+				dq_reading0 <= '0';
+				dq_reading1 <= '0';
+				dq_reading3 <= '0';
+				dqs_reading0 <= '0';
+				dqs_reading1 <= '0';
+				dqs_reading3 <= '0';
+			elsif(cmd_op = RD) then
+				dq_reading0 <= '1';
+				dq_reading1 <= '1';
+				dq_reading3 <= '1';
+				dqs_reading0 <= '1';
+				dqs_reading1 <= '1';
+				dqs_reading3 <= '1';
 			end if;
 			
-		when BEGIN2 =>
-			popw <= '1';
-			pop_count <= pop_count + 1;
-			state <= WRITE_A;
-			
-		when WRITE_A =>
-			dq_reading0 <= '0';
-			dq_reading1 <= '0';
-			dq_reading3 <= '0';
-			dqs_reading0 <= '0';
-			dqs_reading1 <= '0';
-			dqs_reading3 <= '0';
-			if(write_count < actual_transaction_size) then
+			if(cmd_count < actual_transaction_size) then
 			
 				-- saved data is left over from elements we popped from the fifo
-				-- but had to hold off on writing because their row wasn't open yet
+				-- but had to hold off on writing/reading because their row wasn't open yet
 				if(saved = '1') then
 					vaddr := saved_addr;
 					vdata := saved_data1;
 				else
-					vaddr := MADDR_W;
-					vdata := MDATA_W;
+					if(cmd_op = WR) then
+						vaddr := MADDR_W;
+						vdata := MDATA_W;
+					elsif(cmd_op = RD) then
+						vaddr := MADDR_R;
+						vdata := saved_data1; -- ignored anyway
+					end if;
 				end if;
 				
 				get_rowid(vrowid, vaddr);
@@ -1000,27 +1032,41 @@ begin
 				
 				if(have_open_row = '1' and vrowid = open_row) then
 					-- This is the most common case, when the row is already open
-					debug_we <= '1';
-					if(vrank = '0') then
-						build_command(RANK0, rWR, mCS0,mCS1,mRAS,mCAS,mWE);
-					else
-						build_command(RANK1, rWR, mCS0,mCS1,mRAS,mCAS,mWE);
+					if(cmd_op = WR) then
+						if(vrank = '0') then
+							build_command(RANK0, rWR, mCS0,mCS1,mRAS,mCAS,mWE);
+						else
+							build_command(RANK1, rWR, mCS0,mCS1,mRAS,mCAS,mWE);
+						end if;
+						debug_we <= '1';
+					elsif(cmd_op = RD) then
+						if(vrank = '0') then
+							build_command(RANK0, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
+						else
+							build_command(RANK1, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
+						end if;
+						read_enable <= '1'; -- shift register generates delayed capture_read1/2 signals
 					end if;
 					build_bus(mBA, vbank);
 					build_col_bus(mMA, vcol);
 					-- data goes into a shift register to account for CAS write latency
 					out_data <= vdata;
 					dqs_delayed <= (others => "1010");
-					write_count <= write_count + 1;
+					cmd_count <= cmd_count + 1;
 					
 					if(pop_count < actual_transaction_size) then
-						popw <= '1';
+						if(cmd_op = WR) then
+							popw <= '1';
+						elsif(cmd_op = RD) then
+							popr <= '1';
+						end if;
 						pop_count <= pop_count + 1;
 					else
 						popw <= '0';
+						popr <= '0';
 					end if;
 					
-					state <= WRITE_B;
+					state <= OP_B;
 				
 				else
 					-- If there's no row open, or the open row isn't the one we want,
@@ -1032,16 +1078,24 @@ begin
 					-- need to both shut off the FIFO emptying process, and save the
 					-- two data that will emerge anyway.
 					debug_we <= '0';
+					read_enable <= '0';
 					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					out_data <= (others => '0');
 					dqs_delayed <= (others => (others => '0'));
 					popw <= '0';
+					popr <= '0';
 					saved <= '1';
-					saved_addr <= MADDR_W;
-					saved_data1 <= MDATA_W; -- second data saved in CLOSE_ROW
-					delay_count <= tWR;       -- 2 clocks to let data finish escaping, 2 to meet tWR
+					if(cmd_op = WR) then
+						saved_addr <= MADDR_W;
+						saved_data1 <= MDATA_W; -- second data saved in CLOSE_ROW
+						delay_count <= tWR;
+					elsif(cmd_op = RD) then
+						saved_addr <= MADDR_R;
+						saved_data1 <= (others => '0');
+						delay_count <= tRTP;
+					end if;
 					state <= CLOSE_ROW;
-					ret <= WRITE_A;
+					ret <= OP_A;
 				end if;
 
 			else
@@ -1050,15 +1104,21 @@ begin
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				out_data <= (others => '0');
 				dqs_delayed <= (others => (others => '0'));
-				delay_count <= tWR; -- meet tWR
 				state <= CLOSE_ROW;
-				ret <= WRITE_FINISH;
+				if(cmd_op = WR) then
+					delay_count <= tWR;
+					ret <= WRITE_FINISH;
+				elsif(cmd_op = RD) then
+					delay_count <= tRTP;
+					ret <= READ_FINISH;
+				end if;
 			end if;
 		
-		when WRITE_B =>
+		when OP_B =>
 			-- Write commands only escape every other system clock in order to fully
 			-- stream data out. The write-to-write time is 4CK.
 			debug_we <= '0';
+			read_enable <= '0';
 			build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 			
 			if(saved = '1') then
@@ -1068,16 +1128,21 @@ begin
 				out_data <= MDATA_W;
 			end if;
 			dqs_delayed <= (others => "1010");
-			write_count <= write_count + 1;
+			cmd_count <= cmd_count + 1;
 			
 			if(pop_count < actual_transaction_size) then
-				popw <= '1';
+				if(cmd_op = WR) then
+					popw <= '1';
+				elsif(cmd_op = RD) then
+					popr <= '1';
+				end if;
 				pop_count <= pop_count + 1;
 			else
 				popw <= '0';
+				popr <= '0';
 			end if;
 			
-			state <= WRITE_A;
+			state <= OP_A;
 
 		when CLOSE_ROW =>
 			out_data <= (others => '0');
@@ -1142,7 +1207,7 @@ begin
 				
 				delay_count <= tRCD;
 				state <= DELAY;
-				-- ret was set by WRITE_A or the read state, this allows the close-open cycle
+				-- ret was set by OP_A or the read state, this allows the close-open cycle
 				-- to be shared between the two paths
 			else
 				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
@@ -1152,15 +1217,17 @@ begin
 			
 		when WRITE_FINISH =>
 			-- move on to reading
+			saved <= '0';
+			saved_addr <= (others => '0');
+			have_open_row <= '0';
+			open_row <= (others => '0');
 			out_data <= (others => '0');
 			dqs_delayed <= (others => (others => '0'));
-			dq_reading0 <= '1';
-			dq_reading1 <= '1';
-			dq_reading3 <= '1';
-			dqs_reading0 <= '1';
-			dqs_reading1 <= '1';
-			dqs_reading3 <= '1';
-			state <= WRITE_FINISH;
+			cmd_op <= RD;
+			state <= BEGIN_TRANSACTION;
+			
+			
+		when READ_FINISH =>
 				
 
 	end case;

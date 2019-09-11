@@ -243,8 +243,10 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 	
 
 	signal PADDR_W :std_logic_vector(26 downto 0) := (others => '0');
+	signal PADDR_R :std_logic_vector(26 downto 0) := (others => '0');
 	signal PDATA_W : std_logic_vector(255 downto 0) := (others => '0');
 	signal PPUSH_W : std_logic := '0';
+	signal PPUSH_R : std_logic := '0';
 
 	signal count : natural := 0;
 	
@@ -400,6 +402,66 @@ BEGIN
 	end block;
 
 
+
+	reader_fifo_block : block is
+		constant ram_addr_width : natural := 9;
+		constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
+		constant ram_data_width_r : natural := 27; -- just address
+
+		signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_wdata1 : std_logic_vector(ram_data_width_r-1 downto 0);
+		signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
+		signal ram_rdata2 : std_logic_vector(ram_data_width_r-1 downto 0);
+		signal ram_we : std_logic;
+		signal bus_in : std_logic_vector(ram_data_width_r-1 downto 0);
+		signal bus_out : std_logic_vector(ram_data_width_r-1 downto 0);
+	begin
+	
+		read_bram: bram_simple_dual_port 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_r
+		)
+		PORT MAP(
+			CLK1 => PCLK,
+			WADDR1 => ram_waddr1,
+			WDATA1 => ram_wdata1,
+			WE1 => ram_we,
+			CLK2 => MCLK,
+			RADDR2 => ram_raddr2,
+			RDATA2 => ram_rdata2
+		);
+		
+		bus_in <= PADDR_R;
+	
+		read_fifo: fifo_2clk 
+		generic map(
+			ADDR_WIDTH => ram_addr_width,
+			DATA_WIDTH => ram_data_width_r
+		)
+		PORT MAP(
+			WRITE_CLK => PCLK,
+			RESET => '0',
+			FREE => open,
+			DIN => bus_in,
+			PUSH => PPUSH_R,
+			READ_CLK => MCLK,
+			USED => open,
+			DOUT => bus_out,
+			DVALID => MDVALID_R,
+			POP => MPOP_R,
+			RAM_WADDR => ram_waddr1,
+			RAM_WDATA => ram_wdata1,
+			RAM_WE => ram_we,
+			RAM_RESET => open,
+			RAM_RADDR => ram_raddr2,
+			RAM_RDATA => ram_rdata2
+		);
+		
+		MADDR_R <= bus_out;
+		
+	end block;
+
 	----------------------------------------------------------------------------
 
 	-- Fill FIFO with data-to-write
@@ -458,8 +520,10 @@ BEGIN
 		
 			when IDLE =>
 				PADDR_W <= (others => '0');
+				PADDR_R <= (others => '0');
 				PDATA_W <= (others => '0');
 				PPUSH_W <= '0';
+				PPUSH_R <= '0';
 				state <= IDLE;
 			
 			when FILLING =>
@@ -474,13 +538,17 @@ BEGIN
 				if(count mod 2 = 0) then
 					burst_to_flat(wdata, TEST_WORD1);
 					PADDR_W <= newaddr;
+					PADDR_R <= newaddr;
 					PDATA_W <= wdata;
 					PPUSH_W <= '1';
+					PPUSH_R <= '1';
 				else
 					burst_to_flat(wdata, TEST_WORD2);
 					PADDR_W <= newaddr;
+					PADDR_R <= newaddr;
 					PDATA_W <= wdata;
 					PPUSH_W <= '1';
+					PPUSH_R <= '1';
 				end if;
 				
 				if(count = 29) then

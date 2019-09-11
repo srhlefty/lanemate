@@ -21,7 +21,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="5" />
+   <WVObjectSize size="9" />
    <wvobject fp_name="/ddr3_mcb_tb/uut/mclk" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">mclk</obj_property>
       <obj_property name="ObjectShortName">mclk</obj_property>
@@ -63,5 +63,21 @@
    <wvobject fp_name="/ddr3_mcb_tb/uut/dqsp" type="array" db_ref_id="1">
       <obj_property name="ElementShortName">dqsp[7:0]</obj_property>
       <obj_property name="ObjectShortName">dqsp[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/fsm/cmd_op" type="other" db_ref_id="1">
+      <obj_property name="ElementShortName">cmd_op</obj_property>
+      <obj_property name="ObjectShortName">cmd_op</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/fsm/read_enable" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">read_enable</obj_property>
+      <obj_property name="ObjectShortName">read_enable</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/fsm/capture_read1" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">capture_read1</obj_property>
+      <obj_property name="ObjectShortName">capture_read1</obj_property>
+   </wvobject>
+   <wvobject fp_name="/ddr3_mcb_tb/uut/fsm/capture_read2" type="logic" db_ref_id="1">
+      <obj_property name="ElementShortName">capture_read2</obj_property>
+      <obj_property name="ObjectShortName">capture_read2</obj_property>
    </wvobject>
 </wave_config>
