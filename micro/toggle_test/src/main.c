@@ -354,6 +354,28 @@ void print_leveling_results()
 	}
 	print("\r\n");
 }
+void print_register_content()
+{
+	print("Burst registers:\r\n");
+	for(int i=31;i>=0;--i)
+	{
+		uint8_t val;
+		i2c_read_reg(lanemate_address, 25+i, &val);
+		uint8_t str[4] = "XX";
+		byte_to_string(str, val);
+		print(str);
+	}
+	print("\r\n");
+	for(int i=63;i>=32;--i)
+	{
+		uint8_t val;
+		i2c_read_reg(lanemate_address, 25+i, &val);
+		uint8_t str[4] = "XX";
+		byte_to_string(str, val);
+		print(str);
+	}
+	print("\r\n");
+}
 
 volatile bool handle_event = false;
 
@@ -386,6 +408,12 @@ int main (void)
 	i2c_write_reg(lanemate_address, 15, 1); // run ddr init
 	delay_cycles_ms(1000);
 	print_leveling_results();
+
+	i2c_write_reg(lanemate_address, 0x05, 0x1e); // make sure transaction size is nonzero
+	print_register_content();
+	i2c_write_reg(lanemate_address, 24, 1); // run ddr mcb test
+	delay_cycles_ms(1000);
+	print_register_content();
 
 	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
