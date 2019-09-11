@@ -641,6 +641,8 @@ begin
 		signal INIT1_DELAY : natural;
 		signal INIT2_DELAY : natural;
 		
+		signal init_active : std_logic := '0';
+		
 		signal leveling_lane : natural range 0 to 7 := 0;
 		signal leveling_finished : std_logic := '0';
 		constant LEVELING_CYCLE : natural := 32;
@@ -684,10 +686,17 @@ begin
 			if(MFORCE_INIT = '1' and IOCLK_LOCKED = '1') then
 				state <= INIT1;
 			elsif(MTEST = '1' and IOCLK_LOCKED = '1') then
-				actual_transaction_size <= to_integer(unsigned(MAVAIL(7 downto 0)));
+				words_available := to_integer(unsigned(MAVAIL(7 downto 0)));
+				transaction_size := to_integer(unsigned(MTRANSACTION_SIZE(7 downto 0)));
+				if(words_available < transaction_size) then
+					actual_transaction_size <= words_available;
+				else
+					actual_transaction_size <= transaction_size;
+				end if;
 				cmd_op <= WR;
 				state <= BEGIN_TRANSACTION;
 			end if;
+			init_active <= '0';
 			debug_string <= "IDLE  ";
 			
 		when DELAY =>
@@ -708,6 +717,7 @@ begin
 			-- with stable power. CKE must be low at least 10ns before RESET# is
 			-- de-asserted, but this time can be a part of the 200us.
 			dqs_source <= IMMEDIATE;
+			init_active <= '1';
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
@@ -1228,6 +1238,15 @@ begin
 			
 			
 		when READ_FINISH =>
+			read_enable <= '0';
+			saved <= '0';
+			saved_addr <= (others => '0');
+			have_open_row <= '0';
+			open_row <= (others => '0');
+			out_data <= (others => '0');
+			dqs_delayed <= (others => (others => '0'));
+			cmd_op <= WR;
+			state <= IDLE;
 				
 
 	end case;
@@ -1312,6 +1331,36 @@ begin
 			capture_read1 <= shiftreg1(0);
 			capture_read2 <= shiftreg2(0);
 			
+		end block;
+		
+		
+		data_capture : block is
+		
+			procedure burst_to_flat(
+				variable flat : out std_logic_vector(255 downto 0);
+				constant burst : in burst_t(63 downto 0)
+			) is
+			begin
+				for i in 0 to burst'high loop
+					flat(4*i+3 downto 4*i) := burst(i);
+				end loop;
+			end procedure;
+		
+		begin
+		process(MCLK) is
+			variable flat : std_logic_vector(255 downto 0);
+		begin
+		if(rising_edge(MCLK)) then
+			if((capture_read1 = '1' or capture_read2 = '1') and init_active = '0') then
+				MPUSH_R <= '1';
+				burst_to_flat(flat, mDQ_RX);
+				MDATA_R <= flat;
+			else
+				MPUSH_R <= '0';
+				MDATA_R <= (others => '0');
+			end if;
+		end if;
+		end process;
 		end block;
 		
 	

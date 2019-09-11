@@ -170,7 +170,7 @@ ARCHITECTURE behavior OF ddr3_mcb_tb IS
 	
    --Inputs
    signal MCLK : std_logic := '0';
-   signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := x"10";
+   signal MTRANSACTION_SIZE : std_logic_vector(7 downto 0) := x"1e";
    signal MAVAIL : std_logic_vector(8 downto 0) := (others => '0');
    signal MFLUSH : std_logic := '0';
    signal MADDR_W : std_logic_vector(26 downto 0) := (others => '0');
@@ -466,7 +466,7 @@ BEGIN
 
 	-- Fill FIFO with data-to-write
 	filler : block is
-		type state_t is (IDLE, FILLING);
+		type state_t is (IDLE, FILLING, DELAY);
 		signal state : state_t := FILLING;
 		constant TEST_WORD1 : burst_t(63 downto 0) := 
 		(
@@ -527,7 +527,7 @@ BEGIN
 				state <= IDLE;
 			
 			when FILLING =>
-				if(count < 2) then
+				if(count < 4) then
 					base_addr := '0' & "000" & x"0000" & "0000000";
 				else
 					base_addr := '1' & "000" & x"1000" & "0000000";
@@ -551,11 +551,22 @@ BEGIN
 					PPUSH_R <= '1';
 				end if;
 				
-				if(count = 29) then
+				if(count = 30-1) then
+					count <= 100;
 					state <= IDLE;
 				else
 					count <= count + 1;
 				end if;
+				
+			when DELAY =>
+				PPUSH_W <= '0';
+				PPUSH_R <= '0';
+				if(count = 0) then
+					state <= FILLING;
+				else
+					count <= count - 1;
+				end if;
+				
 		end case;
 		end if;
 		end process;
@@ -565,7 +576,7 @@ BEGIN
 	begin
 	if(rising_edge(MCLK) and LOCKED = '1') then
 		count <= count + 1;
-		if(count = 64) then
+		if(count = 64 or count = 180) then
 			MTEST <= '1';
 		else
 			MTEST <= '0';
