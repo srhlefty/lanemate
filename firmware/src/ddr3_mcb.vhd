@@ -635,6 +635,9 @@ begin
 		signal ret : state_t := IDLE;
 		signal delay_count : natural := 0;
 		signal readout_delay : natural range 0 to 15 := 8;
+		signal readout_delay_rank0 : natural range 0 to 15 := 0;
+		signal readout_delay_rank1 : natural range 0 to 15 := 0;
+		signal active_rank : ranks_t := RANK0;
 		signal read_enable : std_logic := '0';
 		signal capture_read1 : std_logic;
 		signal capture_read2 : std_logic;
@@ -666,6 +669,18 @@ begin
 		
 	begin
 		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 		gen_const_d : if(DEBUG = true) generate
 		begin
 			INIT1_DELAY <= INIT1_DELAY_DEBUG;
@@ -676,6 +691,14 @@ begin
 			INIT1_DELAY <= INIT1_DELAY_REAL;
 			INIT2_DELAY <= INIT2_DELAY_REAL;
 		end generate;
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	process(MCLK) is
 		variable vrank : std_logic;
@@ -721,6 +744,19 @@ begin
 				delay_count <= delay_count - 1;
 			end if;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 		-- Follow along with the init sequence on page 19 of JEDEC 79-3F
 		
 		when INIT1 =>
@@ -728,6 +764,7 @@ begin
 			-- with stable power. CKE must be low at least 10ns before RESET# is
 			-- de-asserted, but this time can be a part of the 200us.
 			dqs_source <= IMMEDIATE;
+			active_rank <= RANK0;
 			init_active <= '1';
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
@@ -839,6 +876,21 @@ begin
 --			state <= WRITE_LEVELING_ENTER;
 			debug_string <= "END   ";
 			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+		-- Write leveling (not normally active, test mode only) -----------------	
+			
 		when WRITE_LEVELING_ENTER =>
 			-- Set MR1 again to enable write leveling.
 			-- Note that since the ranks share DQ and DQS, I can only turn one rank on.
@@ -898,18 +950,27 @@ begin
 			ret <= IDLE;
 			debug_string <= "WLEXIT";
 	
+		-------------------------------------------------------------------------
 	
 	
 	
 	
 	
+	
+	
+	
+	
+	
+	
+	
+		-- Read leveling (also see block further down ) -------------------------
 	
 		when READ_PATTERN_ENTER =>
 			dqs_reading0 <= '1';
 			dqs_reading1 <= '1';
 			dqs_reading3 <= '1';
 			-- precharge all, wait tRP (15ns)
-			build_command(RANK0, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(active_rank, rPREA, mCS0,mCS1,mRAS,mCAS,mWE);
 			mBA <= (others => (others => '0')); -- BA can be anything during precharge all
 			build_bus(mMA, PREA_SETTINGS); -- A10 high, everything else any valid value
 			delay_count <= 2;
@@ -918,7 +979,7 @@ begin
 			
 		when ENABLE_PATTERN =>
 			-- see p.32 of spec
-			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(active_rank, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			build_bus(mBA, MR3);
 			build_bus(mMA, MR3_SETTINGS_RL);
 			delay_count <= 6; -- wait tMOD
@@ -927,7 +988,7 @@ begin
 			
 		when READ_PATTERN =>
 			if(leveling_finished = '1') then
-				build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+				build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 				read_enable <= '0';
 				delay_count <= LEVELING_CYCLE; -- make sure any active reads complete, and make sure tMPRR is satisfied (1 CK)
 				debug_sync <= '0';
@@ -936,11 +997,11 @@ begin
 			else
 
 				if(delay_count = 0) then
-					build_command(RANK0, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
+					build_command(active_rank, rRD, mCS0,mCS1,mRAS,mCAS,mWE);
 					read_enable <= '1'; -- this gets sent through a shift register to generate capture_read1/2
 					delay_count <= LEVELING_CYCLE;
 				else
-					build_command(RANK0, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
+					build_command(RANK_BOTH, rNOP, mCS0,mCS1,mRAS,mCAS,mWE);
 					read_enable <= '0';
 					delay_count <= delay_count - 1;
 				end if;
@@ -970,14 +1031,40 @@ begin
 	
 		when READ_PATTERN_EXIT =>
 			-- see p.32 of spec
-			build_command(RANK0, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
+			build_command(active_rank, rMRS, mCS0,mCS1,mRAS,mCAS,mWE);
 			build_bus(mBA, MR3);
 			build_bus(mMA, MR3_SETTINGS);
 			delay_count <= 6; -- wait until tMOD (max 12CK, 15ns), tMRD (4CK) satisfied
 			state <= DELAY;
-			ret <= IDLE;
+			if(active_rank = RANK0) then
+				active_rank <= RANK1;
+				ret <= READ_PATTERN_ENTER;
+			elsif(active_rank = RANK1) then
+				ret <= IDLE;
+			end if;
+			
+		-------------------------------------------------------------------------
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		-- Main read/write handler ----------------------------------------------
 
 
 		when BEGIN_TRANSACTION =>
@@ -1221,8 +1308,10 @@ begin
 				
 				if(vrank = '0') then
 					build_command(RANK0, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
+					active_rank <= RANK0; -- setting active_rank switches between the two readout_delay values for data capture
 				else
 					build_command(RANK1, rACT, mCS0,mCS1,mRAS,mCAS,mWE);
+					active_rank <= RANK1;
 				end if;
 				build_bus(mBA, vbank);
 				build_bus(mMA, vrow);
@@ -1269,6 +1358,19 @@ begin
 	end case;
 	end if;
 	end process;
+	
+	
+	
+	----------------------------------------------------------------------------
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 		cwl_delay : block is
 			signal dq1 : std_logic_vector(255 downto 0) := (others => '0');
@@ -1383,6 +1485,14 @@ begin
 		end block;
 		
 	
+	
+	
+	
+	
+	
+	
+		-- Compute the readout_delay for the ranks and perform bitslip as necessary
+	
 		read_leveling : block is
 			type lstate_t is (IDLE, SEEK, WAIT_FOR_NEXT, VALIDATE, FINISH);
 			signal lstate : lstate_t := IDLE;
@@ -1413,7 +1523,11 @@ begin
 				if(state = READ_PATTERN_ENTER) then
 					leveling_lane <= 0;
 					leveling_finished <= '0';
-					bitslip_rst <= (others => '1');
+					-- I'd better not have different bitslip between ranks, so only
+					-- allow bitslip the first time through
+					if(active_rank = RANK0) then
+						bitslip_rst <= (others => '1');
+					end if;
 					once <= '0';
 				else
 					bitslip_rst <= (others => '0');
@@ -1423,6 +1537,19 @@ begin
 					readout_delay <= 5;
 					slip_attempts <= 0;
 					lstate <= SEEK;
+				else
+				
+					if(init_active = '0') then
+						-- This is the code that switches between the two readout_delay settings by rank
+						-- after leveling is complete. active_rank is changed in ACT_ROW, so this will execute
+						-- one clock later and thus be ready in plenty of time for the actual read
+						if(active_rank = RANK0) then
+							readout_delay <= readout_delay_rank0;
+						elsif(active_rank = RANK1) then
+							readout_delay <= readout_delay_rank1;
+						end if;
+					end if;
+				
 				end if;
 			
 			-- Incoming data looks like this (CAS latency = 5) (ignoring propagation delays):
@@ -1463,8 +1590,9 @@ begin
 								once <= '1';
 								lstate <= WAIT_FOR_NEXT;
 							else
-							
-								if(slip_attempts = 4) then
+								-- If rank 1 has different bitslip requirements we're hosed, so
+								-- just fail if that's the case
+								if(slip_attempts = 4 or active_rank = RANK1) then
 									rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & x"F";
 									lstate <= FINISH;
 								else
@@ -1516,6 +1644,11 @@ begin
 				rwe <= '1';
 				if(leveling_lane = 7) then
 					leveling_finished <= '1';
+					if(active_rank = RANK0) then
+						readout_delay_rank0 <= readout_delay;
+					elsif(active_rank = RANK1) then
+						readout_delay_rank1 <= readout_delay;
+					end if;
 				else
 					leveling_lane <= leveling_lane + 1;
 				end if;
