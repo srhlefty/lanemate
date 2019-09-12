@@ -1068,7 +1068,8 @@ begin
 					end if;
 				
 				when FILL1 =>
-					base_addr := '0' & "000" & x"0000" & "0000000";
+--					base_addr := '0' & "000" & x"0000" & "0000000";
+					base_addr := frame_addr_w;
 					burst_to_flat(wdata, TEST_WORD1);
 					PADDR_W <= base_addr;
 					PADDR_R <= base_addr;
@@ -1078,7 +1079,8 @@ begin
 					state <= FILL2;
 					
 				when FILL2 =>
-					base_addr := '0' & "000" & x"0000" & "0000000";
+--					base_addr := '0' & "000" & x"0000" & "0000000";
+					base_addr := frame_addr_w;
 					burst_to_flat(wdata, TEST_WORD2);
 					PADDR_W <= base_addr;
 					PADDR_R <= base_addr;

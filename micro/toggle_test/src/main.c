@@ -377,6 +377,16 @@ void print_register_content()
 	print("\r\n");
 }
 
+uint32_t generate_address(unsigned char rank, unsigned char bank, uint16_t row, uint16_t col)
+{
+	uint32_t p1 = (rank>0?1:0) << 26;
+	uint32_t p2 = (bank & 0b111) << 23;
+	uint32_t p3 = (row & 0xFFFF) << 7;
+	uint32_t p4 = (col & 0b1111111);
+	return p1 | p2 | p3 | p4;
+}
+
+
 volatile bool handle_event = false;
 
 void SysTick_Handler(void)
@@ -404,18 +414,32 @@ int main (void)
 	configure_hdmi_tx_for_sd_input();
 
 	probe_ddr_stick();
-	print_leveling_results();
 	i2c_write_reg(lanemate_address, 15, 1); // run ddr init
 	delay_cycles_ms(1000);
 	print_leveling_results();
 
 	i2c_write_reg(lanemate_address, 0x05, 0x1e); // make sure transaction size is nonzero
-	print_register_content();
-	i2c_write_reg(lanemate_address, 24, 1); // run ddr mcb test
-	delay_cycles_ms(1000);
-	print_register_content();
-	i2c_write_reg(lanemate_address, 24, 1); // run ddr mcb test
-	print_register_content();
+
+	uint32_t mem_addr;
+	for(int rank=0;rank<2;++rank)
+	{
+		for(int bank=0;bank<8;++bank)
+		{
+			uint8_t str[20] = "Rank: XX Bank: XX\r\n";
+			byte_to_string(str+6, rank);
+			byte_to_string(str+15, bank);
+			print(str);
+
+			mem_addr = generate_address(rank, bank, 0, 0);
+			i2c_write_reg(lanemate_address,  7, (mem_addr >> 24) & 0xFF);
+			i2c_write_reg(lanemate_address,  8, (mem_addr >> 16) & 0xFF);
+			i2c_write_reg(lanemate_address,  9, (mem_addr >> 8) & 0xFF);
+			i2c_write_reg(lanemate_address, 10, (mem_addr) & 0xFF);
+			i2c_write_reg(lanemate_address, 24, 1); // run ddr mcb test
+			delay_cycles_ms(1);
+			print_register_content();
+		}
+	}
 
 	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
