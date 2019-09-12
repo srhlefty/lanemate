@@ -60,6 +60,7 @@ architecture Behavioral of test_pattern is
 	signal vcount : natural range 0 to 2047 := 0;
 	signal de_old : std_logic := '0';
 	signal hs_old : std_logic := '0';
+	signal vs_old : std_logic := '0';
 	
 	signal vs1 : std_logic := '0';
 	signal hs1 : std_logic := '0';
@@ -91,6 +92,8 @@ architecture Behavioral of test_pattern is
 	signal srcYCbCr1 : std_logic_vector(23 downto 0) := (others => '0');
 	signal srcY2 : std_logic_vector(7 downto 0) := (others => '0');
 	
+	signal blue : natural range 0 to 255 := 0;
+	signal add : std_logic := '1';
 begin
 
 		
@@ -133,6 +136,23 @@ begin
 		variable sample : std_logic_vector(23 downto 0);
 	begin
 	if(rising_edge(PCLK)) then
+		vs_old <= VS;
+		if(vs_old = '0' and VS = '1') then
+			if(add = '1') then
+				if(blue = 255) then
+					add <= '0';
+				else
+					blue <= blue + 1;
+				end if;
+			else
+				if(blue = 0) then
+					add <= '1';
+				else
+					blue <= blue - 1;
+				end if;
+			end if;
+		end if;
+		
 		if(CE = '1') then
 			de1 <= DE;
 			de444 <= de1;
@@ -141,7 +161,7 @@ begin
 			--d444 <= romRGB(to_integer(unsigned(hcountv(8 downto 7))));
 			d444(23 downto 16) <= hcountv(7 downto 0);
 			d444(15 downto 8)  <= vcountv(7 downto 0);
-			d444(7 downto 0) <= x"00";
+			d444(7 downto 0) <= std_logic_vector(to_unsigned(blue, 8));
 			
 			sample := romYCbCr(to_integer(unsigned(hcountv(8 downto 7))));
 			srcYCbCr1 <= sample;
