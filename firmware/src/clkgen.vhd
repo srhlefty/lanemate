@@ -67,12 +67,20 @@ architecture Behavioral of clkgen is
 	
 	signal clk : std_logic;
 	
-	constant PLL_M : natural := 5;
-	constant IOCLK_D : natural := 1;
-	constant SYSCLK_D : natural := 4;
+	-- 125MHz system, 500MHz data
+--	constant PLL_M : natural := 5;
+--	constant IOCLK_D : natural := 1;
+--	constant SYSCLK_D : natural := 4;
+
+	-- 100MHz system, 400MHz data
 --	constant PLL_M : natural := 8;
---	constant IOCLK_D : natural := 4;
---	constant SYSCLK_D : natural := 16;
+--	constant IOCLK_D : natural := 2;
+--	constant SYSCLK_D : natural := 8;
+	
+	-- 50MHz system, 200MHz data
+	constant PLL_M : natural := 8;
+	constant IOCLK_D : natural := 4;
+	constant SYSCLK_D : natural := 16;
 begin
 
 	LOCKED <= pll_locked;

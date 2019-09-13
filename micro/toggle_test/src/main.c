@@ -407,17 +407,16 @@ int main (void)
 
 	configure_i2c_master();
 	configure_hdmi_rx();
-	//hdmi_rx_set_freerun_to_1080p60();
-	hdmi_rx_set_freerun_to_720p60();
 	configure_sd_rx();
-	//configure_hdmi_tx_for_hd_input();
-	configure_hdmi_tx_for_sd_input();
 
 	probe_ddr_stick();
 	i2c_write_reg(lanemate_address, 15, 1); // run ddr init
-	delay_cycles_ms(1000);
+	delay_cycles_ms(10);
 	print_leveling_results();
 
+	// When delay_application is cut out of the loop, I can directly 
+	// talk to the MCB
+	/*
 	i2c_write_reg(lanemate_address, 0x05, 0x1e); // make sure transaction size is nonzero
 
 	uint32_t mem_addr;
@@ -440,35 +439,39 @@ int main (void)
 			print_register_content();
 		}
 	}
-
+	*/
 	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
 	
 
-	uint8_t source = 1; // 0=hd, 1=sd
+	uint8_t source = 0; // 0=hd, 1=sd
 	uint8_t testpattern = 1; // 0=off, 1=on
 	uint8_t readout_delay_hi;
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
-	uint8_t delay_enabled = 0x01;
+	uint8_t delay_enabled = 1;
 	if(source == 0)
 	{
-		bool full = false;
+		configure_hdmi_tx_for_hd_input();
+		bool full = true;
 		if(full)
 		{
-			// 1080p: readout delay = 1920/2 = 960 = 0x3C0, transaction size = 0x1e
-			readout_delay_hi = 0x03;
-			readout_delay_lo = 0xC0;
-			transaction_size = 0x1e;
+			hdmi_rx_set_freerun_to_1080p60();
+			// 1080p: readout delay = 1.5*1920 = 2880 = 0xB40, transaction size = full line = 0xB4
+			readout_delay_hi = 0x0B;
+			readout_delay_lo = 0x40;
+			transaction_size = 0xB4;
 		}else
 		{
-			// 720p: readout delay = 1280/2 = 640 = 0x280, transaction size = 0x14
-			readout_delay_hi = 0x02;
+			hdmi_rx_set_freerun_to_720p60();
+			// 720p: readout delay = 1.5*1280 = 1920 = 0x780, transaction size = full line = 0x78
+			readout_delay_hi = 0x07;
 			readout_delay_lo = 0x80;
-			transaction_size = 0x14;
+			transaction_size = 0x78;
 		}
 	}else
 	{
+		configure_hdmi_tx_for_sd_input();
 		// 480i: readout delay = 1440/2 = 720 = 0x2D0, transaction size = 0x08
 		readout_delay_hi = 0x02;
 		readout_delay_lo = 0xD0;

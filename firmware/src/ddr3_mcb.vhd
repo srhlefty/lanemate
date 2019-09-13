@@ -666,6 +666,7 @@ begin
 		constant tRTP : natural := 1; -- RD to PRE. max(4CK, 7.5ns)
 		
 		signal actual_transaction_size : natural range 0 to 255 := 0;
+		signal passcount : natural range 0 to 4 := 0;
 		
 	begin
 		
@@ -715,18 +716,40 @@ begin
 	case state is
 	
 		when IDLE =>
-			if(MFORCE_INIT = '1' and IOCLK_LOCKED = '1') then
-				state <= INIT1;
-			elsif(MTEST = '1' and IOCLK_LOCKED = '1') then
-				words_available := to_integer(unsigned(MAVAIL(7 downto 0)));
-				transaction_size := to_integer(unsigned(MTRANSACTION_SIZE(7 downto 0)));
-				if(words_available < transaction_size) then
-					actual_transaction_size <= words_available;
+			if(IOCLK_LOCKED = '1') then
+				if(MFORCE_INIT = '1') then
+					state <= INIT1;
+				elsif(MTEST = '1') then
+					words_available := to_integer(unsigned(MAVAIL));
+					transaction_size := to_integer(unsigned(MTRANSACTION_SIZE));
+					if(words_available < transaction_size) then
+						actual_transaction_size <= words_available;
+					else
+						actual_transaction_size <= transaction_size;
+					end if;
+					cmd_op <= WR;
+					state <= BEGIN_TRANSACTION;
 				else
-					actual_transaction_size <= transaction_size;
+				
+					-- This is the main code that runs during normal operation.
+					-- If there is enough data in the FIFO, and has been for the
+					-- last 4 clocks in a row (to guard against momentary glitches
+					-- in FIFO level that can happen with dual-clocked FIFOs) then
+					-- start a transaction.
+					words_available := to_integer(unsigned(MAVAIL));
+					transaction_size := to_integer(unsigned(MTRANSACTION_SIZE));
+					if(words_available >= transaction_size) then
+						if(passcount = 4) then
+							actual_transaction_size <= transaction_size;
+							cmd_op <= WR;
+							state <= BEGIN_TRANSACTION;
+						else
+							passcount <= passcount + 1;
+						end if;
+					else
+						passcount <= 0;
+					end if;
 				end if;
-				cmd_op <= WR;
-				state <= BEGIN_TRANSACTION;
 			end if;
 			init_active <= '0';
 			debug_sync <= '0';
@@ -1641,7 +1664,11 @@ begin
 				
 			when FINISH =>
 				raddr <= std_logic_vector(to_unsigned(16+leveling_lane, raddr'length));
-				rwe <= '1';
+				
+				if(active_rank = RANK0) then
+					rwe <= '1';
+				end if;
+				
 				if(leveling_lane = 7) then
 					leveling_finished <= '1';
 					if(active_rank = RANK0) then

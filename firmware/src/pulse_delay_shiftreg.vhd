@@ -36,14 +36,14 @@ entity pulse_delay_shiftreg is
 	Port ( 
 		CLK : in  STD_LOGIC;
 		D : in  STD_LOGIC_VECTOR(2 downto 0);
-		DELAY : in  STD_LOGIC_VECTOR (10 downto 0);
+		DELAY : in  STD_LOGIC_VECTOR (11 downto 0);
 		DOUT : out  STD_LOGIC_VECTOR(2 downto 0)
 	);
 end pulse_delay_shiftreg;
 
 architecture Behavioral of pulse_delay_shiftreg is
 
-	type shifter_t is array(0 to 2047) of std_logic_vector(2 downto 0);
+	type shifter_t is array(0 to 4095) of std_logic_vector(2 downto 0);
 	signal shifter : shifter_t := (others => (others => '0'));
 		
 begin

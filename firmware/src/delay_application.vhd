@@ -38,7 +38,7 @@ entity delay_application is
 		DE   : in std_logic;
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
-		READOUT_DELAY : in std_logic_vector(10 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		READOUT_DELAY : in std_logic_vector(11 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
 		CE : in std_logic;
 		
 		-- R/W settings
@@ -74,10 +74,12 @@ entity delay_application is
 
 		-- read-transaction results
 		MPUSH : in std_logic;
-		MDATA : in std_logic_vector(255 downto 0)
+		MDATA : in std_logic_vector(255 downto 0);
 		
 		--
 		-------------------------------------------------------------------------
+		
+		MOUTPUT_USED : out std_logic_vector(8 downto 0) -- level of ddr_to_pixels fifo
 	);
 end delay_application;
 
@@ -165,6 +167,7 @@ architecture Behavioral of delay_application is
 		MRESET : in STD_LOGIC;
 		MPUSH  : in  STD_LOGIC;
 		MDATA  : in  STD_LOGIC_VECTOR (255 downto 0);
+		MUSED  : out std_logic_vector(8 downto 0);
 		
 		PCLK : in  STD_LOGIC;
 		PRESET : in STD_LOGIC;
@@ -195,7 +198,7 @@ architecture Behavioral of delay_application is
 	Port ( 
 		CLK : in  STD_LOGIC;
 		D : in  STD_LOGIC_VECTOR(2 downto 0);
-		DELAY : in  STD_LOGIC_VECTOR (10 downto 0);
+		DELAY : in  STD_LOGIC_VECTOR (11 downto 0);
 		DOUT : out  STD_LOGIC_VECTOR(2 downto 0)
 	);
 	end component;
@@ -237,7 +240,7 @@ begin
 
    inst_gearbox8to24: gearbox8to24 PORT MAP (
           PCLK => PCLK,
-			 PRST => newline,
+			 PRST => newframe,
           CE => IS422,
           DIN => PDATA,
           DE => DE,
@@ -273,7 +276,7 @@ begin
 	
    inst_gearbox24_to_256: gearbox24to256 PORT MAP (
           PCLK => PCLK,
-			 PRST => newline,
+			 PRST => newframe,
           PDATA => data_post_gearbox,
           PPUSH => de_post_gearbox,
           PFRAME_ADDR_W => FRAME_ADDR_W,
@@ -314,14 +317,14 @@ begin
           MFLUSH => MFLUSH
         );
 	MAVAIL <= mavail_i;
-	process(HS, mavail_i) is
-	begin
-		if(HS = '0' and mavail_i > "000000000") then
-			DEBUG <= '1';
-		else
-			DEBUG <= '0';
-		end if;
-	end process;
+--	process(HS, mavail_i) is
+--	begin
+--		if(HS = '0' and mavail_i > "000000000") then
+--			DEBUG <= '1';
+--		else
+--			DEBUG <= '0';
+--		end if;
+--	end process;
 	
 	end block;
 
@@ -361,6 +364,7 @@ begin
 		MRESET => mreset,
 		MPUSH => MPUSH,
 		MDATA => MDATA,
+		MUSED => MOUTPUT_USED,
 		PCLK => PCLK,
 		PRESET => '0',
 		P8BIT => IS422,

@@ -189,7 +189,7 @@ architecture Behavioral of lane_mate is
 		DE   : in std_logic;
 		PDATA : in std_logic_vector(23 downto 0);
 		IS422 : in std_logic; -- if true, bottom 8 bits are assumed to be the data
-		READOUT_DELAY : in std_logic_vector(10 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
+		READOUT_DELAY : in std_logic_vector(11 downto 0); -- needs to be about half a line, long enough so that a few transactions have occurred
 		CE : in std_logic;
 		
 		-- R/W settings
@@ -225,10 +225,11 @@ architecture Behavioral of lane_mate is
 
 		-- read-transaction results
 		MPUSH : in std_logic;
-		MDATA : in std_logic_vector(255 downto 0)
+		MDATA : in std_logic_vector(255 downto 0);
 		
 		--
 		-------------------------------------------------------------------------
+		MOUTPUT_USED : out std_logic_vector(8 downto 0) -- level of ddr_to_pixels fifo
 	);
 	end component;
 	
@@ -547,7 +548,7 @@ architecture Behavioral of lane_mate is
 
 	signal is422 : std_logic;
 	
-	signal readout_delay : std_logic_vector(10 downto 0) := std_logic_vector(to_unsigned(1920/2, 11));
+	signal readout_delay : std_logic_vector(11 downto 0) := std_logic_vector(to_unsigned(1920/2, 12));
 	signal frame_addr_w : std_logic_vector(26 downto 0) := (others => '0');
 	signal frame_addr_r : std_logic_vector(26 downto 0) := (others => '0');
 	signal mtransaction_size : std_logic_vector(7 downto 0) := x"1e";
@@ -563,6 +564,7 @@ architecture Behavioral of lane_mate is
 	
 	signal delay_debug : std_logic;
 	
+	signal output_fifo_level : std_logic_vector(8 downto 0);
 	
 	signal b0_serdesclk : std_logic;
 	signal b0_serdesstrobe : std_logic;
@@ -580,6 +582,8 @@ architecture Behavioral of lane_mate is
 
 
 
+		signal MPOP_W : std_logic;
+		signal MPUSH : std_logic;
 
 begin
 
@@ -835,9 +839,7 @@ begin
 	-- Of those, all are on the pixel clock domain except mtransaction_size.
 	
 	app : block is
-		signal MPOP_W : std_logic;
 		signal MPOP_R : std_logic;
-		signal MPUSH : std_logic;
 		signal MDATA : std_logic_vector(255 downto 0);
 		signal MAVAIL : std_logic_vector(8 downto 0);
 		signal MFLUSH : std_logic;
@@ -846,7 +848,7 @@ begin
 		signal MDVALID_W : std_logic;
 		signal MADDR_R : std_logic_vector(26 downto 0);
 		signal MDVALID_R : std_logic;
-		signal preadout_delay : std_logic_vector(10 downto 0);
+		signal preadout_delay : std_logic_vector(11 downto 0);
 		signal pframe_addr_w : std_logic_vector(26 downto 0);
 		signal pframe_addr_r : std_logic_vector(26 downto 0);
 		signal delay_enabled : std_logic_vector(7 downto 0);
@@ -858,7 +860,7 @@ begin
 		if(rising_edge(clk)) then
 			-- writing to low byte triggers acceptance of new value
 			if(i2c_register_write = '1' and to_integer(unsigned(i2c_register_addr)) = 4) then
-				readout_delay(10 downto 8) <= register_map(3)(2 downto 0);
+				readout_delay(11 downto 8) <= register_map(3)(3 downto 0);
 				readout_delay(7 downto 0) <= register_map(4)(7 downto 0);
 			end if;
 			mtransaction_size <= register_map(5);
@@ -880,7 +882,7 @@ begin
 		end process;
 	
 		cross_delay : synchronizer_2ff 
-		generic map( DATA_WIDTH => 11, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
+		generic map( DATA_WIDTH => 12, EXTRA_INPUT_REGISTER => false, USE_GRAY_CODE => true )
 		PORT MAP(
 			CLKA => clk,
 			DA => readout_delay,
@@ -916,374 +918,385 @@ begin
 			RESETB => '0'
 		);
 	
---		inst_delay_application: delay_application PORT MAP (
---			 PCLK => video_clock,
---			 VS => stage2_vs,
---			 HS => stage2_hs,
---			 DE => stage2_de,
---			 PDATA => stage2_d,
---			 IS422 => is422,
---			 READOUT_DELAY => preadout_delay, -- pclk
---			 CE => delay_enabled(0),
---			 FRAME_ADDR_W => pframe_addr_w, -- pclk
---			 FRAME_ADDR_R => pframe_addr_r, -- pclk
---			 VS_OUT => stage3_vs,
---			 HS_OUT => stage3_hs,
---			 DE_OUT => stage3_de,
---			 PDATA_OUT => stage3_d,
---			 DEBUG => delay_debug,
---			 MCLK => clk,
---			 MTRANSACTION_SIZE => mtransaction_size, -- mclk
---			 MAVAIL => MAVAIL,
---			 MFLUSH => MFLUSH,
---			 MPOP_W => MPOP_W,
---			 MADDR_W => MADDR_W,
---			 MDATA_W => MDATA_W,
---			 MDVALID_W => MDVALID_W,
---			 MPOP_R => MPOP_R,
---			 MADDR_R => MADDR_R,
---			 MDVALID_R => MDVALID_R,
---			 MPUSH => MPUSH,
---			 MDATA => MDATA
---		  );
+		inst_delay_application: delay_application PORT MAP (
+			 PCLK => video_clock,
+			 VS => stage2_vs,
+			 HS => stage2_hs,
+			 DE => stage2_de,
+			 PDATA => stage2_d,
+			 IS422 => is422,
+			 READOUT_DELAY => preadout_delay, -- pclk
+			 CE => delay_enabled(0),
+			 FRAME_ADDR_W => pframe_addr_w, -- pclk
+			 FRAME_ADDR_R => pframe_addr_r, -- pclk
+			 VS_OUT => stage3_vs,
+			 HS_OUT => stage3_hs,
+			 DE_OUT => stage3_de,
+			 PDATA_OUT => stage3_d,
+			 DEBUG => delay_debug,
+			 MCLK => clk,
+			 MTRANSACTION_SIZE => mtransaction_size, -- mclk
+			 MAVAIL => MAVAIL,
+			 MFLUSH => MFLUSH,
+			 MPOP_W => MPOP_W,
+			 MADDR_W => MADDR_W,
+			 MDATA_W => MDATA_W,
+			 MDVALID_W => MDVALID_W,
+			 MPOP_R => MPOP_R,
+			 MADDR_R => MADDR_R,
+			 MDVALID_R => MDVALID_R,
+			 MPUSH => MPUSH,
+			 MDATA => MDATA,
+			 MOUTPUT_USED => output_fifo_level
+		  );
 		
-		ddr_test : block is
-			constant TEST_WORD1 : burst_t(63 downto 0) := 
-			(
-				x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
-				x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
-				x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
-				x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
-			);
-			constant TEST_WORD2 : burst_t(63 downto 0) :=
-			(
-				x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
-				x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
-				x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
-				x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
-			);
-			constant TEST_WORD3 : burst_t(63 downto 0) := 
-			(
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"1"
-			);
-			constant TEST_WORD4 : burst_t(63 downto 0) :=
-			(
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
-				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"1"
-			);
-			procedure burst_to_flat(
-				variable flat : out std_logic_vector(255 downto 0);
-				constant burst : in burst_t(63 downto 0)
-			) is
-			begin
-				for i in 0 to burst'high loop
-					flat(4*i+3 downto 4*i) := burst(i);
-				end loop;
-			end procedure;
-			
-			type state_t is (IDLE, FILL1, FILL2, DELAY, LAUNCH, WAIT_FOR_FINISH, READOUT);
-			signal state : state_t := IDLE;
-			signal catch : ram_t(0 to 63) := (others => x"00");
-			signal count : natural := 0;
-			constant reg_start : natural := 25;
-			
-			signal PADDR_W :std_logic_vector(26 downto 0) := (others => '0');
-			signal PADDR_R :std_logic_vector(26 downto 0) := (others => '0');
-			signal PDATA_W : std_logic_vector(255 downto 0) := (others => '0');
-			signal PPUSH_W : std_logic := '0';
-			signal PPUSH_R : std_logic := '0';
-			
-			component bram_simple_dual_port is
-			generic (
-				ADDR_WIDTH : natural;
-				DATA_WIDTH : natural
-			);
-			 Port ( 
-				CLK1 : in std_logic;
-				WADDR1 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
-				WDATA1 : in std_logic_vector (DATA_WIDTH-1 downto 0);
-				WE1    : in std_logic;
-
-				CLK2 : in std_logic;
-				RADDR2 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
-				RDATA2 : out std_logic_vector (DATA_WIDTH-1 downto 0)
-			);
-			end component;
-			
-			component fifo_2clk is
-			generic (
-				ADDR_WIDTH : natural;
-				DATA_WIDTH : natural
-			);
-			 Port ( 
-				WRITE_CLK  : in std_logic;
-				RESET      : in std_logic;
-				FREE       : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-				DIN        : in std_logic_vector (DATA_WIDTH-1 downto 0);
-				PUSH       : in std_logic;
-
-				READ_CLK : in std_logic;
-				USED     : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-				DOUT     : out std_logic_vector (DATA_WIDTH-1 downto 0);
-				DVALID   : out std_logic;
-				POP      : in std_logic;
-				
-				-- Dual port ram interface, optionally erasable. Note you wire clocks.
-				RAM_WADDR : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-				RAM_WDATA : out std_logic_vector(DATA_WIDTH-1 downto 0);
-				RAM_WE    : out std_logic;
-				RAM_RESET : out std_logic;
-				
-				RAM_RADDR : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-				RAM_RDATA : in std_logic_vector(DATA_WIDTH-1 downto 0)
-			);
-			end component;
-			
-		begin
-		
-			process(clk) is
-				variable wdata : std_logic_vector(255 downto 0);
-				variable vcount : std_logic_vector(255 downto 0);
-				variable base_addr : std_logic_vector(26 downto 0);
-				variable vaddr : natural;
-				variable vaddrinc : natural;
-				variable newaddr : std_logic_vector(26 downto 0);
-			begin
-			if(rising_edge(clk)) then
-			case state is
-				when IDLE =>
-					PADDR_W <= (others => '0');
-					PADDR_R <= (others => '0');
-					PDATA_W <= (others => '0');
-					PPUSH_W <= '0';
-					PPUSH_R <= '0';
-					internal_reg_we <= '0';
-					if(trigger_ddr_test = '1') then
-						state <= FILL1;
-					end if;
-				
-				when FILL1 =>
---					base_addr := '0' & "000" & x"0000" & "0000000";
-					base_addr := frame_addr_w;
-					burst_to_flat(wdata, TEST_WORD1);
-					PADDR_W <= base_addr;
-					PADDR_R <= base_addr;
-					PDATA_W <= wdata;
-					PPUSH_W <= '1';
-					PPUSH_R <= '1';
-					state <= FILL2;
-					
-				when FILL2 =>
---					base_addr := '0' & "000" & x"0000" & "0000000";
-					base_addr := frame_addr_w;
-					burst_to_flat(wdata, TEST_WORD2);
-					PADDR_W <= base_addr;
-					PADDR_R <= base_addr;
-					PDATA_W <= wdata;
-					PPUSH_W <= '1';
-					PPUSH_R <= '1';
-					count <= 4; -- it takes a few clocks for the number of words available in the FIFO to be updated
-					state <= DELAY;
-				
-				when DELAY =>
-					PADDR_W <= (others => '0');
-					PADDR_R <= (others => '0');
-					PDATA_W <= (others => '0');
-					PPUSH_W <= '0';
-					PPUSH_R <= '0';
-					if(count = 0) then
-						state <= LAUNCH;
-					else
-						count <= count - 1;
-					end if;
-				
-				when LAUNCH =>
-					PADDR_W <= (others => '0');
-					PADDR_R <= (others => '0');
-					PDATA_W <= (others => '0');
-					PPUSH_W <= '0';
-					PPUSH_R <= '0';
-					run_ddr_test <= '1';
-					count <= 250; -- The complete transaction for 30 words takes less than 1us. This is 2us.
-					state <= WAIT_FOR_FINISH;
-				
-				when WAIT_FOR_FINISH =>
-					run_ddr_test <= '0';
-					if(count = 0) then
-						state <= READOUT;
-					else
-						count <= count - 1;
-					end if;
-					
-					if(MPUSH = '1') then
-						-- Data is stored in the upper half on arrival,
-						-- and shifted to the lower half when the next arrives
-						for i in 0 to 31 loop
-							catch(32+i) <= MDATA(8*i+7 downto 8*i);
---							catch(32+i) <= x"FF";
-							catch(i) <= catch(32+i);
-						end loop;
-						
-					end if;
-				
-				when READOUT =>
-					if(count = 64) then
-						internal_reg_we <= '0';
-						state <= IDLE;
-					else
-						internal_reg_addr <= reg_start + count;
-						internal_reg_data <= catch(0);
-						internal_reg_we <= '1';
-						
-						for i in 0 to 63-1 loop
-							catch(i) <= catch(i+1);
-						end loop;
-						
-						count <= count + 1;
-					end if;
-					
-			end case;
-			end if;
-			end process;
-		
-		
-		
-		
-		
-			writer_fifo_block : block is
-				constant ram_addr_width : natural := 9;
-				constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
-				constant ram_data_width_r : natural := 27; -- just address
-				
-				signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
-				signal ram_wdata1 : std_logic_vector(ram_data_width_w-1 downto 0);
-				signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
-				signal ram_rdata2 : std_logic_vector(ram_data_width_w-1 downto 0);
-				signal ram_we : std_logic;
-				signal bus_in : std_logic_vector(ram_data_width_w-1 downto 0);
-				signal bus_out : std_logic_vector(ram_data_width_w-1 downto 0);
-			begin
-			
-				write_bram: bram_simple_dual_port 
-				generic map(
-					ADDR_WIDTH => ram_addr_width,
-					DATA_WIDTH => ram_data_width_w
-				)
-				PORT MAP(
-					CLK1 => clk,
-					WADDR1 => ram_waddr1,
-					WDATA1 => ram_wdata1,
-					WE1 => ram_we,
-					CLK2 => clk,
-					RADDR2 => ram_raddr2,
-					RDATA2 => ram_rdata2
-				);
-				
-				bus_in(ram_data_width_w-1 downto ram_data_width_w-27) <= PADDR_W;
-				bus_in(ram_data_width_w-27-1 downto 0)                <= PDATA_W;
-			
-				write_fifo: fifo_2clk 
-				generic map(
-					ADDR_WIDTH => ram_addr_width,
-					DATA_WIDTH => ram_data_width_w
-				)
-				PORT MAP(
-					WRITE_CLK => clk,
-					RESET => '0',
-					FREE => open,
-					DIN => bus_in,
-					PUSH => PPUSH_W,
-					READ_CLK => clk,
-					USED => MAVAIL,
-					DOUT => bus_out,
-					DVALID => MDVALID_W,
-					POP => MPOP_W,
-					RAM_WADDR => ram_waddr1,
-					RAM_WDATA => ram_wdata1,
-					RAM_WE => ram_we,
-					RAM_RESET => open,
-					RAM_RADDR => ram_raddr2,
-					RAM_RDATA => ram_rdata2
-				);
-				
-				MADDR_W <= bus_out(ram_data_width_w-1 downto ram_data_width_w-27); -- 27 bits wide
-				MDATA_W <= bus_out(ram_data_width_w-27-1 downto 0);                -- 256 bits wide
-				
-			end block;
-
-
-
-			reader_fifo_block : block is
-				constant ram_addr_width : natural := 9;
-				constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
-				constant ram_data_width_r : natural := 27; -- just address
-
-				signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
-				signal ram_wdata1 : std_logic_vector(ram_data_width_r-1 downto 0);
-				signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
-				signal ram_rdata2 : std_logic_vector(ram_data_width_r-1 downto 0);
-				signal ram_we : std_logic;
-				signal bus_in : std_logic_vector(ram_data_width_r-1 downto 0);
-				signal bus_out : std_logic_vector(ram_data_width_r-1 downto 0);
-			begin
-			
-				read_bram: bram_simple_dual_port 
-				generic map(
-					ADDR_WIDTH => ram_addr_width,
-					DATA_WIDTH => ram_data_width_r
-				)
-				PORT MAP(
-					CLK1 => clk,
-					WADDR1 => ram_waddr1,
-					WDATA1 => ram_wdata1,
-					WE1 => ram_we,
-					CLK2 => clk,
-					RADDR2 => ram_raddr2,
-					RDATA2 => ram_rdata2
-				);
-				
-				bus_in <= PADDR_R;
-			
-				read_fifo: fifo_2clk 
-				generic map(
-					ADDR_WIDTH => ram_addr_width,
-					DATA_WIDTH => ram_data_width_r
-				)
-				PORT MAP(
-					WRITE_CLK => clk,
-					RESET => '0',
-					FREE => open,
-					DIN => bus_in,
-					PUSH => PPUSH_R,
-					READ_CLK => clk,
-					USED => open,
-					DOUT => bus_out,
-					DVALID => MDVALID_R,
-					POP => MPOP_R,
-					RAM_WADDR => ram_waddr1,
-					RAM_WDATA => ram_wdata1,
-					RAM_WE => ram_we,
-					RAM_RESET => open,
-					RAM_RADDR => ram_raddr2,
-					RAM_RDATA => ram_rdata2
-				);
-				
-				MADDR_R <= bus_out;
-				
-			end block;
-		
-		
-		
-		end block;
+--		ddr_test : block is
+--			constant TEST_WORD1 : burst_t(63 downto 0) := 
+--			(
+--				x"0",x"1",x"2",x"3",x"4",x"5",x"6",x"7",x"8",x"9",x"A",x"B",x"C",x"D",x"E",x"F",
+--				x"F",x"E",x"D",x"C",x"B",x"A",x"9",x"8",x"7",x"6",x"5",x"4",x"3",x"2",x"1",x"0",
+--				x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",
+--				x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F",x"D",x"E",x"A",x"D",x"B",x"E",x"E",x"F"
+--			);
+--			constant TEST_WORD2 : burst_t(63 downto 0) :=
+--			(
+--				x"4",x"3",x"b",x"c",x"e",x"d",x"a",x"6",x"f",x"5",x"a",x"8",x"d",x"e",x"e",x"f",
+--				x"8",x"9",x"4",x"7",x"b",x"7",x"7",x"e",x"7",x"e",x"2",x"b",x"f",x"2",x"3",x"c",
+--				x"2",x"4",x"5",x"c",x"b",x"3",x"7",x"f",x"7",x"b",x"c",x"7",x"d",x"6",x"6",x"7",
+--				x"3",x"e",x"9",x"4",x"f",x"8",x"d",x"9",x"6",x"e",x"c",x"f",x"8",x"c",x"2",x"1"
+--			);
+--			constant TEST_WORD3 : burst_t(63 downto 0) := 
+--			(
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"F",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"1"
+--			);
+--			constant TEST_WORD4 : burst_t(63 downto 0) :=
+--			(
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",
+--				x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"0",x"1"
+--			);
+--			procedure burst_to_flat(
+--				variable flat : out std_logic_vector(255 downto 0);
+--				constant burst : in burst_t(63 downto 0)
+--			) is
+--			begin
+--				for i in 0 to burst'high loop
+--					flat(4*i+3 downto 4*i) := burst(i);
+--				end loop;
+--			end procedure;
+--			
+--			type state_t is (IDLE, FILL1, FILL2, DELAY, LAUNCH, WAIT_FOR_FINISH, READOUT);
+--			signal state : state_t := IDLE;
+--			signal catch : ram_t(0 to 63) := (others => x"00");
+--			signal count : natural := 0;
+--			constant reg_start : natural := 25;
+--			
+--			signal PADDR_W :std_logic_vector(26 downto 0) := (others => '0');
+--			signal PADDR_R :std_logic_vector(26 downto 0) := (others => '0');
+--			signal PDATA_W : std_logic_vector(255 downto 0) := (others => '0');
+--			signal PPUSH_W : std_logic := '0';
+--			signal PPUSH_R : std_logic := '0';
+--			
+--			component bram_simple_dual_port is
+--			generic (
+--				ADDR_WIDTH : natural;
+--				DATA_WIDTH : natural
+--			);
+--			 Port ( 
+--				CLK1 : in std_logic;
+--				WADDR1 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
+--				WDATA1 : in std_logic_vector (DATA_WIDTH-1 downto 0);
+--				WE1    : in std_logic;
+--
+--				CLK2 : in std_logic;
+--				RADDR2 : in std_logic_vector (ADDR_WIDTH-1 downto 0);
+--				RDATA2 : out std_logic_vector (DATA_WIDTH-1 downto 0)
+--			);
+--			end component;
+--			
+--			component fifo_2clk is
+--			generic (
+--				ADDR_WIDTH : natural;
+--				DATA_WIDTH : natural
+--			);
+--			 Port ( 
+--				WRITE_CLK  : in std_logic;
+--				RESET      : in std_logic;
+--				FREE       : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+--				DIN        : in std_logic_vector (DATA_WIDTH-1 downto 0);
+--				PUSH       : in std_logic;
+--
+--				READ_CLK : in std_logic;
+--				USED     : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+--				DOUT     : out std_logic_vector (DATA_WIDTH-1 downto 0);
+--				DVALID   : out std_logic;
+--				POP      : in std_logic;
+--				
+--				-- Dual port ram interface, optionally erasable. Note you wire clocks.
+--				RAM_WADDR : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+--				RAM_WDATA : out std_logic_vector(DATA_WIDTH-1 downto 0);
+--				RAM_WE    : out std_logic;
+--				RAM_RESET : out std_logic;
+--				
+--				RAM_RADDR : out std_logic_vector(ADDR_WIDTH-1 downto 0);
+--				RAM_RDATA : in std_logic_vector(DATA_WIDTH-1 downto 0)
+--			);
+--			end component;
+--			
+--		begin
+--		
+--			process(clk) is
+--				variable wdata : std_logic_vector(255 downto 0);
+--				variable vcount : std_logic_vector(255 downto 0);
+--				variable base_addr : std_logic_vector(26 downto 0);
+--				variable vaddr : natural;
+--				variable vaddrinc : natural;
+--				variable newaddr : std_logic_vector(26 downto 0);
+--			begin
+--			if(rising_edge(clk)) then
+--			case state is
+--				when IDLE =>
+--					PADDR_W <= (others => '0');
+--					PADDR_R <= (others => '0');
+--					PDATA_W <= (others => '0');
+--					PPUSH_W <= '0';
+--					PPUSH_R <= '0';
+--					internal_reg_we <= '0';
+--					if(trigger_ddr_test = '1') then
+--						state <= FILL1;
+--					end if;
+--				
+--				when FILL1 =>
+--					base_addr := frame_addr_w;
+--					burst_to_flat(wdata, TEST_WORD1);
+--					PADDR_W <= base_addr;
+--					PADDR_R <= base_addr;
+--					PDATA_W <= wdata;
+--					PPUSH_W <= '1';
+--					PPUSH_R <= '1';
+--					state <= FILL2;
+--					
+--				when FILL2 =>
+--					base_addr := frame_addr_w;
+--					burst_to_flat(wdata, TEST_WORD2);
+--					PADDR_W <= base_addr;
+--					PADDR_R <= base_addr;
+--					PDATA_W <= wdata;
+--					PPUSH_W <= '1';
+--					PPUSH_R <= '1';
+--					count <= 4; -- it takes a few clocks for the number of words available in the FIFO to be updated
+--					state <= DELAY;
+--				
+--				when DELAY =>
+--					PADDR_W <= (others => '0');
+--					PADDR_R <= (others => '0');
+--					PDATA_W <= (others => '0');
+--					PPUSH_W <= '0';
+--					PPUSH_R <= '0';
+--					if(count = 0) then
+--						state <= LAUNCH;
+--					else
+--						count <= count - 1;
+--					end if;
+--				
+--				when LAUNCH =>
+--					PADDR_W <= (others => '0');
+--					PADDR_R <= (others => '0');
+--					PDATA_W <= (others => '0');
+--					PPUSH_W <= '0';
+--					PPUSH_R <= '0';
+--					run_ddr_test <= '1';
+--					count <= 250; -- The complete transaction for 30 words takes less than 1us. This is 2us.
+--					state <= WAIT_FOR_FINISH;
+--				
+--				when WAIT_FOR_FINISH =>
+--					run_ddr_test <= '0';
+--					if(count = 0) then
+--						state <= READOUT;
+--					else
+--						count <= count - 1;
+--					end if;
+--					
+--					if(MPUSH = '1') then
+--						-- Data is stored in the upper half on arrival,
+--						-- and shifted to the lower half when the next arrives
+--						for i in 0 to 31 loop
+--							catch(32+i) <= MDATA(8*i+7 downto 8*i);
+----							catch(32+i) <= x"FF";
+--							catch(i) <= catch(32+i);
+--						end loop;
+--						
+--					end if;
+--				
+--				when READOUT =>
+--					if(count = 64) then
+--						internal_reg_we <= '0';
+--						state <= IDLE;
+--					else
+--						internal_reg_addr <= reg_start + count;
+--						internal_reg_data <= catch(0);
+--						internal_reg_we <= '1';
+--						
+--						for i in 0 to 63-1 loop
+--							catch(i) <= catch(i+1);
+--						end loop;
+--						
+--						count <= count + 1;
+--					end if;
+--					
+--			end case;
+--			end if;
+--			end process;
+--		
+--		
+--		
+--		
+--		
+--			writer_fifo_block : block is
+--				constant ram_addr_width : natural := 9;
+--				constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
+--				constant ram_data_width_r : natural := 27; -- just address
+--				
+--				signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
+--				signal ram_wdata1 : std_logic_vector(ram_data_width_w-1 downto 0);
+--				signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
+--				signal ram_rdata2 : std_logic_vector(ram_data_width_w-1 downto 0);
+--				signal ram_we : std_logic;
+--				signal bus_in : std_logic_vector(ram_data_width_w-1 downto 0);
+--				signal bus_out : std_logic_vector(ram_data_width_w-1 downto 0);
+--			begin
+--			
+--				write_bram: bram_simple_dual_port 
+--				generic map(
+--					ADDR_WIDTH => ram_addr_width,
+--					DATA_WIDTH => ram_data_width_w
+--				)
+--				PORT MAP(
+--					CLK1 => clk,
+--					WADDR1 => ram_waddr1,
+--					WDATA1 => ram_wdata1,
+--					WE1 => ram_we,
+--					CLK2 => clk,
+--					RADDR2 => ram_raddr2,
+--					RDATA2 => ram_rdata2
+--				);
+--				
+--				bus_in(ram_data_width_w-1 downto ram_data_width_w-27) <= PADDR_W;
+--				bus_in(ram_data_width_w-27-1 downto 0)                <= PDATA_W;
+--			
+--				write_fifo: fifo_2clk 
+--				generic map(
+--					ADDR_WIDTH => ram_addr_width,
+--					DATA_WIDTH => ram_data_width_w
+--				)
+--				PORT MAP(
+--					WRITE_CLK => clk,
+--					RESET => '0',
+--					FREE => open,
+--					DIN => bus_in,
+--					PUSH => PPUSH_W,
+--					READ_CLK => clk,
+--					USED => MAVAIL,
+--					DOUT => bus_out,
+--					DVALID => MDVALID_W,
+--					POP => MPOP_W,
+--					RAM_WADDR => ram_waddr1,
+--					RAM_WDATA => ram_wdata1,
+--					RAM_WE => ram_we,
+--					RAM_RESET => open,
+--					RAM_RADDR => ram_raddr2,
+--					RAM_RDATA => ram_rdata2
+--				);
+--				
+--				MADDR_W <= bus_out(ram_data_width_w-1 downto ram_data_width_w-27); -- 27 bits wide
+--				MDATA_W <= bus_out(ram_data_width_w-27-1 downto 0);                -- 256 bits wide
+--				
+--			end block;
+--
+--
+--
+--			reader_fifo_block : block is
+--				constant ram_addr_width : natural := 9;
+--				constant ram_data_width_w : natural := 256 + 27; -- 256 for data, 27 for address
+--				constant ram_data_width_r : natural := 27; -- just address
+--
+--				signal ram_waddr1 : std_logic_vector(ram_addr_width-1 downto 0);
+--				signal ram_wdata1 : std_logic_vector(ram_data_width_r-1 downto 0);
+--				signal ram_raddr2 : std_logic_vector(ram_addr_width-1 downto 0);
+--				signal ram_rdata2 : std_logic_vector(ram_data_width_r-1 downto 0);
+--				signal ram_we : std_logic;
+--				signal bus_in : std_logic_vector(ram_data_width_r-1 downto 0);
+--				signal bus_out : std_logic_vector(ram_data_width_r-1 downto 0);
+--			begin
+--			
+--				read_bram: bram_simple_dual_port 
+--				generic map(
+--					ADDR_WIDTH => ram_addr_width,
+--					DATA_WIDTH => ram_data_width_r
+--				)
+--				PORT MAP(
+--					CLK1 => clk,
+--					WADDR1 => ram_waddr1,
+--					WDATA1 => ram_wdata1,
+--					WE1 => ram_we,
+--					CLK2 => clk,
+--					RADDR2 => ram_raddr2,
+--					RDATA2 => ram_rdata2
+--				);
+--				
+--				bus_in <= PADDR_R;
+--			
+--				read_fifo: fifo_2clk 
+--				generic map(
+--					ADDR_WIDTH => ram_addr_width,
+--					DATA_WIDTH => ram_data_width_r
+--				)
+--				PORT MAP(
+--					WRITE_CLK => clk,
+--					RESET => '0',
+--					FREE => open,
+--					DIN => bus_in,
+--					PUSH => PPUSH_R,
+--					READ_CLK => clk,
+--					USED => open,
+--					DOUT => bus_out,
+--					DVALID => MDVALID_R,
+--					POP => MPOP_R,
+--					RAM_WADDR => ram_waddr1,
+--					RAM_WDATA => ram_wdata1,
+--					RAM_WE => ram_we,
+--					RAM_RESET => open,
+--					RAM_RADDR => ram_raddr2,
+--					RAM_RDATA => ram_rdata2
+--				);
+--				
+--				MADDR_R <= bus_out;
+--				
+--			end block;
+--		end block;
 
 
---		Inst_mcb: trivial_mcb PORT MAP(
 --		Inst_mcb: internal_mcb PORT MAP(
+--			MCLK => clk,
+--			MTRANSACTION_SIZE => mtransaction_size,
+--			MAVAIL    => MAVAIL,
+--			MFLUSH    => MFLUSH,
+--			MPOP_W    => MPOP_W,
+--			MADDR_W   => MADDR_W,
+--			MDATA_W   => MDATA_W,
+--			MDVALID_W => MDVALID_W,
+--			MPOP_R    => MPOP_R,
+--			MADDR_R   => MADDR_R,
+--			MDVALID_R => MDVALID_R,
+--			MPUSH_R   => MPUSH,
+--			MDATA_R   => MDATA
+--		);
+			
+			
 		Inst_mcb: ddr3_mcb 
 		generic map ( DEBUG => false )
 		PORT MAP(
@@ -1484,14 +1497,15 @@ begin
 		B1_GPIO5 <= val(4);
 		B1_GPIO6 <= mcb_write_active;
 		B1_GPIO7 <= mcb_read_active;
-		B1_GPIO8 <= mcb_debug(0);
-		B1_GPIO9 <= mcb_debug(1);
-		B1_GPIO10 <= mcb_debug(2);
-		B1_GPIO11 <= mcb_debug(3);
-		B1_GPIO12 <= mcb_debug(4);
-		B1_GPIO13 <= mcb_debug(5);
-		B1_GPIO14 <= mcb_debug(6);
-		B1_GPIO15 <= mcb_debug(7);
+
+		B1_GPIO8 <= MPOP_W;
+		B1_GPIO9 <= MPUSH;
+		B1_GPIO10 <= '0';
+		B1_GPIO11 <= '0';
+		B1_GPIO12 <= '0';
+		B1_GPIO13 <= '0';
+		B1_GPIO14 <= '0';
+		B1_GPIO15 <= '0';
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';

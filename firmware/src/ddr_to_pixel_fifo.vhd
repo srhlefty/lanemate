@@ -38,6 +38,7 @@ entity ddr_to_pixel_fifo is
 		MRESET : in STD_LOGIC;
 		MPUSH  : in  STD_LOGIC;
 		MDATA  : in  STD_LOGIC_VECTOR (255 downto 0);
+		MUSED  : out std_logic_vector(8 downto 0);
 		
 		PCLK : in  STD_LOGIC;
 		PRESET : in STD_LOGIC;
@@ -187,7 +188,7 @@ begin
 		DIN => MDATA,
 		PUSH => MPUSH,
 		READ_CLK => PCLK,
-		USED => open,
+		USED => MUSED,
 		DOUT => fifo_data,
 		DVALID => open,
 		POP => fifo_pop,
