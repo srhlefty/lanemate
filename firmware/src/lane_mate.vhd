@@ -170,7 +170,7 @@ architecture Behavioral of lane_mate is
 		VS : in  STD_LOGIC;
 		HS : in  STD_LOGIC;
 		DE : in  STD_LOGIC;
-		CE : in  STD_LOGIC;
+		PATTERN : in std_logic_vector(7 downto 0);
 		IS422 : in std_logic;
 		D : in  STD_LOGIC_VECTOR (23 downto 0);
 		VSOUT : out  STD_LOGIC;
@@ -542,8 +542,6 @@ architecture Behavioral of lane_mate is
 	
 	signal video_source_ready : std_logic := '0';
 	
-	signal enable_test_pattern : std_logic := '0';
-	
 	signal rgbmask : std_logic_vector(23 downto 0);
 
 	signal is422 : std_logic;
@@ -811,18 +809,14 @@ begin
 
 
 
-	-- Test pattern (overwrites source data) -----------------------------------
+	-- Test pattern (overwrites source data if enabled) ------------------------
 
-	with register_map(2) select enable_test_pattern <=
-		'1' when x"01",
-		'0' when others;
-	
 	Inst_test_pattern: test_pattern PORT MAP(
 		PCLK => video_clock,
 		VS => stage1_vs,
 		HS => stage1_hs,
 		DE => stage1_de,
-		CE => enable_test_pattern,
+		PATTERN => register_map(2),
 		IS422 => is422,
 		D => stage1_d,
 		VSOUT => stage2_vs,

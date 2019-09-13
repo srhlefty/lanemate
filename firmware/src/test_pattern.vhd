@@ -35,7 +35,7 @@ entity test_pattern is
 		VS : in  STD_LOGIC;
 		HS : in  STD_LOGIC;
 		DE : in  STD_LOGIC;
-		CE : in  STD_LOGIC;
+		PATTERN : in std_logic_vector(7 downto 0);
 		IS422 : in std_logic;
 		D : in  STD_LOGIC_VECTOR (23 downto 0);
 		VSOUT : out  STD_LOGIC;
@@ -67,6 +67,7 @@ architecture Behavioral of test_pattern is
 	signal vs2 : std_logic := '0';
 	signal hs2 : std_logic := '0';
 	signal de1 : std_logic := '0';
+	signal d1 : std_logic_vector(23 downto 0) := (others => '0');
 	
 	signal de444 : std_logic := '0';
 	signal de422 : std_logic := '0';
@@ -153,32 +154,38 @@ begin
 			end if;
 		end if;
 		
-		if(CE = '1') then
-			de1 <= DE;
-			de444 <= de1;
-			hcountv := std_logic_vector(to_unsigned(hcount, hcountv'length));
-			vcountv := std_logic_vector(to_unsigned(vcount, vcountv'length));
-			--d444 <= romRGB(to_integer(unsigned(hcountv(8 downto 7))));
+		de1 <= DE;
+		d1 <= D;
+		de444 <= de1;
+		
+		hcountv := std_logic_vector(to_unsigned(hcount, hcountv'length));
+		vcountv := std_logic_vector(to_unsigned(vcount, vcountv'length));
+		if(PATTERN = x"00") then
+			d444 <= d1;
+		elsif(PATTERN = x"01") then
+			d444 <= romRGB(to_integer(unsigned(hcountv(8 downto 7))));
+		elsif(PATTERN = x"02") then
+			d444(23 downto 16) <= hcountv(7 downto 0);
+			d444(15 downto 8)  <= vcountv(7 downto 0);
+			d444(7 downto 0) <= x"00";
+		elsif(PATTERN = x"03") then
 			d444(23 downto 16) <= hcountv(7 downto 0);
 			d444(15 downto 8)  <= vcountv(7 downto 0);
 			d444(7 downto 0) <= std_logic_vector(to_unsigned(blue, 8));
-			
-			sample := romYCbCr(to_integer(unsigned(hcountv(8 downto 7))));
-			srcYCbCr1 <= sample;
-			srcY2 <= sample(23 downto 16);
---			d422 <= x"0000" & hcountv(7 downto 0);
---			de422 <= de1;
 		else
-			de444 <= DE;
-			d444  <= D;
+			d444 <= x"AAAAAA";
 		end if;
+		
+		sample := romYCbCr(to_integer(unsigned(hcountv(8 downto 7))));
+		srcYCbCr1 <= sample;
+		srcY2 <= sample(23 downto 16);
 	end if;
 	end process;
 	
 	process(PCLK) is
 	begin
 	if(rising_edge(PCLK)) then
-		if(CE = '1') then
+--		if(CE = '1') then
 			vs1 <= VS;
 			hs1 <= HS;
 			vs2 <= vs1;
@@ -192,12 +199,12 @@ begin
 				DEOUT <= de444;
 				DOUT <= d444;
 			end if;
-		else
-			VSOUT <= VS;
-			HSOUT <= HS;
-			DEOUT <= DE;
-			DOUT <= D;
-		end if;
+--		else
+--			VSOUT <= VS;
+--			HSOUT <= HS;
+--			DEOUT <= DE;
+--			DOUT <= D;
+--		end if;
 	end if;
 	end process;
 

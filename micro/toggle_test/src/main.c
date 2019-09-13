@@ -445,7 +445,7 @@ int main (void)
 	
 
 	uint8_t source = 0; // 0=hd, 1=sd
-	uint8_t testpattern = 1; // 0=off, 1=on
+	uint8_t testpattern = 0; // 0=off
 	uint8_t readout_delay_hi;
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
