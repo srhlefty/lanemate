@@ -654,6 +654,7 @@ begin
 		signal INIT2_DELAY : natural;
 		
 		signal init_active : std_logic := '0';
+		signal init_complete : std_logic := '0';
 		
 		signal leveling_lane : natural range 0 to 7 := 0;
 		signal leveling_finished : std_logic := '0';
@@ -731,23 +732,25 @@ begin
 					state <= BEGIN_TRANSACTION;
 				else
 				
-					-- This is the main code that runs during normal operation.
-					-- If there is enough data in the FIFO, and has been for the
-					-- last 4 clocks in a row (to guard against momentary glitches
-					-- in FIFO level that can happen with dual-clocked FIFOs) then
-					-- start a transaction.
-					words_available := to_integer(unsigned(MAVAIL));
-					transaction_size := to_integer(unsigned(MTRANSACTION_SIZE));
-					if(words_available >= transaction_size) then
-						if(passcount = 4) then
-							actual_transaction_size <= transaction_size;
-							cmd_op <= WR;
-							state <= BEGIN_TRANSACTION;
+					if(init_complete = '1') then
+						-- This is the main code that runs during normal operation.
+						-- If there is enough data in the FIFO, and has been for the
+						-- last 4 clocks in a row (to guard against momentary glitches
+						-- in FIFO level that can happen with dual-clocked FIFOs) then
+						-- start a transaction.
+						words_available := to_integer(unsigned(MAVAIL));
+						transaction_size := to_integer(unsigned(MTRANSACTION_SIZE));
+						if(words_available >= transaction_size) then
+							if(passcount = 4) then
+								actual_transaction_size <= transaction_size;
+								cmd_op <= WR;
+								state <= BEGIN_TRANSACTION;
+							else
+								passcount <= passcount + 1;
+							end if;
 						else
-							passcount <= passcount + 1;
+							passcount <= 0;
 						end if;
-					else
-						passcount <= 0;
 					end if;
 				end if;
 			end if;
@@ -789,6 +792,7 @@ begin
 			dqs_source <= IMMEDIATE;
 			active_rank <= RANK0;
 			init_active <= '1';
+			init_complete <= '0';
 			mDDR_RESET <= "0000";
 			mCKE0 <= "0000";
 			mCKE1 <= "0000";
@@ -1063,6 +1067,7 @@ begin
 				active_rank <= RANK1;
 				ret <= READ_PATTERN_ENTER;
 			elsif(active_rank = RANK1) then
+				init_complete <= '1';
 				ret <= IDLE;
 			end if;
 			

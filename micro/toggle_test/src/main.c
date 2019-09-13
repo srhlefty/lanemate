@@ -385,7 +385,28 @@ uint32_t generate_address(unsigned char rank, unsigned char bank, uint16_t row, 
 	uint32_t p4 = (col & 0b1111111);
 	return p1 | p2 | p3 | p4;
 }
+void address_to_bytes(const uint32_t addr, uint8_t *b3, uint8_t *b2, uint8_t *b1, uint8_t *b0)
+{
+	*b3 = (addr >> 24) & 0xFF;
+	*b2 = (addr >> 16) & 0xFF;
+	*b1 = (addr >>  8) & 0xFF;
+	*b0 = (addr >>  0) & 0xFF;
+}
+void update_ram_pointers(uint32_t waddr, uint32_t raddr)
+{
+	uint8_t b3, b2, b1, b0;
+	address_to_bytes(waddr, &b3, &b2, &b1, &b0);
+	i2c_write_reg(lanemate_address,  7, b3);
+	i2c_write_reg(lanemate_address,  8, b2);
+	i2c_write_reg(lanemate_address,  9, b1);
+	i2c_write_reg(lanemate_address, 10, b0);
 
+	address_to_bytes(raddr, &b3, &b2, &b1, &b0);
+	i2c_write_reg(lanemate_address, 11, b3);
+	i2c_write_reg(lanemate_address, 12, b2);
+	i2c_write_reg(lanemate_address, 13, b1);
+	i2c_write_reg(lanemate_address, 14, b0);
+}
 
 volatile bool handle_event = false;
 
@@ -411,7 +432,7 @@ int main (void)
 
 	probe_ddr_stick();
 	i2c_write_reg(lanemate_address, 15, 1); // run ddr init
-	delay_cycles_ms(10);
+	delay_cycles_ms(100);
 	print_leveling_results();
 
 	// When delay_application is cut out of the loop, I can directly 
@@ -450,6 +471,12 @@ int main (void)
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
 	uint8_t delay_enabled = 1;
+	uint32_t frame_size = 0; // in ram columns
+	const uint32_t total_columns = 1 << 30; // TODO: get from ram probe
+	uint32_t mem_size_frames;
+	uint32_t write_frame = 0;
+	uint32_t read_frame = 0;
+
 	if(source == 0)
 	{
 		configure_hdmi_tx_for_hd_input();
@@ -461,6 +488,9 @@ int main (void)
 			readout_delay_hi = 0x0B;
 			readout_delay_lo = 0x40;
 			transaction_size = 0xB4;
+			// Start with the size of the frame in bits then divide by the bus width (64) to get
+			// the number of ram columns in a frame.
+			frame_size = 1920*1080*24/64; // 777,600
 		}else
 		{
 			hdmi_rx_set_freerun_to_720p60();
@@ -468,6 +498,7 @@ int main (void)
 			readout_delay_hi = 0x07;
 			readout_delay_lo = 0x80;
 			transaction_size = 0x78;
+			frame_size = 1280*720*24/64;
 		}
 	}else
 	{
@@ -476,7 +507,17 @@ int main (void)
 		readout_delay_hi = 0x02;
 		readout_delay_lo = 0xD0;
 		transaction_size = 0x08;
+		// TODO, how do I deal with fields?
+		frame_size = 720*480*24/64;
 	}
+	// Note that I'm truncating here, it's not an integer natively
+	mem_size_frames = total_columns / frame_size;
+	// 1080p: 1380 (23s)
+	// 720p: 3106 (51s)
+	// 480i: 8285 (276s for full frames)
+
+	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
+
 	i2c_write_reg(lanemate_address, 0x01, source);
 	i2c_write_reg(lanemate_address, 0x02, testpattern);
 	i2c_write_reg(lanemate_address, 0x03, readout_delay_hi);
@@ -484,11 +525,7 @@ int main (void)
 	i2c_write_reg(lanemate_address, 0x05, transaction_size);
 	i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 
-	uint8_t addr_w_L = 0;
-	uint8_t addr_r_L = 0;
-	i2c_write_reg(lanemate_address, 10, addr_w_L);
-	i2c_write_reg(lanemate_address, 14, addr_r_L);
-
+	
 	
 
 	uint8_t res = 0;
@@ -504,7 +541,21 @@ int main (void)
 		if(handle_event)
 		{
 			handle_event = false;
-
+			/*
+			write_frame++; read_frame++;
+			if(write_frame > mem_size_frames)
+			{
+				write_frame = 1;
+				read_frame = 0;
+			}
+			update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
+			uint8_t str[15] = "WXXXX, RXXXX\r\n";
+			byte_to_string(str+1, (write_frame >> 8) & 0xFF);
+			byte_to_string(str+3, (write_frame >> 0) & 0xFF);
+			byte_to_string(str+8, (read_frame >> 8) & 0xFF);
+			byte_to_string(str+10, (read_frame >> 0) & 0xFF);
+			print(str);
+			*/
 			if(cycle_count == 10)
 			{
 				/*
