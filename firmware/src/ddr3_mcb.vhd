@@ -452,6 +452,15 @@ architecture Behavioral of ddr3_mcb is
 	signal transaction_active : std_logic := '0';
 	signal read_active : std_logic := '0';
 	signal write_active : std_logic := '0';
+	
+	
+	type nat_array is array(integer range <>) of natural range 0 to 15;
+--	constant manual_readout_rank0 : natural := 8;
+--	constant manual_readout_rank1 : natural := 9;
+--	constant lane_slips : nat_array(0 to 7) := (2,1,2,1,1,1,1,1);
+	constant manual_readout_rank0 : natural := 7;
+	constant manual_readout_rank1 : natural := 8;
+	constant lane_slips : nat_array(0 to 7) := (0,0,0,0,0,0,0,0);
 begin
 
 	MPOP_W <= popw;
@@ -1522,7 +1531,7 @@ begin
 		-- Compute the readout_delay for the ranks and perform bitslip as necessary
 	
 		read_leveling : block is
-			type lstate_t is (IDLE, SEEK, WAIT_FOR_NEXT, VALIDATE, FINISH);
+			type lstate_t is (IDLE, SET_SLIP, DELAY, SEEK, WAIT_FOR_NEXT, VALIDATE, FINISH);
 			signal lstate : lstate_t := IDLE;
 			signal valid_count : natural range 0 to 1000 := 0;
 			signal slip_attempts : natural range 0 to 4 := 0;
@@ -1532,6 +1541,7 @@ begin
 			signal once : std_logic := '0';
 			constant pattern : std_logic_vector(7 downto 0) := "01010101";
 			signal capture : std_logic_vector(3 downto 0) := "0000";
+			constant automatic : std_logic := '1';
 		begin
 		
 			REGADDR <= raddr;
@@ -1561,10 +1571,22 @@ begin
 					bitslip_rst <= (others => '0');
 				end if;
 				
+				
 				if(state = READ_PATTERN and leveling_finished = '0' and read_enable = '1') then
-					readout_delay <= 5;
-					slip_attempts <= 0;
-					lstate <= SEEK;
+					if(automatic = '1') then
+						readout_delay <= 5;
+						slip_attempts <= 0;
+						lstate <= SEEK;
+					else
+						slip_attempts <= 0;
+						if(active_rank = RANK0) then
+							readout_delay <= manual_readout_rank0;
+							lstate <= SET_SLIP; -- only do slips on rank 0
+						elsif(active_rank = RANK1) then
+							readout_delay <= manual_readout_rank1;
+							leveling_finished <= '1';
+						end if;
+					end if;
 				else
 				
 					if(init_active = '0') then
@@ -1579,7 +1601,28 @@ begin
 					end if;
 				
 				end if;
+					
+
+			when SET_SLIP =>
+				if(slip_attempts = lane_slips(leveling_lane)) then
+					rdata <= std_logic_vector(to_unsigned(readout_delay, 4)) & std_logic_vector(to_unsigned(slip_attempts, 4));
+					lstate <= FINISH;
+				else
+					bitslip(leveling_lane) <= '1';
+					slip_attempts <= slip_attempts + 1;
+					valid_count <= 4;
+					lstate <= DELAY;
+				end if;
 			
+			when DELAY =>
+				bitslip <= (others => '0');
+				if(valid_count = 0) then
+					lstate <= SET_SLIP;
+				else
+					valid_count <= valid_count - 1;
+				end if;
+				
+				
 			-- Incoming data looks like this (CAS latency = 5) (ignoring propagation delays):
 			--  clk  1010 1010 1010 1010 1010
 			--  cmd  1000 0000 0000 0000 0000

@@ -590,10 +590,12 @@ BEGIN
 	begin
 	if(rising_edge(MCLK) and LOCKED = '1') then
 		count <= count + 1;
-		if(count = 64 or count = 180) then
-			MTEST <= '1';
+		if(count = 64) then 
+--			MTEST <= '1';
+			MFORCE_INIT <= '1';
 		else
 			MTEST <= '0';
+			MFORCE_INIT <= '0';
 		end if;
 	end if;
 	end process;
