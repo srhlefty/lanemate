@@ -542,7 +542,6 @@ architecture Behavioral of lane_mate is
 	
 	signal video_source_ready : std_logic := '0';
 	
-	signal rgbmask : std_logic_vector(23 downto 0);
 
 	signal is422 : std_logic;
 	
@@ -624,7 +623,7 @@ begin
 			CLKFX_DIVIDE => 2,         -- Divide value - D - (1-256)
 			CLKFX_MD_MAX => 1.5,       -- Specify maximum M/D ratio for timing anlysis
 			CLKFX_MULTIPLY => 2,       -- Multiply value - M - (2-256)
-			CLKIN_PERIOD => 13.468,       -- Input clock period specified in nS
+			CLKIN_PERIOD => 6.734,       -- Input clock period specified in nS
 			SPREAD_SPECTRUM => "NONE", -- Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
 												-- "VIDEO_LINK_M0", "VIDEO_LINK_M1" or "VIDEO_LINK_M2" 
 			STARTUP_WAIT => FALSE      -- Delay config DONE until DCM_CLKGEN LOCKED (TRUE/FALSE)
@@ -750,23 +749,46 @@ begin
 		
 		-- Primary HD video data capture ----------------------------------------
 		
-		process(RGB_IN, HDI_DE) is
+		capture_hd : block is
+			signal edge_vs : std_logic;
+			signal edge_hs : std_logic;
+			signal edge_de : std_logic;
+			signal edge_d  : std_logic_vector(23 downto 0);
+
+			signal fd1_vs : std_logic;
+			signal fd1_hs : std_logic;
+			signal fd1_de : std_logic;
+			signal fd1_d  : std_logic_vector(23 downto 0);
+			
+			signal rgbmask : std_logic_vector(23 downto 0);
 		begin
-			for i in 0 to RGB_IN'high loop
-				rgbmask(i) <= RGB_IN(i) and HDI_DE;
-			end loop;
-		end process;
-		
-		process(hdclk) is
-		begin
-		if(rising_edge(hdclk)) then
-			hd_vs <= HDI_VS;
-			hd_hs <= HDI_HS;
-			hd_de <= HDI_DE;
-			hd_d  <= rgbmask;
-		end if;
-		end process;
-		
+			process(fd1_d, fd1_de) is
+			begin
+				for i in 0 to fd1_d'high loop
+					rgbmask(i) <= fd1_d(i) and fd1_de;
+				end loop;
+			end process;
+			
+			process(hdclk) is
+			begin
+			if(rising_edge(hdclk)) then
+				edge_vs <= HDI_VS;
+				edge_hs <= HDI_HS;
+				edge_de <= HDI_DE;
+				edge_d  <= RGB_IN;
+				
+				fd1_vs <= edge_vs;
+				fd1_hs <= edge_hs;
+				fd1_de <= edge_de;
+				fd1_d  <= edge_d;
+				
+				hd_vs <= fd1_vs;
+				hd_hs <= fd1_hs;
+				hd_de <= fd1_de;
+				hd_d  <= rgbmask;
+			end if;
+			end process;
+		end block;
 		-------------------------------------------------------------------------
 		
 	end block;
