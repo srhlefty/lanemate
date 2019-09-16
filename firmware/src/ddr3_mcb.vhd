@@ -638,7 +638,8 @@ begin
 			CLOSE_ROW,
 			ACT_ROW,
 			WRITE_FINISH,
-			READ_FINISH
+			READ_FINISH,
+			REF
 		);
 		signal state : state_t := IDLE;
 		signal ret : state_t := IDLE;
@@ -674,9 +675,12 @@ begin
 		constant tRP  : natural := 2 - 1; -- PRE duration. 15ns
 		constant tRCD : natural := 0; -- ACT to RD/WR. 15ns min. (1 clock to get to DELAY, 1 clock to get to WRITE)
 		constant tRTP : natural := 1; -- RD to PRE. max(4CK, 7.5ns)
+		constant tRFC : natural := 17; -- REF to ACT is min 350ns for 8Gb density
+		constant tREFI : natural := 390; -- 7.8us / 20 ns
 		
 		signal actual_transaction_size : natural range 0 to 255 := 0;
 		signal passcount : natural range 0 to 4 := 0;
+		signal time_since_last_refresh : natural range 0 to 65535 := 0;
 		
 	begin
 		
@@ -759,6 +763,15 @@ begin
 							end if;
 						else
 							passcount <= 0;
+							
+							-- In practice I never meet the standard for refresh interval.
+							-- My writes for 1080p take longer than 7.8us by themselves.
+--							if(time_since_last_refresh > tREFI) then
+--								state <= REF;
+--							else
+--								time_since_last_refresh <= time_since_last_refresh + 1;
+--							end if;
+							
 						end if;
 					end if;
 				end if;
@@ -773,6 +786,7 @@ begin
 			mBA <= (others => (others => '0'));
 			mMA <= (others => (others => '0'));
 			dqs_immediate <= (others => (others => '0'));
+--			time_since_last_refresh <= time_since_last_refresh + 1;
 			if(delay_count = 0) then
 				state <= ret;
 			else
@@ -1389,8 +1403,14 @@ begin
 			dqs_delayed <= (others => (others => '0'));
 			cmd_op <= WR;
 			read_active <= '0';
-			state <= IDLE;
-				
+			state <= REF;
+			
+		when REF =>
+			build_command(RANK_BOTH, rREF, mCS0,mCS1,mRAS,mCAS,mWE);
+			time_since_last_refresh <= 0;
+			delay_count <= tRFC;
+			ret <= IDLE;
+			state <= DELAY;
 
 	end case;
 	end if;
