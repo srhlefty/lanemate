@@ -235,4 +235,13 @@ clock cycle or the data is not properly centered on the clock edges.
   latencies, but those are to be used for faster clocks. I can acheive the same
   effect by just moving where I put the command in my tx burst. For example,
   instead of sending "1000" I can send "0010" (since the clock is "1010").
-  
+
+
+- I can get video through the system now. I made a test pattern for each lane,
+  that only outputs pixel data on that lane as a test of the reliability of the
+  timing. So far all the lanes except 7 are stable. Strangely, the messed up
+  data is not coming from data within the lane. It looks as though I am getting
+  something on pin 24 or 25, since I get a red value in the first burst roughly
+  halfway between the start of the pattern and the first properly illuminated
+  pixel. But probing with the scope doesn't show any data coming out of memory
+  on those pins. So how am I getting something nonzero on read? Noise pickup?

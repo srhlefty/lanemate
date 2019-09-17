@@ -62,24 +62,34 @@
 // From module: Delay routines
 #include <delay.h>
 
+// From module: EXTINT - External Interrupt (Callback APIs)
+#include <extint.h>
+#include <extint_callback.h>
+
 // From module: Generic board support
 #include <board.h>
 
 // From module: Interrupt management - SAM implementation
 #include <interrupt.h>
 
+// From module: PORT - GPIO Pin Control
+#include <port.h>
+
 // From module: Part identification macros
 #include <parts.h>
 
-// From module: SERCOM I2C - Master Mode I2C (Polled APIs)
+// From module: SERCOM Callback API
+#include <sercom.h>
+//#include <sercom_interrupt.h>
+
+// From module: SERCOM I2C - Master Mode I2C (Callback APIs)
 #include <i2c_common.h>
 #include <i2c_master.h>
+//#include <i2c_master_interrupt.h>
 
-// From module: SERCOM Polled API
-#include <sercom.h>
-
-// From module: SERCOM USART - Serial Communications (Polled APIs)
+// From module: SERCOM USART - Serial Communications (Callback APIs)
 #include <usart.h>
+//#include <usart_interrupt.h>
 
 // From module: SYSTEM - Clock Management for SAMD09/D10
 #include <clock.h>

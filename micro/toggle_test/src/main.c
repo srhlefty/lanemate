@@ -6,19 +6,18 @@
 #include "uart.h"
 #include "hdmi_rx.h"
 
-/*
-#define TEST_PIN PIN_PA24
-void config_test_pin(void);
-void config_test_pin(void)
+
+#define VSYNC_PIN PIN_PA25
+void config_vsync_pin(void);
+void config_vsync_pin(void)
 {
 	struct port_config pin_conf;
 	port_get_config_defaults(&pin_conf);
 
-	pin_conf.direction  = PORT_PIN_DIR_OUTPUT;
-	port_pin_set_config(TEST_PIN, &pin_conf);
-	port_pin_set_output_level(TEST_PIN, LOW);
+	pin_conf.direction  = PORT_PIN_DIR_INPUT;
+	port_pin_set_config(VSYNC_PIN, &pin_conf);
 }
-*/
+
 
 const uint16_t hdmi_tx_address = 0x72 >> 1;
 const uint16_t sd_rx_address = 0x40 >> 1;
@@ -466,7 +465,7 @@ int main (void)
 	
 
 	uint8_t source = 0; // 0=hd, 1=sd
-	uint8_t testpattern = 0; // 0=off
+	uint8_t testpattern = 3; // 0=off
 	uint8_t readout_delay_hi;
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
@@ -484,6 +483,7 @@ int main (void)
 		if(full)
 		{
 			hdmi_rx_set_freerun_to_1080p60();
+			// Transaction size is the number of 256-bit words to read/write at once. Must be even.
 			// 1080p: readout delay = 1.5*1920 = 2880 = 0xB40, transaction size = full line = 0xB4
 			readout_delay_hi = 0x0B;
 			readout_delay_lo = 0x40;
@@ -503,18 +503,26 @@ int main (void)
 	}else
 	{
 		configure_hdmi_tx_for_sd_input();
-		// 480i: readout delay = 1440/2 = 720 = 0x2D0, transaction size = 0x08
-		readout_delay_hi = 0x02;
-		readout_delay_lo = 0xD0;
-		transaction_size = 0x08;
-		// TODO, how do I deal with fields?
-		frame_size = 720*480*24/64;
+		// SD is more complicated. A full line is 45 words, which is not even. I can increase
+		// the buffer size to 2 lines to regain an even transaction size. The readout delay
+		// needs to be 2 lines plus the time it takes for the transaction to complete (it could
+		// be less but this is the conservative choice).
+		// The total line length of 480i is 1716 clocks. 2 lines is 90 words, and there's a read
+		// and write step, so 180 memory clocks plus some overhead. The pixel clock is 27MHz and
+		// the memory clock is 200MHz, so the transaction will only take about 25 pixels.
+		// Therefore I want a readout delay of about 1716+1716+25=0xD81. Here I rounded up to
+		// account for overhead.
+		readout_delay_hi = 0x0D;
+		readout_delay_lo = 0x90;
+		transaction_size = 90;
+		// The SD bus is 8 bits, 1440 active clocks. Each field is 240 active lines.
+		frame_size = 1440*240*8/64; // 43,200
 	}
 	// Note that I'm truncating here, it's not an integer natively
 	mem_size_frames = total_columns / frame_size;
 	// 1080p: 1380 (23s)
 	// 720p: 3106 (51s)
-	// 480i: 8285 (276s for full frames)
+	// 480i: 24,855 fields / 12,427 frames (414s)
 
 	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
 
@@ -526,7 +534,7 @@ int main (void)
 	i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 
 	
-	
+	config_vsync_pin();
 
 	uint8_t res = 0;
 
@@ -541,6 +549,12 @@ int main (void)
 		if(handle_event)
 		{
 			handle_event = false;
+			/*
+			testpattern++;
+			if(testpattern > 4+7)
+				testpattern = 4;
+			i2c_write_reg(lanemate_address, 0x02, testpattern);
+			*/
 			/*
 			write_frame++; read_frame++;
 			if(write_frame > mem_size_frames)
