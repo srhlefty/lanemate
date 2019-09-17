@@ -89,14 +89,14 @@ port (
 	B1_GPIO5 : out std_logic;
 	B1_GPIO6 : out std_logic;
 	B1_GPIO7 : out std_logic;
-	B1_GPIO8 : out std_logic;
-	B1_GPIO9 : out std_logic;
-	B1_GPIO10 : out std_logic;
-	B1_GPIO11 : out std_logic;
-	B1_GPIO12 : out std_logic;
-	B1_GPIO13 : out std_logic;
-	B1_GPIO14 : out std_logic;
-	B1_GPIO15 : out std_logic;
+	B1_GPIO8 : in std_logic;
+	B1_GPIO9 : in std_logic;
+	B1_GPIO10 : in std_logic;
+	B1_GPIO11 : in std_logic;
+	B1_GPIO12 : in std_logic;
+	B1_GPIO13 : in std_logic;
+	B1_GPIO14 : in std_logic;
+	B1_GPIO15 : in std_logic;
 	B1_GPIO24 : out std_logic;
 	B1_GPIO25 : out std_logic
 );
@@ -388,9 +388,9 @@ architecture Behavioral of lane_mate is
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
 	type ram_t is array(natural range <>) of std_logic_vector(7 downto 0);
-	signal register_map : ram_t(24 downto 0) :=
+	signal register_map : ram_t(26 downto 0) :=
 	(
-		0 => x"02", -- Register table version
+		0 => x"03", -- Register table version
 		1 => x"00", -- video source, HD (0x00) or SD (0x01)
 		2 => x"01", -- test pattern, off (0x00) or on (0x01)
 		3 => x"02", -- readout_delay(10 downto 8)
@@ -415,71 +415,8 @@ architecture Behavioral of lane_mate is
 		22 => x"00", -- Lane 6 read leveling result
 		23 => x"00", -- Lane 7 read leveling result
 		24 => x"00", -- Run DDR transaction test
---		25 => x"00", -- Burst data, pin 0
---		26 => x"00", -- Burst data, pin 1
---		27 => x"00", -- Burst data, pin 2
---		28 => x"00", -- Burst data, pin 3
---		29 => x"00", -- Burst data, pin 4
---		30 => x"00", -- Burst data, pin 5
---		31 => x"00", -- Burst data, pin 6
---		32 => x"00", -- Burst data, pin 7
---		33 => x"00", -- Burst data, pin 8
---		34 => x"00", -- Burst data, pin 9
---		35 => x"00", -- Burst data, pin 10
---		36 => x"00", -- Burst data, pin 11
---		37 => x"00", -- Burst data, pin 12
---		38 => x"00", -- Burst data, pin 13
---		39 => x"00", -- Burst data, pin 14
---		40 => x"00", -- Burst data, pin 15
---		41 => x"00", -- Burst data, pin 16
---		42 => x"00", -- Burst data, pin 17
---		43 => x"00", -- Burst data, pin 18
---		44 => x"00", -- Burst data, pin 19
---		45 => x"00", -- Burst data, pin 20
---		46 => x"00", -- Burst data, pin 21
---		47 => x"00", -- Burst data, pin 22
---		48 => x"00", -- Burst data, pin 23
---		49 => x"00", -- Burst data, pin 24
---		50 => x"00", -- Burst data, pin 25
---		51 => x"00", -- Burst data, pin 26
---		52 => x"00", -- Burst data, pin 27
---		53 => x"00", -- Burst data, pin 28
---		54 => x"00", -- Burst data, pin 29
---		55 => x"00", -- Burst data, pin 30
---		56 => x"00", -- Burst data, pin 31
---		57 => x"00", -- Burst data, pin 32
---		58 => x"00", -- Burst data, pin 33
---		59 => x"00", -- Burst data, pin 34
---		60 => x"00", -- Burst data, pin 35
---		61 => x"00", -- Burst data, pin 36
---		62 => x"00", -- Burst data, pin 37
---		63 => x"00", -- Burst data, pin 38
---		64 => x"00", -- Burst data, pin 39
---		65 => x"00", -- Burst data, pin 40
---		66 => x"00", -- Burst data, pin 41
---		67 => x"00", -- Burst data, pin 42
---		68 => x"00", -- Burst data, pin 43
---		69 => x"00", -- Burst data, pin 44
---		70 => x"00", -- Burst data, pin 45
---		71 => x"00", -- Burst data, pin 46
---		72 => x"00", -- Burst data, pin 47
---		73 => x"00", -- Burst data, pin 48
---		74 => x"00", -- Burst data, pin 49
---		75 => x"00", -- Burst data, pin 50
---		76 => x"00", -- Burst data, pin 51
---		77 => x"00", -- Burst data, pin 52
---		78 => x"00", -- Burst data, pin 53
---		79 => x"00", -- Burst data, pin 54
---		80 => x"00", -- Burst data, pin 55
---		81 => x"00", -- Burst data, pin 56
---		82 => x"00", -- Burst data, pin 57
---		83 => x"00", -- Burst data, pin 58
---		84 => x"00", -- Burst data, pin 59
---		85 => x"00", -- Burst data, pin 60
---		86 => x"00", -- Burst data, pin 61
---		87 => x"00", -- Burst data, pin 62
---		88 => x"00", -- Burst data, pin 63
-		
+		25 => x"00", -- Shaft encoder value ('A' on GPIO8, 'B' on GPIO9)
+		26 => x"00", -- GPIO10-15, in bit order (e.g. GPIO10 is (0), GPIO11 is (1), etc)
 		others => x"00"
 	);
 	signal ram_addr : std_logic_vector(7 downto 0);
@@ -1481,11 +1418,73 @@ begin
 
 	----------------------------------------------------------------------------
 	
+	-- GPIO
 	
+	gpio_inputs : block is
+		constant filter_depth : natural := 10;
+		type history_t is array(natural range <>) of std_logic_vector(filter_depth downto 0);
+		constant all_zero : std_logic_vector(filter_depth downto 0) := (others => '0');
+		constant all_one : std_logic_vector(filter_depth downto 0) := (others => '1');
+		-- the shaft encoder doesn't get sent through the debounce filter
+		signal history : history_t(0 to 5) := (others => (others => '0'));
+		
+		signal gpio_filtered : std_logic_vector(7 downto 0) := (others => '0');
+		signal encoder_value : std_logic_vector(7 downto 0) := (others => '0');
+		signal count : natural range 0 to 255 := 0;
+	begin
+		process(clk) is
+		begin
+		if(rising_edge(clk)) then
+			-- input
+			history(0)(0) <= B1_GPIO10;
+			history(1)(0) <= B1_GPIO11;
+			history(2)(0) <= B1_GPIO12;
+			history(3)(0) <= B1_GPIO13;
+			history(4)(0) <= B1_GPIO14;
+			history(5)(0) <= B1_GPIO15;
+			
+			-- shift from 0 to the end
+			for line in 0 to 5 loop
+				for i in 1 to filter_depth loop
+					history(line)(i) <= history(line)(i-1);
+				end loop;
+			end loop;
+			
+			-- readout
+			for line in 0 to 5 loop
+				if(history(line) = all_one) then
+					gpio_filtered(line) <= '1';
+				elsif(history(line) = all_zero) then
+					gpio_filtered(line) <= '0';
+				end if;
+			end loop;
+			
+			-- Write results to register table. Since this write enable line is
+			-- lower priority than that coming from the user, sometimes this
+			-- write will fail. But that's ok because these are slow updates
+			-- anyway, read out once per frame
+			if(count = 254) then
+				internal_reg_addr <= 25;
+				internal_reg_we <= '1';
+				internal_reg_data <= encoder_value;
+				count <= count + 1;
+			elsif(count = 255) then
+				internal_reg_addr <= 26;
+				internal_reg_we <= '1';
+				internal_reg_data <= gpio_filtered;
+				count <= 0;
+			else
+				internal_reg_we <= '0';
+				count <= count + 1;
+			end if;
+			
+		end if;
+		end process;
 	
-	
+	end block;
 	
 
+	----------------------------------------------------------------------------
 
 	blinker : block is
 		signal val : std_logic_vector(15 downto 0) := x"0001";
@@ -1514,14 +1513,14 @@ begin
 		B1_GPIO6 <= mcb_write_active;
 		B1_GPIO7 <= mcb_read_active;
 
-		B1_GPIO8 <= MPOP_W;
-		B1_GPIO9 <= MPUSH;
-		B1_GPIO10 <= '0';
-		B1_GPIO11 <= '0';
-		B1_GPIO12 <= '0';
-		B1_GPIO13 <= '0';
-		B1_GPIO14 <= '0';
-		B1_GPIO15 <= '0';
+--		B1_GPIO8 <= MPOP_W;
+--		B1_GPIO9 <= MPUSH;
+--		B1_GPIO10 <= '0';
+--		B1_GPIO11 <= '0';
+--		B1_GPIO12 <= '0';
+--		B1_GPIO13 <= '0';
+--		B1_GPIO14 <= '0';
+--		B1_GPIO15 <= '0';
 
 		B1_GPIO24 <= '0';
 		B1_GPIO25 <= '0';
