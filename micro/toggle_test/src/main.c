@@ -6,16 +6,25 @@
 #include "uart.h"
 #include "hdmi_rx.h"
 
+void onVSYNC(void);
 
-#define VSYNC_PIN PIN_PA25
-void config_vsync_pin(void);
-void config_vsync_pin(void)
+void config_interrupts(void);
+void config_interrupts(void)
 {
-	struct port_config pin_conf;
-	port_get_config_defaults(&pin_conf);
+    struct extint_chan_conf eic_settings;
+    extint_chan_get_config_defaults(&eic_settings);
+	// VSYNC is connected to PA25, which can be configured to EXTINT[5]
+    eic_settings.gpio_pin           = PIN_PA25A_EIC_EXTINT5;
+    eic_settings.gpio_pin_mux       = MUX_PA25A_EIC_EXTINT5;
+    eic_settings.gpio_pin_pull      = EXTINT_PULL_NONE;
+    eic_settings.detection_criteria = EXTINT_DETECT_FALLING;
+	// 5 because we're on EXTINT[5]
+    extint_chan_set_config(5, &eic_settings);
 
-	pin_conf.direction  = PORT_PIN_DIR_INPUT;
-	port_pin_set_config(VSYNC_PIN, &pin_conf);
+    extint_register_callback(onVSYNC, 5, EXTINT_CALLBACK_TYPE_DETECT);
+    extint_chan_enable_callback(5, EXTINT_CALLBACK_TYPE_DETECT);
+
+	system_interrupt_enable_global();
 }
 
 
@@ -414,6 +423,23 @@ void SysTick_Handler(void)
 	handle_event = true;
 }
 
+
+uint32_t frame_size = 0; // in ram columns
+uint32_t mem_size_frames = 0;
+uint32_t write_frame = 0;
+uint32_t read_frame = 0;
+
+void onVSYNC(void)
+{
+	write_frame++; read_frame++;
+	if(write_frame > mem_size_frames)
+	{
+		write_frame = 0;
+		read_frame = 0;
+	}
+	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
+}
+
 int main (void)
 {
 	system_init();
@@ -470,11 +496,7 @@ int main (void)
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
 	uint8_t delay_enabled = 1;
-	uint32_t frame_size = 0; // in ram columns
 	const uint32_t total_columns = 1 << 30; // TODO: get from ram probe
-	uint32_t mem_size_frames;
-	uint32_t write_frame = 0;
-	uint32_t read_frame = 0;
 
 	if(source == 0)
 	{
@@ -534,7 +556,7 @@ int main (void)
 	i2c_write_reg(lanemate_address, 0x06, delay_enabled);
 
 	
-	config_vsync_pin();
+	config_interrupts();
 
 	uint8_t res = 0;
 
