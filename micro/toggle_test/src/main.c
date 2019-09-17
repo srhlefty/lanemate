@@ -428,15 +428,23 @@ uint32_t frame_size = 0; // in ram columns
 uint32_t mem_size_frames = 0;
 uint32_t write_frame = 0;
 uint32_t read_frame = 0;
+int32_t frame_offset = 300; // this = write_frame - read_frame (ignoring wraparound)
 
 void onVSYNC(void)
 {
-	write_frame++; read_frame++;
-	if(write_frame > mem_size_frames)
+	write_frame++;
+	if(write_frame >= mem_size_frames) // the last writable address is mem_size_frames-1
 	{
+		print("wrap\r\n");
 		write_frame = 0;
-		read_frame = 0;
 	}
+	int32_t read_frame_tmp = ((int32_t)write_frame) - frame_offset;
+	if(read_frame_tmp < 0)
+		read_frame_tmp += mem_size_frames;
+
+	read_frame = (uint32_t)read_frame_tmp;
+
+	// This transaction takes about 2.7ms
 	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
 }
 
@@ -491,7 +499,7 @@ int main (void)
 	
 
 	uint8_t source = 0; // 0=hd, 1=sd
-	uint8_t testpattern = 3; // 0=off
+	uint8_t testpattern = 0; // 0=off
 	uint8_t readout_delay_hi;
 	uint8_t readout_delay_lo;
 	uint8_t transaction_size;
