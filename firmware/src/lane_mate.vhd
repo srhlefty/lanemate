@@ -519,6 +519,8 @@ architecture Behavioral of lane_mate is
 		signal MPOP_W : std_logic;
 		signal MPUSH : std_logic;
 
+	constant ONLY_HD : boolean := true;
+
 begin
 
 
@@ -558,7 +560,7 @@ begin
 		generic map (
 			CLKFXDV_DIVIDE => 2,       -- CLKFXDV divide value (2, 4, 8, 16, 32)
 			CLKFX_DIVIDE => 2,         -- Divide value - D - (1-256)
-			CLKFX_MD_MAX => 1.5,       -- Specify maximum M/D ratio for timing anlysis
+			CLKFX_MD_MAX => 1.0,       -- Specify maximum M/D ratio for timing anlysis
 			CLKFX_MULTIPLY => 2,       -- Multiply value - M - (2-256)
 			CLKIN_PERIOD => 6.734,       -- Input clock period specified in nS
 			SPREAD_SPECTRUM => "NONE", -- Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
@@ -584,7 +586,7 @@ begin
 		generic map (
 			CLKFXDV_DIVIDE => 2,       -- CLKFXDV divide value (2, 4, 8, 16, 32)
 			CLKFX_DIVIDE => 2,         -- Divide value - D - (1-256)
-			CLKFX_MD_MAX => 1.5,       -- Specify maximum M/D ratio for timing anlysis
+			CLKFX_MD_MAX => 1.0,       -- Specify maximum M/D ratio for timing anlysis
 			CLKFX_MULTIPLY => 2,       -- Multiply value - M - (2-256)
 			CLKIN_PERIOD => 37.037,       -- Input clock period specified in nS
 			SPREAD_SPECTRUM => "NONE", -- Spread Spectrum mode "NONE", "CENTER_LOW_SPREAD", "CENTER_HIGH_SPREAD",
@@ -606,37 +608,49 @@ begin
 			RST => dcm_rst              -- 1-bit input: Reset input pin
 		);
 		
-		clkmux : BUFGMUX
-		generic map (
-			CLK_SEL_TYPE => "SYNC"  -- Glitchles ("SYNC") or fast ("ASYNC") clock switch-over
-		)
-		port map (
-			O => video_clock,   -- 1-bit output: Clock buffer output
-			I0 => hdclk, -- 1-bit input: Clock buffer input (S=0)
-			I1 => sdclk, -- 1-bit input: Clock buffer input (S=1)
-			S => clk_select    -- 1-bit input: Clock buffer select
-		);
-	
-		process(clk) is
+		clksel : if ONLY_HD = false generate
 		begin
-		if(rising_edge(clk)) then
-		case register_map(1) is
-			when x"00" =>
-				-- HD clock
-				video_source_ready <= dcm1_locked;
-				clk_select <= '0';
-			
-			when x"01" =>
-				-- SD clock
-				video_source_ready <= dcm2_locked;
-				clk_select <= '1';
+			clkmux : BUFGMUX
+			generic map (
+				CLK_SEL_TYPE => "SYNC"  -- Glitchles ("SYNC") or fast ("ASYNC") clock switch-over
+			)
+			port map (
+				O => video_clock,   -- 1-bit output: Clock buffer output
+				I0 => hdclk, -- 1-bit input: Clock buffer input (S=0)
+				I1 => sdclk, -- 1-bit input: Clock buffer input (S=1)
+				S => clk_select    -- 1-bit input: Clock buffer select
+			);
+		
+			process(clk) is
+			begin
+			if(rising_edge(clk)) then
+			case register_map(1) is
+				when x"00" =>
+					-- HD clock
+					video_source_ready <= dcm1_locked;
+					clk_select <= '0';
 				
-			when others =>
-				video_source_ready <= '0';
-				clk_select <= '0';
-		end case;
-		end if;
-		end process;
+				when x"01" =>
+					-- SD clock
+					video_source_ready <= dcm2_locked;
+					clk_select <= '1';
+					
+				when others =>
+					video_source_ready <= '0';
+					clk_select <= '0';
+			end case;
+			end if;
+			end process;
+		end generate;
+		
+		clksel2 : if ONLY_HD = true generate
+			vid_bufg : BUFG
+			port map (
+				O => video_clock, -- 1-bit output: Clock buffer output
+				I => hdclk  -- 1-bit input: Clock buffer input
+			);
+			video_source_ready <= dcm1_locked;
+		end generate;
 		
 		-- The HD video source can change resolutions and thus clock frequencies.
 		-- When that happens, the hd dcm will unlock and stay unlocked until a 
@@ -734,34 +748,51 @@ begin
 		
 		
 	-- Video source select -----------------------------------------------------
-		
-	process(video_clock) is
+	
+	datasel : if ONLY_HD = false generate
 	begin
-	if(rising_edge(video_clock)) then
-		if(register_map(1) = x"00") then
+		process(video_clock) is
+		begin
+		if(rising_edge(video_clock)) then
+			if(register_map(1) = x"00") then
+				stage1_vs <= hd_vs;
+				stage1_hs <= hd_hs;
+				stage1_de <= hd_de;
+				stage1_d  <= hd_d;
+			elsif(register_map(1) = x"01") then
+				stage1_vs <= decoded_sd_vs;
+				stage1_hs <= decoded_sd_hs;
+				stage1_de <= decoded_sd_de;
+				stage1_d(23 downto 8) <= (others => '0');
+				stage1_d(7 downto 0)  <= decoded_sd_d;
+			else
+				stage1_vs <= '1';
+				stage1_hs <= '1';
+				stage1_de <= '0';
+				stage1_d  <= (others => '0');
+			end if;
+		end if;
+		end process;
+		
+		with register_map(1) select is422 <=
+			'1' when x"01",
+			'0' when others;
+	end generate;
+	
+	datasel2 : if ONLY_HD = true generate
+	begin
+		process(video_clock) is
+		begin
+		if(rising_edge(video_clock)) then
 			stage1_vs <= hd_vs;
 			stage1_hs <= hd_hs;
 			stage1_de <= hd_de;
 			stage1_d  <= hd_d;
-		elsif(register_map(1) = x"01") then
-			stage1_vs <= decoded_sd_vs;
-			stage1_hs <= decoded_sd_hs;
-			stage1_de <= decoded_sd_de;
-			stage1_d(23 downto 8) <= (others => '0');
-			stage1_d(7 downto 0)  <= decoded_sd_d;
-		else
-			stage1_vs <= '1';
-			stage1_hs <= '1';
-			stage1_de <= '0';
-			stage1_d  <= (others => '0');
 		end if;
-	end if;
-	end process;
-	
-	with register_map(1) select is422 <=
-		'1' when x"01",
-		'0' when others;
-	
+		end process;
+		
+		is422 <= '0';
+	end generate;
 	----------------------------------------------------------------------------
 
 
