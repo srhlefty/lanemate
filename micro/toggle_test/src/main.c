@@ -428,21 +428,65 @@ uint32_t frame_size = 0; // in ram columns
 uint32_t mem_size_frames = 0;
 uint32_t write_frame = 0;
 uint32_t read_frame = 0;
+uint32_t playback_hi = 0;
+uint32_t playback_lo = 0;
 int32_t frame_offset = 300; // this = write_frame - read_frame (ignoring wraparound)
+bool playback_mode = false;
+
 
 void onVSYNC(void)
 {
-	write_frame++;
-	if(write_frame >= mem_size_frames) // the last writable address is mem_size_frames-1
+	// read state of control switches
+	uint8_t val;
+	i2c_read_reg(lanemate_address, 26, &val);
+	const bool playback = val & 0b00000001;
+	if(playback == true && playback_mode == false)
 	{
-		print("wrap\r\n");
-		write_frame = 0;
-	}
-	int32_t read_frame_tmp = ((int32_t)write_frame) - frame_offset;
-	if(read_frame_tmp < 0)
-		read_frame_tmp += mem_size_frames;
+		// Enter playback mode. Here the write pointer doesn't move and so we play back
+		// from the beginning up to one before the write pointer
+		playback_mode = true;
+		int32_t frame_tmp = ((int32_t)write_frame) - 1;
+		if(frame_tmp < 0)
+			frame_tmp += mem_size_frames;
 
-	read_frame = (uint32_t)read_frame_tmp;
+		playback_hi = (uint32_t)frame_tmp;
+
+		frame_tmp = ((int32_t)write_frame) - frame_offset - 1; // extra -1 because it's incremented below
+		if(frame_tmp < 0)
+			frame_tmp += mem_size_frames;
+
+		playback_lo = (uint32_t)frame_tmp;
+		read_frame = playback_lo;
+
+	}else if(playback == false && playback_mode == true)
+	{
+		// Exit playback mode
+		playback_mode = false;
+	}
+	
+
+	if(playback_mode == false)
+	{
+		write_frame++;
+		if(write_frame >= mem_size_frames) // the last writable address is mem_size_frames-1
+		{
+			print("wrap\r\n");
+			write_frame = 0;
+		}
+		int32_t read_frame_tmp = ((int32_t)write_frame) - frame_offset;
+		if(read_frame_tmp < 0)
+			read_frame_tmp += mem_size_frames;
+
+		read_frame = (uint32_t)read_frame_tmp;
+	}else
+	{
+		read_frame++;
+		if(read_frame > playback_hi)
+		{
+			print("wrap\r\n");
+			read_frame = playback_lo;
+		}
+	}
 
 	// This transaction takes about 2.7ms
 	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
