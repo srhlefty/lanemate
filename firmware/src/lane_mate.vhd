@@ -89,14 +89,14 @@ port (
 	B1_GPIO5 : out std_logic;
 	B1_GPIO6 : out std_logic;
 	B1_GPIO7 : out std_logic;
-	B1_GPIO8 : in std_logic;
-	B1_GPIO9 : in std_logic;
-	B1_GPIO10 : in std_logic;
-	B1_GPIO11 : in std_logic;
-	B1_GPIO12 : in std_logic;
-	B1_GPIO13 : in std_logic;
-	B1_GPIO14 : in std_logic;
-	B1_GPIO15 : in std_logic;
+	B1_GPIO8 : in std_logic;	-- switch, up position
+	B1_GPIO9 : in std_logic;	-- reserved
+	B1_GPIO10 : in std_logic;	-- switch, down position
+	B1_GPIO11 : in std_logic;	-- shaft encoder port 1
+	B1_GPIO12 : in std_logic;	-- shaft encoder port 2
+	B1_GPIO13 : in std_logic;	-- reserved
+	B1_GPIO14 : in std_logic;	-- shaft encoder switch
+	B1_GPIO15 : in std_logic;	-- controller present
 	B1_GPIO24 : out std_logic;
 	B1_GPIO25 : out std_logic
 );
@@ -1456,9 +1456,7 @@ begin
 		type history_t is array(natural range <>) of std_logic_vector(filter_depth downto 0);
 		constant all_zero : std_logic_vector(filter_depth downto 0) := (others => '0');
 		constant all_one : std_logic_vector(filter_depth downto 0) := (others => '1');
-		-- the shaft encoder doesn't get sent through the debounce filter
-		signal history : history_t(0 to 5) := (others => (others => '0'));
-		
+		signal history : history_t(0 to 7) := (others => (others => '0'));
 		signal gpio_filtered : std_logic_vector(7 downto 0) := (others => '0');
 		signal encoder_value : std_logic_vector(7 downto 0) := (others => '0');
 		signal count : natural range 0 to 255 := 0;
@@ -1466,23 +1464,25 @@ begin
 		process(clk) is
 		begin
 		if(rising_edge(clk)) then
-			-- input
-			history(0)(0) <= B1_GPIO10;
-			history(1)(0) <= B1_GPIO11;
-			history(2)(0) <= B1_GPIO12;
-			history(3)(0) <= B1_GPIO13;
-			history(4)(0) <= B1_GPIO14;
-			history(5)(0) <= B1_GPIO15;
+			-- Ingest GPIO into filter
+			history(0)(0) <= B1_GPIO8;
+			history(1)(0) <= B1_GPIO9;
+			history(2)(0) <= B1_GPIO10;
+			history(3)(0) <= '0'; -- B1_GPIO11; the shaft encoder doesn't get sent through the debounce filter
+			history(4)(0) <= '0'; -- B1_GPIO12;
+			history(5)(0) <= B1_GPIO13;
+			history(6)(0) <= B1_GPIO14;
+			history(7)(0) <= B1_GPIO15;
 			
 			-- shift from 0 to the end
-			for line in 0 to 5 loop
+			for line in 0 to history'high loop
 				for i in 1 to filter_depth loop
 					history(line)(i) <= history(line)(i-1);
 				end loop;
 			end loop;
 			
 			-- readout
-			for line in 0 to 5 loop
+			for line in 0 to history'high loop
 				if(history(line) = all_one) then
 					gpio_filtered(line) <= '1';
 				elsif(history(line) = all_zero) then
