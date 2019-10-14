@@ -743,16 +743,17 @@ int main (void)
 	uint8_t res = 0;
 
 
-	uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
-	uint32_t ticks_between_interrupts = ticks_per_second / 1;
-	SysTick_Config(ticks_between_interrupts);
-	uint8_t cycle_count = 0;
+	//uint32_t ticks_per_second = system_gclk_gen_get_hz(GCLK_GENERATOR_0);
+	//uint32_t ticks_between_interrupts = ticks_per_second / 1;
+	//SysTick_Config(ticks_between_interrupts);
+	//uint8_t cycle_count = 0;
 
 	while(1)
 	{
-		if(handle_event)
-		{
-			handle_event = false;
+	}
+//		if(handle_event)
+//		{
+//			handle_event = false;
 			/*
 			testpattern++;
 			if(testpattern > 4+7)
@@ -774,8 +775,8 @@ int main (void)
 			byte_to_string(str+10, (read_frame >> 0) & 0xFF);
 			print(str);
 			*/
-			if(cycle_count == 10)
-			{
+//			if(cycle_count == 10)
+//			{
 				/*
 				if(res == 0)
 				{
@@ -828,9 +829,9 @@ int main (void)
 				i2c_write_reg(lanemate_address, 10, addr_w_L);
 				*/
 
-				cycle_count = 0;
-			}else
-				++cycle_count;
+//				cycle_count = 0;
+//			}else
+//				++cycle_count;
 			
 
 
@@ -937,7 +938,7 @@ int main (void)
 
 			
 
-		}
-	}
+//		}
+//	}
 	
 }
