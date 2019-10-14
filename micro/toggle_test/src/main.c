@@ -423,6 +423,7 @@ void SysTick_Handler(void)
 	handle_event = true;
 }
 
+// Global state modified by onVSYNC -------------------------------------------
 
 uint32_t frame_size = 0; // in ram columns
 uint32_t mem_size_frames = 0;
@@ -430,42 +431,157 @@ uint32_t write_frame = 0;
 uint32_t read_frame = 0;
 uint32_t playback_hi = 0;
 uint32_t playback_lo = 0;
-int32_t frame_offset = 300; // this = write_frame - read_frame (ignoring wraparound)
-bool playback_mode = false;
+int32_t frame_offset = 30; // this = write_frame - read_frame (ignoring wraparound)
 
+const uint8_t MODE_RECORD = 3;
+const uint8_t MODE_PLAYBACK_PLAY = 4;
+const uint8_t MODE_PLAYBACK_PAUSE = 5;
+uint8_t mode;
+
+uint16_t counter = 0;
+// ----------------------------------------------------------------------------
+
+void getInputVideoProperties()
+{
+	// Measure the input video stream, if it exists.
+	// Note that if an actual video source is not attached,
+	// the frame size measurement registers are not accurate.
+	uint8_t reg7,reg8,reg9,regA,reg6F;
+	i2c_read_reg(hdmi_rx_address, 0x6F, &reg6F);
+	bool cable_present = (reg6F & 0x01) > 0;
+
+	if(cable_present)
+	{
+		i2c_read_reg(hdmi_rx_hdmi_address, 0x07, &reg7);
+		i2c_read_reg(hdmi_rx_hdmi_address, 0x08, &reg8);
+		uint16_t line_width = ((reg7 & 0b11111) << 8) | reg8;
+		i2c_read_reg(hdmi_rx_hdmi_address, 0x09, &reg9);
+		i2c_read_reg(hdmi_rx_hdmi_address, 0x0A, &regA);
+		uint16_t field0_height = ((reg9 & 0b11111) << 8) | regA;
+
+		if(line_width == 1280 && field0_height == 720)
+		print("RX 720p\r\n");
+		else if(line_width == 1920 && field0_height == 1080)
+		print("RX 1080p\r\n");
+		else
+		{
+			uint8_t str[64] = "RX XXXXxXXXX\r\n";
+			byte_to_string(str+3, reg7 & 0b11111);
+			byte_to_string(str+5, reg8);
+			byte_to_string(str+8, reg9 & 0b11111);
+			byte_to_string(str+10, regA);
+			print(str);
+		}
+		
+	}else
+	{
+		uint8_t freerun;
+		i2c_read_reg(hdmi_rx_address, 0x00, &freerun);
+		if(freerun == 0x13)
+		print("RX free 720p\r\n");
+		else if(freerun == 0x1E)
+		print("RX free 1080p\r\n");
+		else
+		print("RX free other\r\n");
+	}
+
+	uint8_t vic_to_rx, actual_vic, aux;
+	int ok = i2c_read_reg(hdmi_tx_address, 0x3E, &actual_vic);
+	int ok2 = i2c_read_reg(hdmi_tx_address, 0x3F, &aux);
+	int ok3 = i2c_read_reg(hdmi_tx_address, 0x3D, &vic_to_rx);
+	if(vic_to_rx == 4)
+	print("TX 720p\r\n");
+	else if(vic_to_rx == 16)
+	print("TX 1080p\r\n");
+	else
+	{
+		uint8_t str[50] = "TX (XX, XX, XX)\r\n";
+		byte_to_string(str+4, actual_vic >> 2);
+		byte_to_string(str+8, vic_to_rx);
+		byte_to_string(str+12, aux);
+		print(str);
+	}
+
+	print("\r\n");
+
+}
 
 void onVSYNC(void)
 {
-	// read state of control switches
+	// Read and react to the control switches. GPIO 8 to 15 are captured in firmware
+	// and written to register 26 bits 0 to 7.
+	// GPIO8 : 3-position switch, "up"
+	// GPIO9 : unused
+	// GPIO10: 3-position switch, "down"
+	// GPIO11: 0
+	// GPIO12: 0
+	// GPIO13: unused
+	// GPIO14: encoder pushbutton ('1' = not pushed)
+	// GPIO15: control box present
+
 	uint8_t val;
 	i2c_read_reg(lanemate_address, 26, &val);
-	const bool playback = val & 0b00000001;
-	if(playback == true && playback_mode == false)
+	const bool bit0 = val & 0b00000001;
+	const bool bit1 = val & 0b00000010;
+	const bool bit2 = val & 0b00000100;
+	const bool bit3 = val & 0b00001000;
+	const bool bit4 = val & 0b00010000;
+	const bool bit5 = val & 0b00100000;
+	const bool bit6 = val & 0b01000000;
+	const bool bit7 = val & 0b10000000;
+
+	// Up = record
+	// Middle = play
+	// Down = pause
+	uint8_t newmode;
+	if(bit0 == true && bit2 == false)
+		newmode = MODE_RECORD;
+	else if(bit0 == false && bit2 == false)
+		newmode = MODE_PLAYBACK_PLAY;
+	else if(bit0 == false && bit2 == true)
+		newmode = MODE_PLAYBACK_PAUSE;
+
+
+
+	// Update state machine based on desired mode
+	if(mode == MODE_RECORD)
 	{
-		// Enter playback mode. Here the write pointer doesn't move and so we play back
-		// from the beginning up to one before the write pointer
-		playback_mode = true;
-		int32_t frame_tmp = ((int32_t)write_frame) - 1;
-		if(frame_tmp < 0)
+		if(newmode == MODE_PLAYBACK_PLAY || newmode == MODE_PLAYBACK_PAUSE)
+		{
+			// Enter playback mode. Here the write pointer doesn't move and so we play back
+			// from the beginning up to one before the write pointer
+			int32_t frame_tmp = ((int32_t)write_frame) - 1;
+			if(frame_tmp < 0)
 			frame_tmp += mem_size_frames;
 
-		playback_hi = (uint32_t)frame_tmp;
+			playback_hi = (uint32_t)frame_tmp;
 
-		frame_tmp = ((int32_t)write_frame) - frame_offset - 1; // extra -1 because it's incremented below
-		if(frame_tmp < 0)
+			frame_tmp = ((int32_t)write_frame) - frame_offset - 1; // extra -1 because it's incremented below
+			if(frame_tmp < 0)
 			frame_tmp += mem_size_frames;
 
-		playback_lo = (uint32_t)frame_tmp;
-		read_frame = playback_lo;
-
-	}else if(playback == false && playback_mode == true)
+			playback_lo = (uint32_t)frame_tmp;
+			read_frame = playback_lo;
+		}else
+		{
+			// nothing to update if still in record mode
+		}
+	}else if(mode == MODE_PLAYBACK_PLAY || newmode == MODE_PLAYBACK_PAUSE)
 	{
-		// Exit playback mode
-		playback_mode = false;
+		if(newmode == MODE_RECORD)
+		{
+			// Exit playback mode
+		}else
+		{
+			// nothing to update if still in playback mode
+		}
 	}
-	
+	mode = newmode;
 
-	if(playback_mode == false)
+
+
+	// Compute new pointers
+	if(mode == MODE_RECORD)
 	{
 		write_frame++;
 		if(write_frame >= mem_size_frames) // the last writable address is mem_size_frames-1
@@ -478,18 +594,30 @@ void onVSYNC(void)
 			read_frame_tmp += mem_size_frames;
 
 		read_frame = (uint32_t)read_frame_tmp;
-	}else
+	}else if(mode == MODE_PLAYBACK_PLAY)
 	{
 		read_frame++;
 		if(read_frame > playback_hi)
 		{
-			print("wrap\r\n");
+			print("loop\r\n");
 			read_frame = playback_lo;
 		}
+	}else if(mode == MODE_PLAYBACK_PAUSE)
+	{
+		// TODO: read_frame can be updated by the encoder
 	}
 
 	// This transaction takes about 2.7ms
 	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
+
+	if(counter == 60*5)
+	{
+		getInputVideoProperties();
+		counter = 0;
+	}else
+	{
+		++counter;
+	}
 }
 
 int main (void)
@@ -540,6 +668,8 @@ int main (void)
 	*/
 	//print("Waiting for FPGA to boot...\r\n");
 	//delay_cycles_ms(10000);
+
+	mode = MODE_RECORD;
 	
 
 	uint8_t source = 0; // 0=hd, 1=sd
