@@ -519,7 +519,8 @@ void onVSYNC(void)
 	// GPIO14: encoder pushbutton ('1' = not pushed)
 	// GPIO15: control box present
 
-	uint8_t val;
+	uint8_t val, encoder;
+	i2c_read_reg(lanemate_address, 25, &encoder);
 	i2c_read_reg(lanemate_address, 26, &val);
 	const bool bit0 = val & 0b00000001;
 	const bool bit1 = val & 0b00000010;
@@ -617,6 +618,13 @@ void onVSYNC(void)
 	}else
 	{
 		++counter;
+	}
+
+	if(counter % 10 == 0)
+	{
+		uint8_t str[5] = "XX\r\n";
+		byte_to_string(str,encoder);
+		print(str);
 	}
 }
 

@@ -384,6 +384,14 @@ architecture Behavioral of lane_mate is
 	);
 	end component;
 	
+	component quadrature_decoder is
+	Port ( 
+		CLK : in  STD_LOGIC;
+		A : in  STD_LOGIC;
+		B : in  STD_LOGIC;
+		COUNT : out  STD_LOGIC_VECTOR (7 downto 0)
+	);
+	end component;
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
@@ -1461,6 +1469,14 @@ begin
 		signal encoder_value : std_logic_vector(7 downto 0) := (others => '0');
 		signal count : natural range 0 to 255 := 0;
 	begin
+
+		Inst_quadrature_decoder: quadrature_decoder PORT MAP(
+			CLK => clk,
+			A => gpio_filtered(3),
+			B => gpio_filtered(4),
+			COUNT => encoder_value
+		);
+	
 		process(clk) is
 		begin
 		if(rising_edge(clk)) then
@@ -1468,8 +1484,8 @@ begin
 			history(0)(0) <= B1_GPIO8;
 			history(1)(0) <= B1_GPIO9;
 			history(2)(0) <= B1_GPIO10;
-			history(3)(0) <= '0'; -- B1_GPIO11; the shaft encoder doesn't get sent through the debounce filter
-			history(4)(0) <= '0'; -- B1_GPIO12;
+			history(3)(0) <= B1_GPIO11; -- encoder A
+			history(4)(0) <= B1_GPIO12; -- encoder B
 			history(5)(0) <= B1_GPIO13;
 			history(6)(0) <= B1_GPIO14;
 			history(7)(0) <= B1_GPIO15;
