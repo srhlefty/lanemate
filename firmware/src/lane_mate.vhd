@@ -392,6 +392,20 @@ architecture Behavioral of lane_mate is
 		COUNT : out  STD_LOGIC_VECTOR (7 downto 0)
 	);
 	end component;
+
+	component debounce is
+	generic ( TIMESCALE : natural := 100 );
+	Port ( 
+		CLK : in  STD_LOGIC;
+		DIN : in  STD_LOGIC;
+		DOUT : out  STD_LOGIC
+	);
+	end component;
+
+
+
+
+
 	
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
@@ -1460,15 +1474,32 @@ begin
 	-- GPIO
 	
 	gpio_inputs : block is
-		constant filter_depth : natural := 10;
-		type history_t is array(natural range <>) of std_logic_vector(filter_depth downto 0);
-		constant all_zero : std_logic_vector(filter_depth downto 0) := (others => '0');
-		constant all_one : std_logic_vector(filter_depth downto 0) := (others => '1');
-		signal history : history_t(0 to 7) := (others => (others => '0'));
+		signal gpio_raw : std_logic_vector(7 downto 0) := (others => '0');
 		signal gpio_filtered : std_logic_vector(7 downto 0) := (others => '0');
 		signal encoder_value : std_logic_vector(7 downto 0) := (others => '0');
 		signal count : natural range 0 to 255 := 0;
 	begin
+
+		gpio_raw(0) <= B1_GPIO8;
+		gpio_raw(1) <= B1_GPIO9;
+		gpio_raw(2) <= B1_GPIO10;
+		gpio_raw(3) <= B1_GPIO11;
+		gpio_raw(4) <= B1_GPIO12;
+		gpio_raw(5) <= B1_GPIO13;
+		gpio_raw(6) <= B1_GPIO14;
+		gpio_raw(7) <= B1_GPIO15;
+
+		gen_filters : for i in 0 to 7 generate
+		begin
+			filter : debounce 
+			generic map ( TIMESCALE => 50000 )
+			port map (
+				CLK => clk,
+				DIN => gpio_raw(i),
+				DOUT => gpio_filtered(i)
+			);
+		end generate;
+	
 
 		Inst_quadrature_decoder: quadrature_decoder PORT MAP(
 			CLK => clk,
@@ -1476,36 +1507,10 @@ begin
 			B => gpio_filtered(4),
 			COUNT => encoder_value
 		);
-	
+
 		process(clk) is
 		begin
 		if(rising_edge(clk)) then
-			-- Ingest GPIO into filter
-			history(0)(0) <= B1_GPIO8;
-			history(1)(0) <= B1_GPIO9;
-			history(2)(0) <= B1_GPIO10;
-			history(3)(0) <= B1_GPIO11; -- encoder A
-			history(4)(0) <= B1_GPIO12; -- encoder B
-			history(5)(0) <= B1_GPIO13;
-			history(6)(0) <= B1_GPIO14;
-			history(7)(0) <= B1_GPIO15;
-			
-			-- shift from 0 to the end
-			for line in 0 to history'high loop
-				for i in 1 to filter_depth loop
-					history(line)(i) <= history(line)(i-1);
-				end loop;
-			end loop;
-			
-			-- readout
-			for line in 0 to history'high loop
-				if(history(line) = all_one) then
-					gpio_filtered(line) <= '1';
-				elsif(history(line) = all_zero) then
-					gpio_filtered(line) <= '0';
-				end if;
-			end loop;
-			
 			-- Write results to register table. Since this write enable line is
 			-- lower priority than that coming from the user, sometimes this
 			-- write will fail. But that's ok because these are slow updates
