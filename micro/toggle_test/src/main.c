@@ -431,7 +431,8 @@ uint32_t write_frame = 0;
 uint32_t read_frame = 0;
 uint32_t playback_hi = 0;
 uint32_t playback_lo = 0;
-int32_t frame_offset = 30; // this = write_frame - read_frame (ignoring wraparound)
+int32_t frame_offset = 60; // this = write_frame - read_frame (ignoring wraparound)
+uint8_t last_encoder_value = 0;
 
 const uint8_t MODE_RECORD = 3;
 const uint8_t MODE_PLAYBACK_PLAY = 4;
@@ -579,6 +580,36 @@ void onVSYNC(void)
 	}
 	mode = newmode;
 
+	// The encoder value is only 0-255, so I need to be careful about how it wraps around.
+	// If previous = 255, new = 4, it's more likely that the delta is +5 rather than -251.
+	// Each indent in the encoder is 4 counts and there's about 20 indents per revolution.
+	// 256/4 = 64 indents before wrapping, 3.2 revolutions. A human won't be able to turn
+	// the encoder fast enough in 1/60th of a second to make the encoder jump by a large
+	// value. So I will compute both differences, and deduce the direction based on which
+	// difference is smaller in magnitude.
+	int16_t encoder_prev = last_encoder_value;
+	int16_t encoder_cur  = encoder;
+	int16_t forward = encoder_cur - encoder_prev;
+	int16_t reverse = encoder_prev - encoder_cur;
+	const int16_t zone1_threshold = 4;
+	if(forward < 0) forward += 256;
+	if(reverse < 0) reverse += 256;
+	int8_t encoder_cmd = 0;
+	if(forward < reverse)
+	{
+		if(forward >= zone1_threshold)
+		{
+			last_encoder_value = encoder;
+			encoder_cmd = 1;
+		}
+	}else
+	{
+		if(reverse >= zone1_threshold)
+		{
+			last_encoder_value = encoder;
+			encoder_cmd = -1;
+		}
+	}
 
 
 	// Compute new pointers
@@ -590,6 +621,7 @@ void onVSYNC(void)
 			print("wrap\r\n");
 			write_frame = 0;
 		}
+		// TODO: encoder can alter frame_offset
 		int32_t read_frame_tmp = ((int32_t)write_frame) - frame_offset;
 		if(read_frame_tmp < 0)
 			read_frame_tmp += mem_size_frames;
@@ -605,7 +637,22 @@ void onVSYNC(void)
 		}
 	}else if(mode == MODE_PLAYBACK_PAUSE)
 	{
-		// TODO: read_frame can be updated by the encoder
+		if(encoder_cmd == 1)
+		{
+			// Policy: playback_hi is a ceiling; no wrap
+			if(read_frame + 1 <= playback_hi)
+			{
+				print("inc\r\n");
+				++read_frame;
+			}
+		}else if(encoder_cmd == -1)
+		{
+			if(read_frame > playback_lo)
+			{
+				print("dec\r\n");
+				--read_frame;
+			}
+		}
 	}
 
 	// This transaction takes about 2.7ms
@@ -620,12 +667,14 @@ void onVSYNC(void)
 		++counter;
 	}
 
+	/*
 	if(counter % 10 == 0)
 	{
 		uint8_t str[5] = "XX\r\n";
 		byte_to_string(str,encoder);
 		print(str);
 	}
+	*/
 }
 
 int main (void)
