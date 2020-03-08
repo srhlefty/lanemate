@@ -4,6 +4,7 @@
  * Created: 2/17/2019 5:00:22 PM
  *  Author: Steven
  */ 
+/*
 #include "utils.h"
 #include "i2c.h"
 #include "uart.h"
@@ -52,6 +53,8 @@ void byte_to_string(uint8_t *dst, uint8_t value)
 	dst[0] = nibble_to_char(value >> 4);
 	dst[1] = nibble_to_char(value);
 }
+*/
+/*
 void int_to_string(uint8_t *dst, unsigned int value)
 {
 	byte_to_string(dst, value >> 8);
@@ -139,6 +142,6 @@ void register_dump(uint16_t slave_addr)
 	}
 
 }
-
+*/
 
 

@@ -66,7 +66,7 @@ void hdmi_rx_set_freerun_to_1080p60()
 
 void configure_hdmi_rx(void)
 {
-	print("Setting up HDMI RX\r\n");
+	//print("Setting up HDMI RX\r\n");
 
 	i2c_write_reg(hdmi_rx_address, 0xFF, 0b10000000);
 	delay_cycles_ms(5);
@@ -136,10 +136,12 @@ void configure_hdmi_rx(void)
 	// check whether edid was actually enabled
 	uint8_t value;
 	i2c_read_reg(hdmi_rx_repeater_address, 0x76, &value);
+	/*
 	if(value & 0b00000001)
 		print("  EDID successfully enabled\r\n");
 	else
 		print("  EDID did not enable\r\n");
 
 	print("  Finished.\r\n");
+	*/
 }

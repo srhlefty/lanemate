@@ -403,6 +403,23 @@ architecture Behavioral of lane_mate is
 	end component;
 
 
+	component video_mask is
+    Port ( 
+		CE : in std_logic;
+		PCLK : in  STD_LOGIC;
+		VS : in  STD_LOGIC;
+		HS : in  STD_LOGIC;
+		DE : in  STD_LOGIC;
+		D : in  STD_LOGIC_VECTOR (23 downto 0);
+		VALUE : in std_logic_vector(15 downto 0);
+		HIDE_BKND : in std_logic;
+		FULL_MODE : in std_logic;
+		VSOUT : out  STD_LOGIC;
+		HSOUT : out  STD_LOGIC;
+		DEOUT : out  STD_LOGIC;
+		DOUT : out  STD_LOGIC_VECTOR (23 downto 0)
+	 );
+	end component;
 
 
 
@@ -410,11 +427,11 @@ architecture Behavioral of lane_mate is
 	constant I2C_SLAVE_ADDR : std_logic_vector(6 downto 0) := "0101100";
 	
 	type ram_t is array(natural range <>) of std_logic_vector(7 downto 0);
-	signal register_map : ram_t(26 downto 0) :=
+	signal register_map : ram_t(29 downto 0) :=
 	(
 		0 => x"03", -- Register table version
 		1 => x"00", -- video source, HD (0x00) or SD (0x01)
-		2 => x"01", -- test pattern, off (0x00) or on (0x01)
+		2 => x"01", -- test pattern, off = 0x00. See test_pattern.vhd
 		3 => x"02", -- readout_delay(10 downto 8)
 		4 => x"80", -- readout_delay(7 downto 0)
 		5 => x"14", -- mtransaction_size(7 downto 0)
@@ -438,7 +455,10 @@ architecture Behavioral of lane_mate is
 		23 => x"00", -- Lane 7 read leveling result
 		24 => x"00", -- Run DDR transaction test
 		25 => x"00", -- Shaft encoder value ('A' on GPIO8, 'B' on GPIO9)
-		26 => x"00", -- GPIO10-15, in bit order (e.g. GPIO10 is (0), GPIO11 is (1), etc)
+		26 => x"00", -- GPIO10-15, in bit order (e.g. GPIO10 is (0), GPIO11 is (1), etc),
+		27 => x"00", -- Bit 0: enable gui. Bit 1: hide background video. Bit 2: meter full
+		28 => x"00", -- Generic 8-bit value
+		29 => x"00", -- Generic 8-bit value
 		others => x"00"
 	);
 	signal ram_addr : std_logic_vector(7 downto 0);
@@ -492,6 +512,11 @@ architecture Behavioral of lane_mate is
 	signal stage3_de : std_logic;
 	signal stage3_d : std_logic_vector(23 downto 0);
 	
+	signal stage4_hs : std_logic;
+	signal stage4_vs : std_logic;
+	signal stage4_de : std_logic;
+	signal stage4_d : std_logic_vector(23 downto 0);
+
 	signal clk : std_logic;
 	signal ibufg_to_bufgs : std_logic;
 	
@@ -1381,14 +1406,36 @@ begin
 
 
 	-- Output ------------------------------------------------------------------
+	gui : block is
+		signal val : std_logic_vector(15 downto 0);
+	begin
+		val <= register_map(28) & register_map(29);
+		
+		out_mask : video_mask
+		 port map( 
+			CE => register_map(27)(0),
+			PCLK => video_clock,
+			VS => stage3_vs,
+			HS => stage3_hs,
+			DE => stage3_de,
+			D => stage3_d,
+			VALUE => val,
+			HIDE_BKND => register_map(27)(1),
+			FULL_MODE => register_map(27)(2),
+			VSOUT => stage4_vs,
+			HSOUT => stage4_hs,
+			DEOUT => stage4_de,
+			DOUT => stage4_d
+		 );
+	end block;
 	
 	process(video_clock) is
 	begin
 	if(rising_edge(video_clock)) then
-		HDO_VS <= stage3_vs;
-		HDO_HS <= stage3_hs;
-		HDO_DE <= stage3_de;
-		RGB_OUT <= stage3_d;
+		HDO_VS <= stage4_vs;
+		HDO_HS <= stage4_hs;
+		HDO_DE <= stage4_de;
+		RGB_OUT <= stage4_d;
 	end if;
 	end process;
 	

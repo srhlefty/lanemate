@@ -229,7 +229,7 @@ const regdata tx_data[40] = {
 //	{	0xFE	,	0x00	,	0x00	}	//	default	HDCP Start Delay
 };
 
-
+/*
 void configure_sd_rx(void);
 void configure_sd_rx(void)
 {
@@ -238,7 +238,7 @@ void configure_sd_rx(void)
 	i2c_write_reg(sd_rx_address, 0xF9, 0x0B); // set coast mode VSYNC to 60Hz
 	i2c_write_reg(sd_rx_address, 0x00, 0x50); // force input to NTSC M (5), Composite (0)
 }
-
+*/
 void configure_hdmi_tx_for_hd_input(void);
 void configure_hdmi_tx_for_hd_input(void)
 {
@@ -249,7 +249,7 @@ void configure_hdmi_tx_for_hd_input(void)
 	}
 	//print("  Finished.\r\n");
 }
-
+/*
 void configure_hdmi_tx_for_sd_input(void);
 void configure_hdmi_tx_for_sd_input(void)
 {
@@ -260,7 +260,8 @@ void configure_hdmi_tx_for_sd_input(void)
 	}
 	//print("  Finished.\r\n");
 }
-
+*/
+/*
 void probe_ddr_stick(void);
 void probe_ddr_stick(void)
 {
@@ -384,7 +385,7 @@ void print_register_content()
 	}
 	print("\r\n");
 }
-
+*/
 uint32_t generate_address(unsigned char rank, unsigned char bank, uint16_t row, uint16_t col)
 {
 	uint32_t p1 = (rank>0?1:0) << 26;
@@ -431,8 +432,10 @@ uint32_t write_frame = 0;
 uint32_t read_frame = 0;
 uint32_t playback_hi = 0;
 uint32_t playback_lo = 0;
-int32_t frame_offset = 60; // this = write_frame - read_frame (ignoring wraparound)
+int32_t frame_offset = 60*5; // this = write_frame - read_frame (ignoring wraparound)
+int32_t frames_in_memory = 0;
 uint8_t last_encoder_value = 0;
+int16_t delta_history[10] = {0,0,0,0,0,0,0,0,0,0};
 
 const uint8_t MODE_RECORD = 3;
 const uint8_t MODE_PLAYBACK_PLAY = 4;
@@ -441,7 +444,7 @@ uint8_t mode;
 
 uint16_t counter = 0;
 // ----------------------------------------------------------------------------
-
+/*
 void getInputVideoProperties()
 {
 	// Measure the input video stream, if it exists.
@@ -506,7 +509,7 @@ void getInputVideoProperties()
 	print("\r\n");
 
 }
-
+*/
 void onVSYNC(void)
 {
 	// Read and react to the control switches. GPIO 8 to 15 are captured in firmware
@@ -573,6 +576,7 @@ void onVSYNC(void)
 		if(newmode == MODE_RECORD)
 		{
 			// Exit playback mode
+			frames_in_memory = 0;
 		}else
 		{
 			// nothing to update if still in playback mode
@@ -591,26 +595,61 @@ void onVSYNC(void)
 	int16_t encoder_cur  = encoder;
 	int16_t forward = encoder_cur - encoder_prev;
 	int16_t reverse = encoder_prev - encoder_cur;
-	const int16_t zone1_threshold = 4;
+	int16_t delta;
+	bool is_fwd;
 	if(forward < 0) forward += 256;
 	if(reverse < 0) reverse += 256;
-	int8_t encoder_cmd = 0;
 	if(forward < reverse)
 	{
-		if(forward >= zone1_threshold)
-		{
-			last_encoder_value = encoder;
-			encoder_cmd = 1;
-		}
-	}else
+		delta = forward;
+		is_fwd = true;
+	}
+	else
 	{
-		if(reverse >= zone1_threshold)
-		{
-			last_encoder_value = encoder;
-			encoder_cmd = -1;
-		}
+		delta = -reverse;
+		is_fwd = false;
 	}
 
+	int8_t encoder_cmd = 0;
+	if(delta > 0) encoder_cmd = 1;
+	else if(delta < 0) encoder_cmd = -1;
+
+/*
+	// shift register of deltas
+	for(uint8_t i=9;i>0;--i)
+		delta_history[i] = delta_history[i-1];
+	delta_history[0] = delta;
+
+	// Compute average velocity. There's no real need to divide by dt, nor by the number
+	// of elements, because those are just constant scale factors and can be absorbed
+	// into the thresholds. So I can avoid float math here.
+	int16_t velocity = 0;
+	for(uint8_t i=0;i<10;++i)
+		velocity += delta_history[i];
+
+	const int16_t zone1_threshold = 2;
+	const int16_t zone2_threshold = 20;
+
+	uint16_t speed = abs(velocity);
+
+	if(speed >= zone2_threshold)
+	{
+		//print("  2\r\n");
+		encoder_cmd = 1; // units of frames
+	}else if(speed >= zone1_threshold)
+	{
+		//print(" 1\r\n");
+		encoder_cmd = 1;
+	}else
+	{
+		//print("0\r\n");
+		encoder_cmd = 0;
+	}
+	if(velocity < 0)
+		encoder_cmd = -encoder_cmd;
+*/
+	last_encoder_value = encoder;
+	
 
 	// Compute new pointers
 	if(mode == MODE_RECORD)
@@ -618,7 +657,7 @@ void onVSYNC(void)
 		write_frame++;
 		if(write_frame >= mem_size_frames) // the last writable address is mem_size_frames-1
 		{
-			print("wrap\r\n");
+			//print("wrap\r\n");
 			write_frame = 0;
 		}
 		// TODO: encoder can alter frame_offset
@@ -627,46 +666,99 @@ void onVSYNC(void)
 			read_frame_tmp += mem_size_frames;
 
 		read_frame = (uint32_t)read_frame_tmp;
+
 	}else if(mode == MODE_PLAYBACK_PLAY)
 	{
 		read_frame++;
 		if(read_frame > playback_hi)
 		{
-			print("loop\r\n");
+			//print("loop\r\n");
 			read_frame = playback_lo;
 		}
 	}else if(mode == MODE_PLAYBACK_PAUSE)
 	{
-		if(encoder_cmd == 1)
+		if(encoder_cmd > 0)
 		{
 			// Policy: playback_hi is a ceiling; no wrap
-			if(read_frame + 1 <= playback_hi)
+			if(read_frame + encoder_cmd <= playback_hi)
 			{
-				print("inc\r\n");
-				++read_frame;
-			}
-		}else if(encoder_cmd == -1)
+				//print("inc\r\n");
+				read_frame += encoder_cmd;
+			}else
+				read_frame = playback_hi;
+		}else if(encoder_cmd < 0)
 		{
-			if(read_frame > playback_lo)
+			// Careful! read_frame is unsigned
+			int32_t rf = read_frame;
+			int32_t low = playback_lo;
+			if(rf + encoder_cmd >= low)
 			{
-				print("dec\r\n");
-				--read_frame;
-			}
+				//print("dec\r\n");
+				read_frame = (rf + encoder_cmd);
+			}else
+				read_frame = playback_lo;
 		}
+	}
+
+	if(mode == MODE_RECORD)
+	{
+		// Prevent nonexistent data from being displayed
+		if(frames_in_memory < frame_offset)
+		{
+			// Register 27 allows us to set a percentage value.
+			// Combined with a progress bar test pattern mode,
+			// we can change the video output.
+			uint16_t frac = (((float)frames_in_memory) / frame_offset) * 1920.0;
+			i2c_write_reg(lanemate_address,  27, 3); // gui enabled (1), hide background video (1), filling bar (0)
+			i2c_write_reg(lanemate_address,  28, (frac >> 8) & 0xFF); // value
+			i2c_write_reg(lanemate_address,  29, frac & 0xFF); // value
+			++frames_in_memory;
+			//uint8_t str[7] = "XXXX\r\n";
+			//byte_to_string(str, (frames_in_memory >> 8) & 0xFF);
+			//byte_to_string(str+2, frames_in_memory & 0xFF);
+			//print(str);
+			
+		}else
+		{
+			i2c_write_reg(lanemate_address,  27, 5); // gui enabled (1), show background video (0), full bar (1)
+			i2c_write_reg(lanemate_address,  28, 0x07); // hard-coded 1920 px width!
+			i2c_write_reg(lanemate_address,  29, 0x80); // 
+		}
+	}
+	if(mode == MODE_PLAYBACK_PLAY || mode == MODE_PLAYBACK_PAUSE)
+	{
+		// Compute position within buffer
+		// playback_lo and playback_hi are the two pointers that define the bounds,
+		// with read_frame being the playback head.
+		// Really I want to just do (read_frame - playback_lo) but wrapping gets in the way.
+		uint16_t delta;
+		if(read_frame >= playback_lo)
+		{
+			delta = read_frame - playback_lo;
+		}else
+		{
+			delta = (mem_size_frames - playback_lo) + read_frame;
+		}
+
+		uint16_t frac = (((float)delta) / frame_offset) * 1920.0;
+		i2c_write_reg(lanemate_address,  27, 5); // gui enabled (1), show background video (0), full bar (1)
+		i2c_write_reg(lanemate_address,  28, (frac >> 8) & 0xFF);
+		i2c_write_reg(lanemate_address,  29, frac & 0xFF);
 	}
 
 	// This transaction takes about 2.7ms
 	update_ram_pointers(write_frame * frame_size, read_frame * frame_size);
 
+	/*
 	if(counter == 60*5)
 	{
-		getInputVideoProperties();
+		//getInputVideoProperties();
 		counter = 0;
 	}else
 	{
 		++counter;
 	}
-
+	*/
 	/*
 	if(counter % 10 == 0)
 	{
@@ -680,9 +772,9 @@ void onVSYNC(void)
 int main (void)
 {
 	system_init();
-	configure_usart();
+	//configure_usart();
 
-	print("\r\n\n\nSoftware started\r\n");
+	//print("\r\n\n\nSoftware started\r\n");
 	delay_init();
 
 
@@ -690,12 +782,12 @@ int main (void)
 
 	configure_i2c_master();
 	configure_hdmi_rx();
-	configure_sd_rx();
-
-	probe_ddr_stick();
+	//configure_sd_rx();
+	delay_cycles_ms(10000);
+	//probe_ddr_stick();
 	i2c_write_reg(lanemate_address, 15, 1); // run ddr init
 	delay_cycles_ms(100);
-	print_leveling_results();
+	//print_leveling_results();
 
 	// When delay_application is cut out of the loop, I can directly 
 	// talk to the MCB
@@ -763,6 +855,7 @@ int main (void)
 		}
 	}else
 	{
+		/*
 		configure_hdmi_tx_for_sd_input();
 		// SD is more complicated. A full line is 45 words, which is not even. I can increase
 		// the buffer size to 2 lines to regain an even transaction size. The readout delay
@@ -778,6 +871,7 @@ int main (void)
 		transaction_size = 90;
 		// The SD bus is 8 bits, 1440 active clocks. Each field is 240 active lines.
 		frame_size = 1440*240*8/64; // 43,200
+		*/
 	}
 	// Note that I'm truncating here, it's not an integer natively
 	mem_size_frames = total_columns / frame_size;

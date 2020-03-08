@@ -4,6 +4,7 @@
  * Created: 2/17/2019 5:11:53 PM
  *  Author: Steven
  */ 
+/*
 #include <string.h>
 #include "uart.h"
 #include "utils.h"
@@ -42,8 +43,8 @@ void print(const uint8_t *str)
 {
 	usart_write_buffer_wait(&usart_instance, str, strlen(str));
 }
-
-
+*/
+/*
 void servicer(void)
 {
 	uint8_t buffer[64];
@@ -149,3 +150,4 @@ void servicer(void)
 		}
 	}
 }
+*/
